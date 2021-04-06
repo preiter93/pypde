@@ -1,6 +1,6 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-from pypde.bases import * 
+from pypde.bases_old import * 
 from pypde.field import Field
 from pypde.utils.memoize import memoized
 from pypde.solver import *

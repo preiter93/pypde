@@ -10,6 +10,12 @@ global_settings = {
 	"filename": "out/anim.mp4"
 }
 
+def create_output_folder(full_path):
+	import pathlib
+	import os
+	dirname = os.path.dirname(full_path)
+	pathlib.Path(dirname).mkdir(parents=True, exist_ok=True) 
+
 def set_fps_from_duration(dict,nframes):
 	dict["fps"] = nframes/dict["duration"]
 
@@ -52,6 +58,7 @@ def animate_line(x,Y,**kwargs):
 		interval=1/settings["fps"]*1000, blit=True)
 
 	# write animation 
+	create_output_folder(settings["filename"])
 	anim.save(settings["filename"], fps=settings["fps"], extra_args=['-vcodec', 'libx264'])
 	print("Save animation to {:s}".format(settings["filename"]))
 	return anim
@@ -102,6 +109,7 @@ def animate_contour(x,y,Z,**kwargs):
 		interval=1/settings["fps"]*1000, blit=False)
 	
 	# write animation 
+	create_output_folder(settings["filename"])
 	anim.save(settings["filename"], fps=settings["fps"], extra_args=['-vcodec', 'libx264'])
 	print("Save animation to {:s}".format(settings["filename"]))
 	return anim
@@ -155,6 +163,7 @@ def animate_wireframe(x,y,Z,**kwargs):
 		interval=1/settings["fps"]*1000, blit=False)
 	
 	# write animation 
+	create_output_folder(settings["filename"])
 	anim.save(settings["filename"], fps=settings["fps"], extra_args=['-vcodec', 'libx264'])
 	print("Save animation to {:s}".format(settings["filename"]))
 	return anim
