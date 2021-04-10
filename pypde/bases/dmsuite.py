@@ -65,8 +65,8 @@ def chebdif(ncheb, mder,L=2):
 
     DM = np.zeros((mder, ncheb + 1, ncheb + 1))
     # indices used for flipping trick
-    nn1 = np.int(np.floor((ncheb + 1) / 2))
-    nn2 = np.int(np.ceil((ncheb + 1) / 2))
+    nn1 = int(np.floor((ncheb + 1) / 2))
+    nn2 = int(np.ceil((ncheb + 1) / 2))
     k = np.arange(ncheb+1)
     # compute theta vector
     th = k * np.pi / ncheb
@@ -147,8 +147,8 @@ def fourdif(nfou, mder,L=2*np.pi):
     # grid spacing
     dhh = 2*np.pi/nfou
 
-    nn1 = np.int(np.floor((nfou-1)/2.))
-    nn2 = np.int(np.ceil((nfou-1)/2.))
+    nn1 = int(np.floor((nfou-1)/2.))
+    nn2 = int(np.ceil((nfou-1)/2.))
 
     # mder>2 actually works better with simple matrix multiplication instead of fft
     multi = 1
@@ -197,63 +197,135 @@ def fourdif(nfou, mder,L=2*np.pi):
 
 
 
-# def fourdifft(f,M,L=2*np.pi):
-#     """
-#     Differentiation of f defined on equispaced grid
-#     via fft based on chebdifft.m (matlab)
-#     INPUT
-#     -----
-#     f: Function (ndarray dim 1)
-#     M: Order of derivative required (non-negative integer)
-#     """
-#     N=len(f)
-#     stretch=2*np.pi/L 
-
-#     k=np.fft.fftfreq(N,d=(1.0 / N ))
-#     k=(k*complex(0,1)*stretch)**M 
-
-#     fhat = np.fft.fft(f)
-#     dfhat = fhat*k
-#     return np.real(  np.fft.ifft(dfhat) )
+# ------------------------------------------------
+# Important Functions for Chebyshev Polynomials
+# ------------------------------------------------
 
 
+def gauss_lobatto(n):
+    ''' Return Chebyshev-Gauss-Lobatto grid points'''
+    k = np.linspace(n, 0, n + 1)
+    return np.sin(np.pi*(n - 2 * k)/(2 * n))
 
-# def chebdifft(f,M,L=2):
-#     """
-#     Differentiation of f defined on chebyshev grid 
-#     via fft based on chebdifft.m (matlab)
-#     INPUT
-#     -----
-#     f: Function (ndarray dim 1)
-#     M: Order of derivative required (non-negative integer)
-#     """
-#     N=len(f)
-#     stretch=2/L 
+#@memoized
+def diff_mat_spectral(N,deriv):
+    '''Derivative matrix in spectral space of classical Chebyshev 
+    polynomial on Gauss Lobattor points, see
+    Jan S. Hesthaven - Appendix B p. 256  
+
+    Input:
+        N: int
+            Number of grit points
+        deriv: int
+            Order of derivative
+
+    Output:
+        ndarray (N x N)
+            Derivative matrix, must be applied in spectral
+            space to chebyshev coefficients array
+            '''
+    D = np.zeros( (N,N) )
+    if deriv==1:
+        for n in range(N):
+            for p in range(n+1,N):
+                if (p+n)%2!=0: D[n,p] = p*2
+    if deriv==2:
+        for n in range(N):
+            for p in range(n+2,N):
+                if (p+n)%2==0:
+                    D[n,p] = p*(p**2-n**2)
+    if deriv>2:
+        raise NotImplementedError("derivatives larger 2 not implemented")
+    D[0,:] *= 0.5
+    return D
+
+def diff_recursion_spectral(c,deriv):
+    ''' Recursion formula for computing coefficients 
+    of deriv'th derivative of classical Chebyshev polynomial
+    on Gauss Lobatto points
+
+    Input:
+        c: ndarray (dim 1)
+            Chebyshev spectral coefficients
+        deriv: int
+            Order of derivative
+
+    Output:
+        ndarray (dim 1)
+            Chebyshev spectral ceofficients of derivative
+    '''
+    N = c.size
+
+    a = np.zeros((N,deriv+1))
+    a[:,0] = c
+    for ell in np.arange(1,deriv+1):
+        a[N-ell-1,ell]=2*(N-ell)*a[N-ell,ell-1];
+        for k in np.arange(N-ell-2,0,-1):
+            a[k,ell]=a[k+2,ell]+2*(k+1)*a[k+1,ell-1]
+        a[0,ell]=a[1,ell-1]+a[2,ell]/2
+    return a[:,deriv]
+
+# ------------------------------------------------
+# Unused Routines
+# ------------------------------------------------
+
+def fourdifft(f,M,L=2*np.pi):
+    """
+    Differentiation of f defined on equispaced grid
+    via fft based on chebdifft.m (matlab)
+    INPUT
+    -----
+    f: Function (ndarray dim 1)
+    M: Order of derivative required (non-negative integer)
+    """
+    N=len(f)
+    stretch=2*np.pi/L 
+
+    k=np.fft.fftfreq(N,d=(1.0 / N ))
+    k=(k*complex(0,1)*stretch)**M 
+
+    fhat = np.fft.fft(f)
+    dfhat = fhat*k
+    return np.real(  np.fft.ifft(dfhat) )
+
+
+
+def chebdifft(f,M,L=2):
+    """
+    Differentiation of f defined on chebyshev grid 
+    via fft based on chebdifft.m (matlab)
+    INPUT
+    -----
+    f: Function (ndarray dim 1)
+    M: Order of derivative required (non-negative integer)
+    """
+    N=len(f)
+    stretch=2/L 
     
-#     a = np.flipud(f[1:N-1])
-#     a = np.concatenate((f,a))
-#     a0 = np.fft.fft(a*stretch**M)
+    a = np.flipud(f[1:N-1])
+    a = np.concatenate((f,a))
+    a0 = np.fft.fft(a*stretch**M)
 
-#     ones = np.ones(N-2)
-#     a = np.concatenate(([0.5],ones,[0.5] ))
-#     a0 = a0[0:N]*a/(N-1)  #a0 contains Chebyshev coefficients of f
+    ones = np.ones(N-2)
+    a = np.concatenate(([0.5],ones,[0.5] ))
+    a0 = a0[0:N]*a/(N-1)  #a0 contains Chebyshev coefficients of f
 
-#     # Recursion formula for computing coefficients of ell'th derivative 
-#     a = np.zeros((N,M+1),dtype="complex_")
-#     a[:,0] = a0
-#     for ell in np.arange(1,M+1):
-#         a[N-ell-1,ell]=2*(N-ell)*a[N-ell,ell-1];
-#         for k in np.arange(N-ell-2,0,-1):
-#             a[k,ell]=a[k+2,ell]+2*(k+1)*a[k+1,ell-1]
-#         a[0,ell]=a[1,ell-1]+a[2,ell]/2
+    # Recursion formula for computing coefficients of ell'th derivative 
+    a = np.zeros((N,M+1),dtype="complex_")
+    a[:,0] = a0
+    for ell in np.arange(1,M+1):
+        a[N-ell-1,ell]=2*(N-ell)*a[N-ell,ell-1];
+        for k in np.arange(N-ell-2,0,-1):
+            a[k,ell]=a[k+2,ell]+2*(k+1)*a[k+1,ell-1]
+        a[0,ell]=a[1,ell-1]+a[2,ell]/2
 
-#     # Transform back to nphysical space
-#     b1 = [2*a[0,M]]
-#     b2 = a[1:N-1,M]
-#     b3 = [2*a[N-1,M]]
-#     b4 = np.flipud(b2)
-#     back = np.concatenate((b1,b2,b3,b4))
-#     df = 0.5*np.fft.fft(back)
-#     # Real data in, real derivative out
-#     df = df[0:N]*(-1)**(M%2)
-#     return np.real(df)
+    # Transform back to nphysical space
+    b1 = [2*a[0,M]]
+    b2 = a[1:N-1,M]
+    b3 = [2*a[N-1,M]]
+    b4 = np.flipud(b2)
+    back = np.concatenate((b1,b2,b3,b4))
+    df = 0.5*np.fft.fft(back)
+    # Real data in, real derivative out
+    df = df[0:N]*(-1)**(M%2)
+    return np.real(df)

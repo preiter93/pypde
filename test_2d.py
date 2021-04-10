@@ -26,7 +26,7 @@ class Diffusion2D(SolverImplicit):
         "v": Field(self.shape)}       # PDE
 
         self.t = 0.0                  # Time
-        self.xf = Chebyshev(self.N)   # Use Fourier Basis in x
+        self.xf = Chebyshev(self.N)   # Basis in x
         self.dt = self.cfl_(self.cfl) # Timestep
 
     @property

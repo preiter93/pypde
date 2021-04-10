@@ -1,6 +1,11 @@
 import collections
 import functools
 
+try:
+    from collections.abc import Hashable  # noqa
+except ImportError:
+    from collections import Hashable  # noqa
+
 class memoized(object):
     '''Decorator. Caches a function's return value each time it is called.
     If called later with the same arguments, the cached value is returned
@@ -11,7 +16,7 @@ class memoized(object):
         self.func = func
         self.cache = {}
     def __call__(self, *args):
-        if not isinstance(args, collections.Hashable):
+        if not isinstance(args, Hashable):
             # uncacheable. a list, for instance.
             # better to not cache than blow up.
             return self.func(*args)

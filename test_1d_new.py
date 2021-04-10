@@ -1,18 +1,14 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-#from pypde.bases_old import * 
-from pypde.bases.chebyshev import Chebyshev
+from pypde.bases_old import * 
 from pypde.field import Field
 from pypde.utils.memoize import memoized
-from pypde.utils.bcs import set_bc
 from pypde.solver import *
 from pypde.operator import OperatorImplicit
 
-
-
 class Diffusion1D(SolverImplicit):
     CONFIG={
-        #"L": 2*np.pi,
+        "L": 2,
         "kappa": 1.0,
         "force_strength": 1.0,
         "BC": "Dirichlet",
@@ -42,7 +38,7 @@ class Diffusion1D(SolverImplicit):
     
     def _rhs(self):
         ''' Returns rhs of pde. Used for explicit calculation. '''
-        dv = self.xf.derivative( self.fields["v"].v, 2 )
+        dv = self.xf.deriv_dm( self.fields["v"].v, 2 )
         return self.f                   # Fully implicit
         #return self.f + self.kappa*dv  # Fully explicit 
 
@@ -51,8 +47,8 @@ class Diffusion1D(SolverImplicit):
         ''' Returns inverse of the lhs of the pde. 
         Used for implicit calculation. '''
         L = np.eye(self.N)- dt*(self.kappa*
-            self.xf.colloc_deriv_mat(2))
-        set_bc(L,np.eye( self.N),pos=[0,-1])
+            self.xf.get_deriv_mat(2))
+        self.xf.set_bc(L,pos=[0,-1],which=self.BC)
         return OperatorImplicit(L,axis=0)
 
     @property
@@ -81,8 +77,8 @@ class Diffusion1D(SolverImplicit):
         self.v[ [0,-1] ] = 0.0
 
 N = 51
-d = Diffusion1D(N,cfl=20.4)
-d.iterate(maxtime=1.0)
+d = Diffusion1D(N,cfl=50.4)
+d.iterate(maxtime=5.0)
 anim = d.fields["v"].animate(d.x,duration=4)
 plt.show()
 

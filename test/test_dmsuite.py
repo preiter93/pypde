@@ -1,5 +1,5 @@
 import numpy as np
-from pypde.dmsuite import *
+from pypde.bases.dmsuite import *
 import unittest
 
 N = 100    # Grid size
