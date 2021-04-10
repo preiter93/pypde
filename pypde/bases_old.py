@@ -1,7 +1,7 @@
 '''
 Classes for spectral bases
 '''
-from .dmsuite import *
+from .bases.dmsuite import *
 from .utils.memoize import memoized
 
 

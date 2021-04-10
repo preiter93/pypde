@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.fftpack import dctn
+from scipy.sparse import diags
 from ..utils.memoize import memoized
-from ..utils.inner import inner
+from .inner import inner
 from .dmsuite import chebdif
 
 def gauss_lobatto(n):
@@ -11,7 +12,8 @@ def gauss_lobatto(n):
 
 @memoized
 def diffmat_spectral(N,deriv):
-    '''Derivative matrix in spectral space, see
+    '''Derivative matrix in spectral space of classical Chebyshev 
+    polynomial on Gauss Lobattor points, see
     Jan S. Hesthaven - Appendix B p. 256  
 
     Input:
@@ -42,7 +44,8 @@ def diffmat_spectral(N,deriv):
 
 def diff_recursion_spectral(c,deriv):
     ''' Recursion formula for computing coefficients 
-    of deriv'th derivative
+    of deriv'th derivative of classical Chebyshev polynomial
+    on Gauss Lobattor points
 
     Input:
         c: ndarray (dim 1)
@@ -64,7 +67,10 @@ def diff_recursion_spectral(c,deriv):
         a[0,ell]=a[1,ell-1]+a[2,ell]/2
     return a[:,deriv]
 
-class ChebyBase():
+class Spectralbase():
+    ''' 
+    TODO: Transfer to Metaclass named Metabase
+    '''
     def __init__(self,N):
         self.N = N
         self._x = gauss_lobatto(N-1)
@@ -73,28 +79,49 @@ class ChebyBase():
     def x(self):
         return self._x
 
-    def mass(self):
-        return inner(self,self,w=self.w)
-    
-    @memoized
-    def mass_inv(self):
-        return np.linalg.inv(self.mass())
+    def _mass(self):
+        ''' 
+        Mass <TiTj> of Cheby Gauss Lobatto Quad, equvalent to inner(self,self)
+        '''
+        raise NotImplementedError
 
-    def project_via_mass(self,f):
-        return self.mass_inv()@inner(self,f)
+    def _mass_inv(self):
+        ''' Inverse of _mass'''
+        raise NotImplementedError
 
-    @property
-    def w(self):
-        ''' Weight for Chebyshev Gauss Lobatto Quadrature'''
-        return  np.concatenate(([0.5],np.ones(self.N-2),[0.5] ))
+    def project(self,f):
+        ''' Transform to spectral space:
+        cn = <Ti,Tj>^-1 @ <Tj,f> where <Ti,Tj> is (sparse) mass matrix'''
+        c,sl = np.zeros(self.N), self.slice()
+        c[sl] = self._mass_inv()@inner(self,f)
+        return c
 
     def eval(self,c):
+        ''' Evaluate f(x) from spectral coefficients c '''
         y = np.zeros(self.N) 
         for i in range(self.N):
             y += c[i]*self.get_basis(i)
         return y
 
-class Chebyshev(ChebyBase):
+    def slice(self):
+        return slice(0, self.N)
+
+    def iter_basis(self,sl=None):
+        ''' Return iterator over all bases '''
+        if sl is None: sl=self.slice()
+        return (self.get_basis(i) 
+            for i in range(self.N)[self.slice()])
+
+    def _evaluate_mass_bruteforce(self):
+        ''' Return mass matrix <Ti,Tj> by brute inner product.
+        Note, <Ti,Tj> is usually sparse, better implement for each child'''
+        return inner(self,self)
+
+    def _mass_inv_bruteforce(self):
+        return np.linalg.inv( self._evaluate_mass_bruteforce() )
+
+
+class Chebyshev(Spectralbase):
     """
     Function space for Chebyshev polynomials
     .. math::
@@ -110,33 +137,21 @@ class Chebyshev(ChebyBase):
     https://github.com/spectralDNS/shenfun
     """
     def __init__(self,N):
-        ChebyBase.__init__(self,N)
+        Spectralbase.__init__(self,N)
     
     def get_basis(self, i=0, x=None):
         if x is None: x = self.x
         w = np.arccos(x)
         return np.cos(i*w)
     
-    def project(self,f):
-        ''' Transform to spectral space cn=<Tn(x)*f(x)>_w'''
-        return inner(self,f,self.w)*2*self.w
-    
-    def forward_fft(self,f):
-        '''  Transform to spectral space via DCT, see
-        https://en.wikipedia.org/wiki/Discrete_Chebyshev_transform ''' 
-        c = dctn(f,type=1)*self.w/(self.N-1)
-        return c*[(-1)**k for k in np.arange(self.N)]
-    
-    def backward_fft(self,c):
-        '''  Transform to physical space via DCT ''' 
-        c = c*[(-1)**k for k in np.arange(self.N)]/self.w
-        return 0.5*dctn(c,type=1)
 
     def derivative(self,f,deriv,method="fft"):
+        ''' Calculate derivative of input array f'''
         if method in ("fft", "spectral"):
-            fhat = self.forward_fft(f)
-            dfhat = diff_recursion_spectral(fhat,deriv)
-            return self.backward_fft(dfhat)
+            c = self.forward_fft(f)
+            dc = diff_recursion_spectral(c,deriv)
+            #dc = diffmat_spectral(self.N,deriv)@c
+            return self.backward_fft(dc)
         elif method in ("dm", "physical"):
             return self.get_deriv_mat(deriv)@f
         else: 
@@ -145,9 +160,30 @@ class Chebyshev(ChebyBase):
     @memoized
     def get_deriv_mat(self,deriv):
         return chebdif(self.N,deriv)[1]
+    
+    def _mass(self):
+        return diags([1.0, *[0.5]*(self.N-2), 1.0],0)
+    
+    def _mass_inv(self):
+        return diags([1.0, *[2.0]*(self.N-2), 1.0],0)
 
+    def forward_fft(self,f,nomass=False):
+        '''  Transform to spectral space via DCT, similar to project(), see
+        https://en.wikipedia.org/wiki/Discrete_Chebyshev_transform ''' 
+        c = 0.5*dctn(f,type=1)/(self.N-1)
+        c *= [(-1)**k for k in np.arange(self.N)]
+        if nomass:
+            return c
+        else:
+            return self._mass_inv()@c
+    
+    def backward_fft(self,c):
+        '''  Transform to physical space via DCT ''' 
+        f = c*[(-1)**k for k in np.arange(self.N)]
+        f[[0,-1]] *= 2 # compensate factor of dctn type 1 prefactors
+        return 0.5*dctn(f,type=1)
 
-class ChebDirichlet(ChebyBase):
+class ChebDirichlet(Spectralbase):
     """
     Function space for Dirichlet boundary conditions
     .. math::
@@ -161,10 +197,17 @@ class ChebDirichlet(ChebyBase):
             
     """
     def __init__(self,N,bc=(0,0)):
-        Chebyshev.__init__(self,N)
+        Spectralbase.__init__(self,N)
         
         #self.bc = BoundaryValues(self, bc=bc) # TODO
-        
+
+    def eval(self,c):
+        ''' Evaluate f(x) from spectral coefficients c '''
+        y = np.zeros(self.N) 
+        for i in range(self.N):
+            y += c[i]*self.get_basis(i)
+        return y
+            
     def get_basis(self, i=0, x=None):
         if x is None: x = self.x
         if i < self.N-2:
@@ -174,6 +217,39 @@ class ChebDirichlet(ChebyBase):
             return 0.5*(1-x)
         elif i == self.N-1:
             return 0.5*(1+x)
+        
+    def _mass(self):
+        #raise NotImplementedError
+        return self._evaluate_mass_bruteforce()
 
-    def project(self,f):
-        raise NotImplementedError
+    def _mass_inv(self):
+        #raise NotImplementedError
+        return self._mass_inv_bruteforce()
+
+    def slice(self):
+        ''' Chebdirichlet space defined for [0,N-3] bases + 2 BCs.'''
+        return slice(0, self.N-2)
+
+    def forward_fft(self,f):
+        '''  Transform to spectral space via DCT '''
+        c = Chebyshev.forward_fft(self,f,nomass=True)
+        c[self._s0] -= c[self._s1]
+        c[self.slice()] = self._mass_inv()@c[self.slice()]
+        c[ [-2,-1] ] = 0 # BCs
+        return c
+    
+    def backward_fft(self,c):
+        '''  Transform to physical space via DCT ''' 
+        c0,c1 = np.zeros(self.N),np.zeros(self.N)
+        c0[self._s0],c1[self._s1] = c[self._s0],c[self._s0]
+        f0 = Chebyshev.backward_fft(self,c0)
+        f1 = Chebyshev.backward_fft(self,c1)
+        return f0-f1
+    
+    @property
+    def _s0(self):
+        return slice(0, self.N-2)
+    
+    @property
+    def _s1(self):
+        return slice(2, self.N)

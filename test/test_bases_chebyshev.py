@@ -1,121 +1,117 @@
 import numpy as np
 from pypde.bases.chebyshev import *
 import unittest
+from test.timer import timeit 
 
-N = 100    # Grid size
+
+N = 1000    # Grid size
+RTOL = 1e-4 # np.allclose tolerance
 
 class TestBasesChebyshev(unittest.TestCase):
+
+    def setUp(self):
+        self.CD = Chebyshev(N)
+        self.x = self.CD.x
 
     @classmethod
     def setUpClass(cls):
         print("------------------------")
-        print(" Test: Chebyhsev Basis  ")
+        print(" Test: Chebyshev Basis  ")
         print("------------------------")
+        
 
+    @timeit
     def test_chebyshev_project(self):
         print("\n  ****** Project ******  ")
         from numpy.polynomial.chebyshev import Chebyshev as Chebnumpy
         # Test projection
-        CD = Chebyshev(N)
-        x = CD.x
-        y = np.sin(2*np.pi/2*x)+0.2#+np.cos(2*np.pi/2*x)
-        yhat = CD.project(y)
+        arg = 2*np.pi/2
+        y = np.sin(arg*self.x)+np.cos(arg*self.x)
+        yhat = self.CD.project(y)
 
-        # Compate with numpy chebyshev
+        # Compare with numpy chebyshev
         cn = Chebnumpy(yhat)
-        norm = np.linalg.norm( cn(x)-y )
+        norm = np.linalg.norm( cn(self.x)-y )
 
         print("|pypde - numpy|: {:5.2e}"
             .format(norm))
 
-        # import matplotlib.pyplot as plt 
-        # plt.plot(x,y,"k")
-        # plt.plot(x,cn(x),"r--")
-        # plt.show()
+        assert np.allclose(cn(self.x),y, rtol=RTOL)
 
-        assert norm<1e-08
-
-    def test_chebyshev_project_mm(self):
-        print("\n  ** Project via MassMatrix ** ")
-        from numpy.polynomial.chebyshev import Chebyshev as Chebnumpy
-        # Test projection
-        CD = Chebyshev(N)
-        x = CD.x
-        y = np.sin(2*np.pi/2*x)+0.2#+np.cos(2*np.pi/2*x)
-        yhat = CD.project_via_mass(y)
-
-        # Compate with numpy chebyshev
-        cn = Chebnumpy(yhat)
-        norm = np.linalg.norm( cn(x)-y )
-
-        print("|pypde - numpy|: {:5.2e}"
-            .format(norm))
-
-        # import matplotlib.pyplot as plt 
-        # plt.plot(x,y,"k")
-        # plt.plot(x,cn(x),"r--")
-        # plt.show()
-
-        assert norm<1e-08
-
+    @timeit
     def test_chebyshev_dct(self):
         print("\n ** Forward & Backward via DCT **  ")
         from numpy.polynomial.chebyshev import Chebyshev as Chebnumpy
         # Test projection
-        CD = Chebyshev(N)
-        x = CD.x
-        y = np.sin(2*np.pi/2*x)+np.cos(2*np.pi/2*x)
-        yhat = CD.forward_fft(y)
-        y = CD.backward_fft(yhat)
+        arg = 2*np.pi/2
+        y = np.sin(arg*self.x)+np.cos(arg*self.x)
+        yhat = self.CD.forward_fft(y)
+        y = self.CD.backward_fft(yhat)
 
         # Compate with numpy chebyshev
         cn = Chebnumpy(yhat)
-        norm = np.linalg.norm( cn(x)-y )
+        norm = np.linalg.norm( cn(self.x)-y )
         
         print("|pypde - numpy|: {:5.2e}"
             .format(norm))
 
-        assert norm<1e-08
+        assert np.allclose(cn(self.x),y, rtol=RTOL)
 
     def test_chebyshev_derivative1(self):
         print("\n ** 1.Derivative **  ")
         deriv = 1
         # Test projection
-        CD = Chebyshev(N)
-        x = CD.x
         arg = 2*np.pi/2
-        y = np.sin(arg*x)+np.cos(arg*x)
-        dyc = CD.derivative(y,deriv)
-        dym = CD.derivative(y,deriv,method="dm")
+        y = np.sin(arg*self.x)+np.cos(arg*self.x)
+        dyc = self.CD.derivative(y,deriv)
+        dym = self.CD.derivative(y,deriv,method="dm")
 
         # Compate with analytical solution chebyshev
-        dy = arg**deriv*np.cos(arg*x)-arg**deriv*np.sin(arg*x)
+        dy = arg**deriv*np.cos(arg*self.x)-arg**deriv*np.sin(arg*self.x)
         norm = np.linalg.norm( dyc-dy )
         print("fft |pypde - analytical|: {:5.2e}"
             .format(norm))
         norm = np.linalg.norm( dym-dy )
         print("dm  |pypde - analytical|: {:5.2e}"
             .format(norm))
-        assert norm<1e-08
+        assert np.allclose(dyc,dy, rtol=RTOL)
+        assert np.allclose(dym,dy, rtol=RTOL)
 
-    def test_chebyshev_derivative2(self):
-        print("\n ** 2.Derivative **  ")
+    @timeit
+    def test_chebyshev_derivative2_fft(self):
+        print("\n ** 2.Derivative via DCT **  ")
         deriv = 2
         # Test projection
-        CD = Chebyshev(N)
-        x = CD.x
         arg = 2*np.pi/2
-        y = np.sin(arg*x)+np.cos(arg*x)
-        dyc = CD.derivative(y,deriv,method="fft")
-        dym = CD.derivative(y,deriv,method="dm")
+        y = np.sin(arg*self.x)+np.cos(arg*self.x)
+        dyc = self.CD.derivative(y,deriv,method="fft")
 
         # Compate with analytical solution chebyshev
-        dy = -arg**deriv*np.sin(arg*x)-arg**deriv*np.cos(arg*x)
+        dy = -arg**deriv*np.sin(arg*self.x)-arg**deriv*np.cos(arg*self.x)
         norm = np.linalg.norm( dyc-dy )
         print("fft |pypde - analytical|: {:5.2e}"
             .format(norm))
+
+        assert np.allclose(dyc,dy, rtol=RTOL)
+
+    @timeit
+    def test_chebyshev_derivative2_dm(self):
+        print("\n ** 2.Derivative via DM **  ")
+        deriv = 2
+        # Test projection
+        arg = 2*np.pi/2
+        y = np.sin(arg*self.x)+np.cos(arg*self.x)
+        dym = self.CD.derivative(y,deriv,method="dm")
+
+        # Compate with analytical solution chebyshev
+        dy = -arg**deriv*np.sin(arg*self.x)-arg**deriv*np.cos(arg*self.x)
         norm = np.linalg.norm( dym-dy )
         print("dm  |pypde - analytical|: {:5.2e}"
             .format(norm))
 
-        assert norm<1e-08
+        assert np.allclose(dym,dy, rtol=RTOL)
+
+# import matplotlib.pyplot as plt 
+# plt.plot(x,y,"k")
+# plt.plot(x,cn(x),"r--")
+# plt.show()
