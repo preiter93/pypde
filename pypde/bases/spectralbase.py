@@ -1,9 +1,10 @@
-import numpy as np 
-from scipy.sparse import csr_matrix, csc_matrix 
 from .inner import inner
+import numpy as np 
+from .utils import to_sparse
 from ..utils.memoize import memoized
+from scipy.sparse.linalg import inv as spinv
 
-class Spectralbase():
+class SpectralBase():
     ''' 
     Baseclass for Chebyshev Spectral Basesclasses.
     This class defines rudimentary (brute force) inner products
@@ -19,59 +20,82 @@ class Spectralbase():
             Coordinates of grid points
     '''
     def __init__(self,N,x):
-        self.N = N
+        self._N = N
         self._x = x
         self.name = self.__class__.__name__
+        # ID for class, each Space should have its own
+        self.id = "SB" 
 
     @property
     def x(self):
         return self._x
 
-    def _inner(self,TestFunction=None,k=0):
+    @property
+    def N(self):
+        ''' 
+        Number of grid points in physical space, equal to 
+        size of unrestricted Functionspace'
+        '''
+        return self._N
+
+    @property
+    def M(self):
+        ''' Size without BC Functions'''
+        return len(range(*self.slice().indices(self.N)))
+    
+
+    def _inner(self,TestFunction=None,D=(0,0)):
         ''' 
         Inner Product <Ti^k*Uj> Basefunction T with Testfunction U
-        and derivative k
-            k = 0: Mass matrix
-            k = 1: ? name
-            k = 2: Stiffness matrix
+        and derivatives D=ku,kv
+            D = (0,0): Mass matrix
+            D = (0,1): Grad matrix
+            D = (0,2): Stiff matrix
         '''
         if TestFunction is None: TestFunction=self
-        if k==0:
-            return self._to_sparse( 
-            inner( self.iter_basis(), 
-                    TestFunction.iter_basis(), N = self.N)  )
-        else:
-            return self._to_sparse( 
-            inner( self.iter_deriv(k=k), 
-                    TestFunction.iter_basis( ), N = self.N)  )
+        return inner(self,TestFunction,w="GL",D=D)
 
-    def _mass(self,TestFunction=None):
+    def _mass(self):
+        return self._to_sparse( self._inner(self,D=(0,0) ) )
+    def _grad(self):
+        return self._to_sparse( self._inner(self,D=(0,1) ) )
+    def _stiff(self):
+        return self._to_sparse( self._inner(self,D=(0,2) ) )
+
+    @property
+    @memoized
+    def mass(self):
         ''' 
-        Mass <TiTj> of Cheby Gauss Lobatto Quad, equvalent to inner(self,self)
+        Mass <TiTj>, equivalent to inner(self,self)
         Can be overwritten with more exact inner product
         '''
-        return self._inner(TestFunction,k=0)
+        return self._mass()
 
+    @property
+    @memoized
     def _mass_inv(self):
-        return inv(self._mass())
+        return spinv(self.mass).toarray()
 
-    def _stiff(self,TestFunction=None):
-        ''' 
-        Stiffness matrix <Ti''Tj> (Inner Product of second derivative with basis) 
-        Can be overwritten with more exact inner product
-        '''
-        return self._inner(TestFunction,k=2)
+    @property
+    @memoized
+    def grad(self):
+        ''' Gradient matrix <Ti'Tj> '''
+        return self._grad()
 
-    def _to_sparse(self,A,tol=1e-12,type="csc"):
-        A[np.abs(A)<tol] = 0 # Set close zero elements to zero
-        if type in "csc": return csc_matrix(A)
-        if type in "csr": return csr_matrix(A)
+    @property
+    @memoized
+    def stiff(self):
+        '''  Stiffness matrix <Ti''Tj> '''
+        return self._stiff()
+
+    def _to_sparse(self,A,tol=1e-12,format="csc"):
+        return to_sparse(A,tol,format)
 
     def project(self,f):
         ''' Transform to spectral space:
         cn = <Ti,Tj>^-1 @ <Tj,f> where <Ti,Tj> is (sparse) mass matrix'''
         c,sl = np.zeros(self.N), self.slice()
-        c[sl] = self._mass_inv()@inner(self.iter_basis(),f)
+        c[sl] = self._mass_inv@inner(self,f)
         return c
 
     def evaluate(self,c):

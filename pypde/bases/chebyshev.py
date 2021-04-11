@@ -3,13 +3,13 @@ from scipy.fftpack import dctn
 from scipy.sparse import diags
 from scipy.sparse.linalg import inv as spinv
 from ..utils.memoize import memoized
-from .dmsuite import *
+from .dmsuite import (gauss_lobatto,diff_mat_spectral,
+    diff_recursion_spectral,chebdif)
 from numpy.polynomial import chebyshev as n_cheb
-from .spectralbase import Spectralbase
+from .spectralbase import SpectralBase
 
 
-
-class Chebyshev(Spectralbase):
+class Chebyshev(SpectralBase):
     """
     Function space for Chebyshev polynomials
     .. math::
@@ -26,7 +26,8 @@ class Chebyshev(Spectralbase):
     """
     def __init__(self,N):
         x = gauss_lobatto(N-1)
-        Spectralbase.__init__(self,N,x)
+        SpectralBase.__init__(self,N,x)
+        self.id = "CH" 
     
     def get_basis(self, i=0, x=None):
         if x is None: x = self.x
@@ -43,28 +44,36 @@ class Chebyshev(Spectralbase):
             basis = basis.deriv(k)
         return basis(x)
     
-    def _mass(self):
-        ''' Sparse Mass matrix <Ti*Tj>_w'''
-        return diags([1.0, *[0.5]*(self.N-2), 1.0],0)
+    # @property
+    # def _mass(self):
+    #     ''' Sparse Mass matrix <Ti*Tj>_w,
+    #     the same as mass in Parent SpectralBase'''
+    #     return diags([1.0, *[0.5]*(self.N-2), 1.0],0)
     
+    @property
     def _mass_inv(self):
         return diags([1.0, *[2.0]*(self.N-2), 1.0],0)
 
-    def _stiff(self):
-        return self._to_sparse( self._mass()@self.spec_deriv_mat(2) )
-
     def forward_fft(self,f,mass=True):
         '''  Transform to spectral space via DCT, similar to project(), see
-        https://en.wikipedia.org/wiki/Discrete_Chebyshev_transform ''' 
-        c = 0.5*dctn(f,type=1)/(self.N-1)
-        c *= [(-1)**k for k in np.arange(self.N)]
-        return self._mass_inv()@c if mass else c
+        https://en.wikipedia.org/wiki/Discrete_Chebyshev_transform '''
+        sign = np.array([(-1)**k for k in np.arange(self.N)]) 
+        c = 0.5*dctn(f,type=1,axes=0)/(self.N-1)
+        if len(f.shape)==2:
+            c  = c*sign[:, None]  
+        else:
+            c *= sign
+        return self._mass_inv@c if mass else c
     
     def backward_fft(self,c):
         '''  Transform to physical space via DCT ''' 
-        f = c*[(-1)**k for k in np.arange(self.N)]
-        f[[0,-1]] *= 2 # compensate factor of dctn type 1 prefactors
-        return 0.5*dctn(f,type=1)
+        # compensate factor of dctn type 1
+        sign = np.array([(-1)**k for k in np.arange(self.N)]) 
+        if len(c.shape)==2:   
+            f = c*sign[:, None]; f[[0,-1],:] *= 2
+        else:
+            f = c*sign; f[[0,-1]] *= 2 
+        return 0.5*dctn(f,type=1,axes=0)
 
     @memoized
     def colloc_deriv_mat(self,deriv):
@@ -91,7 +100,7 @@ class Chebyshev(Spectralbase):
             return self.colloc_deriv_mat(deriv)@f
 
 
-class GalerkinChebyshev(Spectralbase):
+class GalerkinChebyshev(SpectralBase):
     """
     Base class for composite Chebyshev spaces
     like ChebDirichlet used in the Galerkin method.
@@ -102,9 +111,7 @@ class GalerkinChebyshev(Spectralbase):
     """
     def __init__(self,N):
         x = gauss_lobatto(N-1)
-        Spectralbase.__init__(self,N,x)
-        # Size without boundary bases
-        self.M = len(range(*self.slice().indices(self.N)))
+        SpectralBase.__init__(self,N,x)
 
     def slice(self):
         ''' 
@@ -115,10 +122,13 @@ class GalerkinChebyshev(Spectralbase):
 
     def stencil(self,inv=False):
         ''' 
-        Stencil Matrix to transform Coefficients:      
-            Chebyshev -> Galerkin
-        Inverse of stencil: 
-            Galerkin  -> Chebyshev
+        Must be implemented on child class! 
+        All Transformations are derived from the stencil.
+
+        Stencil Matrix to transform Coefficients (MxN):      
+            Chebyshev (N) -> Galerkin (M)
+        Inverse of stencil (NxM): 
+            Galerkin (M) -> Chebyshev (N)
         
         Stencil:
             N x N Sparse Matrix (diagonal banded)
@@ -142,9 +152,7 @@ class GalerkinChebyshev(Spectralbase):
         '''
         c = Chebyshev.forward_fft(self,f,mass=False)
         c = self._to_galerkin(c)
-        c[self.slice()] = self._mass_inv()@c[self.slice()]
-        c[ [-2,-1] ] = 0 # BCs
-        return c
+        return self._mass_inv@c
 
     def backward_fft(self,c):
         '''  
@@ -194,7 +202,7 @@ class ChebDirichlet(GalerkinChebyshev):
     """
     def __init__(self,N,bc=(0,0)):
         GalerkinChebyshev.__init__(self,N)
-            
+        self.id = "CD" 
 
     def stencil(self,inv=False):
         '''  
@@ -203,12 +211,11 @@ class ChebDirichlet(GalerkinChebyshev):
 
         See GalerkinChebyshev for details
         '''
-        d0 = [ 1]*(self.N)
-        d1 = [-1]*(self.N-2)
-        if inv:
-            return diags([d0,d1], [0,-2],format="csc")#.toarray()
-        else:
-            return diags([d0,d1], [0, 2],format="csc")#.toarray()
+        S = np.zeros((self.M,self.N))
+        for i in range(self.M):
+            S[i,i],S[i,i+2] = 1, -1
+        if inv: return S.T 
+        return S
 
     def get_basis_bc(self,i,k=0,x=None):
         ''' 
@@ -222,33 +229,47 @@ class ChebDirichlet(GalerkinChebyshev):
         elif i == self.N-1:
             return 0*x+0.5 if k==1 else 0.5*(1+x) if k==0 else 0*x
 
-    def _mass(self):
-        ''' 
-        Eq. (2.5) of Shen - Effcient Spectral-Galerkin Method II.
-        '''
-        diag0 = [1.5, *[1.0]*(self.N-4), 1.5]
-        diag2 = [*[-0.5]*(self.N-4) ]
-        return diags([diag2, diag0, diag2], [-2, 0, 2],format="csc")
+    # def _mass(self):
+    #     ''' 
+    #     Eq. (2.5) of Shen - Effcient Spectral-Galerkin Method II.
+    #     '''
+    #     diag0 = [1.5, *[1.0]*(self.N-4), 1.5]
+    #     diag2 = [*[-0.5]*(self.N-4) ]
+    #     return diags([diag2, diag0, diag2], [-2, 0, 2],format="csc")
 
-    def _mass_inv(self):
-        return spinv(self._mass())
+    # def _mass_inv(self):
+    #     return spinv(self._mass())
 
-    def _stiff(self):
-        ''' 
-        Eq. (2.6) of Shen - Effcient Spectral-Galerkin Method II.
+    # def _stiff(self):
+    #     ''' 
+    #     Eq. (2.6) of Shen - Effcient Spectral-Galerkin Method II.
         
-        Equivalent to
-            S@D2@Si
-            S, Si : Stencil matrix and its inverse
-            D2:     Stiffness matrix of the Chebyshev Basis <T''T> 
-        '''
-        N,M = self.N-2, self.N-2
-        D = np.zeros( (N,M) )
-        for m in range(N):
-            for n in range(m,M):
-                if (n==m):
-                    D[m,n] = -2*(m+1)*(m+2)
-                elif (n-m)%2==0:
-                    D[m,n] = -4*(m+1)
-        return self._to_sparse(D)
+    #     Equivalent to
+    #         S@D2@Si
+    #         S, Si : Stencil matrix and its inverse
+    #         D2:     Stiffness matrix of the Chebyshev Basis <T''T> 
+    #     '''
+    #     N,M = self.N-2, self.N-2
+    #     D = np.zeros( (N,M) )
+    #     for m in range(N):
+    #         for n in range(m,M):
+    #             if (n==m):
+    #                 D[m,n] = -2*(m+1)*(m+2)
+    #             elif (n-m)%2==0:
+    #                 D[m,n] = -4*(m+1)
+    #     return self._to_sparse(D)
 
+
+    # def stencil(self,inv=False):
+    #     '''  
+    #     Matrix representation of:
+    #         phi_k = T_k - T_{k+2}
+
+    #     See GalerkinChebyshev for details
+    #     '''
+    #     d0 = [ 1]*(self.N)
+    #     d1 = [-1]*(self.N-2)
+    #     if inv:
+    #         return diags([d0,d1], [0,-2],format="csc")#.toarray()
+    #     else:
+    #         return diags([d0,d1], [0, 2],format="csc")#.toarray()

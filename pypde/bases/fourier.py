@@ -1,10 +1,10 @@
 import numpy as np
 from numpy import pi
-from .spectralbase import Spectralbase
+from .spectralbase import SpectralBase
 from .dmsuite import fourdif
 from ..utils.memoize import memoized
 
-class Fourier(Spectralbase):
+class Fourier(SpectralBase):
     """
     Function space for Fourier 
     .. math::
@@ -18,7 +18,7 @@ class Fourier(Spectralbase):
     """
     def __init__(self,N):
         x = 2*pi*np.arange(N)/N
-        Spectralbase.__init__(self,N,x)
+        SpectralBase.__init__(self,N,x)
 
     @property
     def k(self):

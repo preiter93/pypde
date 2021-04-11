@@ -1,10 +1,10 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 #from pypde.bases_old import * 
-from pypde.bases.chebyshev import Chebyshev
+from pypde.bases.chebyshev import Chebyshev, ChebDirichlet
 from pypde.field import Field
 from pypde.utils.memoize import memoized
-from pypde.utils.bcs import set_bc
+from pypde.utils.bcs import set_bc,pad
 from pypde.solver import *
 from pypde.operator import OperatorImplicit
 
@@ -27,9 +27,14 @@ class Diffusion1D(SolverImplicit):
         self.fields={               # Set all fields involved in
         "v": Field(self.N)}         # PDE
     
-        self.t = 0.0                  # Time
-        self.xf = Chebyshev(self.N)   # Basis in x
-        self.dt = self.cfl_(self.cfl) # Timestep
+        self.t = 0.0                      # Time
+        self.xf = ChebDirichlet(self.N+2)   # Basis in x
+        self.dt = self.cfl_(self.cfl)     # Timestep
+
+        self.sl = self.xf.slice()
+        self.I  = self.xf.mass[self.sl,self.sl]
+        self.I_inv = self.xf._mass_inv[self.sl,self.sl]
+        self.D2 = self.xf.stiff[self.sl,self.sl]
 
     @property
     def v(self):
@@ -41,36 +46,30 @@ class Diffusion1D(SolverImplicit):
         self.fields["v"].v = value
     
     def _rhs(self):
-        ''' Returns rhs of pde. Used for explicit calculation. '''
-        dv = self.xf.derivative( self.fields["v"].v, 2 )
-        return self.f                   # Fully implicit
-        #return self.f + self.kappa*dv  # Fully explicit 
+        ''' Returns rhs of pde. '''
+        return self.fhat
 
     @memoized
     def _lhs(self,dt):
         ''' Returns inverse of the lhs of the pde. 
         Used for implicit calculation. '''
-        L = np.eye(self.N)- dt*(self.kappa*
-            self.xf.colloc_deriv_mat(2))
-        set_bc(L,np.eye( self.N),pos=[0,-1])
-        return OperatorImplicit(L,axis=0)
+        lhs = self.I_inv@self.D2.toarray()
+        lhs = np.eye( self.N) - dt*(self.kappa*lhs)
+        return OperatorImplicit(lhs,axis=0,method="inverse")
 
     @property
     def x(self):
         return self.xf.x
 
-    # @property
-    # def f(self):
-    #     ''' Define forcing '''
-    #     pos = self.N*2//4
-    #     f=np.zeros(self.N)
-    #     f[ pos] += self.force_strength
-    #     return f
-
     @property
     def f(self):
         y = np.cos(1*np.pi/2*self.x)
         return y
+
+    @property
+    @memoized
+    def fhat(self):
+        return self.xf.forward_fft(self.f)[self.sl]
 
     def cfl_(self,safety):
         ''' dt < 0.5 dx**2/kappa'''
@@ -78,14 +77,18 @@ class Diffusion1D(SolverImplicit):
         return 0.5*safety*(dx)**2/self.kappa
 
     def _set_bc(self):
-        self.v[ [0,-1] ] = 0.0
+        self.v[ [-2,-1] ] = 0.0
 
-N = 51
+N = 151
 d = Diffusion1D(N,cfl=20.4)
+d.update()
+plt.spy(d._lhs(0.1)._L)
+plt.show()
 d.iterate(maxtime=1.0)
+
+# Transfer stored fields to real space
+for i,vv in enumerate(d.fields["v"].V):
+    d.fields["v"].V[i] = d.xf.backward_fft(vv)
+
 anim = d.fields["v"].animate(d.x,duration=4)
 plt.show()
-
-#fig,ax = plt.subplots()
-#ax.plot(d.x,d.v)
-#plt.show()

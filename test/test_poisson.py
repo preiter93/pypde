@@ -6,7 +6,7 @@ from numpy.linalg import solve
 import scipy.sparse as sp
 import scipy.sparse.linalg as sla
 
-N = 3000    # Grid size
+N = 1000    # Grid size
 RTOL = 1e-3 # np.allclose tolerance
 
 class TestPoissonCheb(unittest.TestCase):
@@ -33,8 +33,8 @@ class TestPoissonCheb(unittest.TestCase):
     def test_1d(self):
         print("\n ** 1-D (Solve) **  ")
         CD = self.CD
-        I  = CD._mass().toarray()
-        D2 = CD._stiff().toarray()
+        I  = CD.mass.toarray()
+        D2 = CD.stiff.toarray()
         sl = CD.slice()
 
         # Solve
@@ -44,7 +44,7 @@ class TestPoissonCheb(unittest.TestCase):
         lhs = D2[sl,sl]
 
         uhat[sl] = solve(lhs,rhs)
-        u = CD.backward_fft(uhat)
+        u = CD.backward_fft(uhat[sl])
 
         norm = np.linalg.norm( u-self.sol )
         print(" |pypde - analytical|: {:5.2e}"
@@ -57,8 +57,8 @@ class TestPoissonCheb(unittest.TestCase):
     def test_1d_sparse(self):
         print("\n ** 1-D (Sparse) **  ")
         CD = self.CD
-        I  = CD._mass().toarray()
-        D2 = CD._stiff().toarray()
+        I  = CD.mass.toarray()
+        D2 = CD.stiff.toarray()
 
         sl = CD.slice()
 
@@ -70,7 +70,7 @@ class TestPoissonCheb(unittest.TestCase):
         lhs = sp.triu(lhs).tocsr()
 
         uhat[sl] = sla.spsolve(lhs,rhs)
-        u = CD.backward_fft(uhat)
+        u = CD.backward_fft(uhat[sl])
 
         norm = np.linalg.norm( u-self.sol )
         print(" |pypde - analytical|: {:5.2e}"

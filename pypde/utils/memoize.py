@@ -1,10 +1,9 @@
 import collections
 import functools
-
 try:
-    from collections.abc import Hashable  # noqa
+    from collections.abc import Hashable 
 except ImportError:
-    from collections import Hashable  # noqa
+    from collections import Hashable 
 
 class memoized(object):
     '''Decorator. Caches a function's return value each time it is called.

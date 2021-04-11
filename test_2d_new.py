@@ -6,9 +6,10 @@ from pypde.utils.memoize import memoized
 from pypde.solver import *
 from pypde.operator import OperatorImplicit
 
-class Diffusion1D(SolverImplicit):
+
+class Diffusion2D(SolverImplicit):
     CONFIG={
-        "L": 2,
+        "L": 2*np.pi,
         "kappa": 1.0,
         "force_strength": 1.0,
         "BC": "Dirichlet",
@@ -18,15 +19,15 @@ class Diffusion1D(SolverImplicit):
     def __init__(self,N,**kwargs):
         self.__dict__.update(**self.CONFIG)
         self.__dict__.update(**kwargs)
-        self.N = N 
+        self.N = N
+        self.shape = (N,N) 
 
-        self.fields={               # Set all fields involved in
-        "v": Field(self.N)}         # PDE
-    
+        self.fields={                 # Set all fields involved in
+        "v": Field(self.shape)}       # PDE
+
         self.t = 0.0                  # Time
         self.xf = Chebyshev(self.N)   # Basis in x
         self.dt = self.cfl_(self.cfl) # Timestep
-        self.sl = slice(0,N)
 
     @property
     def v(self):
@@ -36,12 +37,13 @@ class Diffusion1D(SolverImplicit):
     @v.setter
     def v(self,value):
         self.fields["v"].v = value
-    
+
     def _rhs(self):
         ''' Returns rhs of pde. Used for explicit calculation. '''
-        #dv = self.xf.deriv_dm( self.fields["v"].v, 2 )
+        dv = self.xf.deriv_dm( self.fields["v"].v, 2,axis=0 )
+        dv+= self.xf.deriv_dm( self.fields["v"].v, 2,axis=1 )
         return self.f                   # Fully implicit
-        #return self.f + self.kappa*dv  # Fully explicit 
+        #return self.f + self.kappa*dv    # Fully explicit 
 
     @memoized
     def _lhs(self,dt):
@@ -50,24 +52,21 @@ class Diffusion1D(SolverImplicit):
         L = np.eye(self.N)- dt*(self.kappa*
             self.xf.get_deriv_mat(2))
         self.xf.set_bc(L,pos=[0,-1],which=self.BC)
-        return OperatorImplicit(L,axis=0)
+        return [OperatorImplicit(L,axis=0),
+        OperatorImplicit(L,axis=1)]
 
     @property
     def x(self):
         return self.xf.x
 
-    # @property
-    # def f(self):
-    #     ''' Define forcing '''
-    #     pos = self.N*2//4
-    #     f=np.zeros(self.N)
-    #     f[ pos] += self.force_strength
-    #     return f
-
     @property
     def f(self):
-        y = np.cos(1*np.pi/2*self.x)
-        return y
+        ''' Define forcing '''
+        pos = self.N*2//4
+        f=np.zeros(self.shape)
+        f[ pos, pos] += self.force_strength
+        #f[-pos, :] -= self.force_strength
+        return f
 
     def cfl_(self,safety):
         ''' dt < 0.5 dx**2/kappa'''
@@ -75,15 +74,12 @@ class Diffusion1D(SolverImplicit):
         return 0.5*safety*(dx)**2/self.kappa
 
     def _set_bc(self):
-        print(self.v.shape)
-        self.v[ [0,-1] ] = 0.0
+        self.v[ [0,-1], : ] = 0.0
+        self.v[ :,  [0,-1]] = 0.0
 
-N = 51
-d = Diffusion1D(N,cfl=20.4)
+N = 30
+d = Diffusion2D(N,cfl=10.0)
 d.iterate(maxtime=1.0)
-anim = d.fields["v"].animate(d.x,duration=4)
-plt.show()
 
-#fig,ax = plt.subplots()
-#ax.plot(d.x,d.v)
-#plt.show()
+anim = d.fields["v"].animate(d.x,d.x)
+plt.show()

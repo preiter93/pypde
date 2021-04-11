@@ -1,5 +1,6 @@
 from .utils.abstract import ABCMeta, abstract_attribute
 from .operator import OperatorImplicit
+import numpy as np 
 
 class SolverBase(metaclass=ABCMeta):
 
@@ -93,6 +94,7 @@ class SolverImplicit(SolverBase):
         for O in Op:
             assert isinstance(O,OperatorImplicit)
             v = O.solve( rhs )
+            v = np.array(v).squeeze()
             rhs = v
-        self.v = v
+        self.v = np.copy(v)
         self.update_time()
