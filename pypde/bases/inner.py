@@ -77,10 +77,6 @@ def _inner_spectralbase(u,v,w,D,**kwargs):
     if len(D)==1: ku=kv=D
 
     # Check list of known inner products first 
-    #found, value = _known_inner_products(u,v,ku,kv)
-    #found, value = KnownInner
-    #if found:
-    #    return value
     value = InnerKnown().check(u,v,ku,kv)
     if value is not None:
         return value
@@ -98,6 +94,55 @@ def _inner_spectralbase(u,v,w,D,**kwargs):
 
 
 class InnerKnown():
+
+	@property
+    def dict(self):
+        return{
+            "CH^0,CH^0": self.chebyshev_mass,
+            "CH^0,CH^1": self.chebyshev_grad,
+            "CH^0,CH^2": self.chebyshev_stiff,
+
+            "CD^0,CD^0": self.chebdirichlet_mass,
+            "CD^0,CD^2": self.chebdirichlet_stiff,
+        }
+
+    def check(self,u,v,ku,kv):
+        ''' 
+        Collection of exact inner products of Functionspaces. 
+        This should be called before _inner_spectralbase calculates 
+        the inner products numerically.
+
+        Keys consist of FunctionSpace ID's and the derivatives;
+        they are stored in self.dict
+
+        Example:
+            Inner product <TiTj> of Chebyshev polynomials T (=mass matrix)
+            has the entries [1,0.5,...,0.5,1], this is stored under the key
+            'CH^0,CH^0'
+
+        Input:
+            u, v:  SpectralBase
+            ku,kv: Integers (Order of derivative)
+        '''
+        assert all(hasattr(i,"id") for i in [u,v])
+
+        # Put higher derivative in the end, so that key is unique
+        if ku>kv:
+            u, v  = v, u
+            ku,kv = kv,ku
+        # Generate Key
+        key = "{:2s}^{:1d},{:2s}^{:1d}".format(u.id,ku,v.id,kv)
+
+        # Lookup Key
+        if key in self.dict:
+            print("Key {:} exists. Use lookup value.".format(key))
+            value = self.dict[key](u=u,v=v,ku=ku,kv=kv)
+            return value
+
+        # Key not found. Add to  inner product is known analytically
+        warnings.warn("Key {:} not found in list. Use inner() instead.".format(key))
+        return None
+
     @staticmethod
     def chebyshev_mass(u=None,**kwargs):
         ''' <Ti Tj>
@@ -147,53 +192,7 @@ class InnerKnown():
                     D[m,n] = -4*(m+1)
         return to_sparse(D).toarray()
 
-    @property
-    def dict(self):
-        return{
-            "CH^0,CH^0": self.chebyshev_mass,
-            "CH^0,CH^1": self.chebyshev_grad,
-            "CH^0,CH^2": self.chebyshev_stiff,
-
-            "CD^0,CD^0": self.chebdirichlet_mass,
-            "CD^0,CD^2": self.chebdirichlet_stiff,
-        }
-
-    def check(self,u,v,ku,kv):
-        ''' 
-        Collection of exact inner products of Functionspaces. 
-        This should be called before _inner_spectralbase calculates 
-        the inner products numerically.
-
-        Keys consist of FunctionSpace ID's and the derivatives;
-        they are stored in the dict _list_known_inner_products
-
-        Example:
-            Inner product <TiTj> of Chebyshev polynomials T (=mass matrix)
-            has the entries [1,0.5,...,0.5,1], this is stored under the key
-            'CH^0,CH^0'
-
-        Input:
-            u, v:  SpectralBase
-            ku,kv: Integers (Order of derivative)
-        '''
-        assert all(hasattr(i,"id") for i in [u,v])
-
-        # Put higher derivative in the end, so that key is unique
-        if ku>kv:
-            u, v  = v, u
-            ku,kv = kv,ku
-        # Generate Key
-        key = "{:2s}^{:1d},{:2s}^{:1d}".format(u.id,ku,v.id,kv)
-
-        # Lookup Key
-        if key in self.dict:
-            print("Key {:} exists. Use lookup value.".format(key))
-            value = self.dict[key](u=u,v=v,ku=ku,kv=kv)
-            return value
-
-        # Key not found. Add to  inner product is known analytically
-        warnings.warn("Key {:} not found in list. Use inner() instead.".format(key))
-        return None
+    
 
 
 
