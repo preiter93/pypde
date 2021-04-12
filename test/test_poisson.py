@@ -57,20 +57,15 @@ class TestPoissonCheb(unittest.TestCase):
     def test_1d_sparse(self):
         print("\n ** 1-D (Sparse) **  ")
         CD = self.CD
-        I  = CD.mass.toarray()
-        D2 = CD.stiff.toarray()
-
-        sl = CD.slice()
+        I  = CD.mass#.toarray()
+        D2 = CD.stiff#.toarray()
 
         # Solve
-        uhat = np.zeros(N)
-        rhs = CD.forward_fft(self.rhs)
-        rhs = I@rhs[sl]
-        lhs = D2[sl,sl]
-        lhs = sp.triu(lhs).tocsr()
-
-        uhat[sl] = sla.spsolve(lhs,rhs)
-        u = CD.backward_fft(uhat[sl])
+        rhs = I@CD.forward_fft(self.rhs)#[:-2]
+        lhs = sp.triu(D2).tocsr()
+        uhat = sla.spsolve(lhs,rhs)
+        #uhat = solve(lhs.toarray(),rhs)
+        u = CD.backward_fft(uhat)
 
         norm = np.linalg.norm( u-self.sol )
         print(" |pypde - analytical|: {:5.2e}"

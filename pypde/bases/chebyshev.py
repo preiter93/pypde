@@ -7,6 +7,7 @@ from .dmsuite import (gauss_lobatto,diff_mat_spectral,
     diff_recursion_spectral,chebdif)
 from numpy.polynomial import chebyshev as n_cheb
 from .spectralbase import SpectralBase
+from .utils import add,product
 
 
 class Chebyshev(SpectralBase):
@@ -55,24 +56,21 @@ class Chebyshev(SpectralBase):
         return diags([1.0, *[2.0]*(self.N-2), 1.0],0)
 
     def forward_fft(self,f,mass=True):
-        '''  Transform to spectral space via DCT, similar to project(), see
-        https://en.wikipedia.org/wiki/Discrete_Chebyshev_transform '''
+        '''  
+        Transform to spectral space via DCT, similar to project(), see
+        https://en.wikipedia.org/wiki/Discrete_Chebyshev_transform 
+        Scipys dctn is missing the (-1)^i part, which is handled here 
+        '''
         sign = np.array([(-1)**k for k in np.arange(self.N)]) 
         c = 0.5*dctn(f,type=1,axes=0)/(self.N-1)
-        if len(f.shape)==2:
-            c  = c*sign[:, None]  
-        else:
-            c *= sign
+        c = product(sign,c) # mutliplication along first dimension
         return self._mass_inv@c if mass else c
     
     def backward_fft(self,c):
         '''  Transform to physical space via DCT ''' 
-        # compensate factor of dctn type 1
         sign = np.array([(-1)**k for k in np.arange(self.N)]) 
-        if len(c.shape)==2:   
-            f = c*sign[:, None]; f[[0,-1],:] *= 2
-        else:
-            f = c*sign; f[[0,-1]] *= 2 
+        f = product(sign,c) # mutliplication along first dimension
+        f[[0,-1]] = product(np.array([2,2]),f[[0,-1]]) # multiply first and last by 2
         return 0.5*dctn(f,type=1,axes=0)
 
     @memoized
@@ -112,7 +110,46 @@ class GalerkinChebyshev(SpectralBase):
     def __init__(self,N):
         x = gauss_lobatto(N-1)
         SpectralBase.__init__(self,N,x)
+        self._bc = None
+        self._coeff_bc = None
 
+    @property
+    def bc(self):
+        '''
+        Left and right boundary condition
+
+        value: ndarray (2x?)
+            At least 2 values for both bases
+            Can be two-dimensional for 2-D Simulations,
+            where BCs are applied along the 2.dimension.
+        '''
+        return self._bc
+    
+    @bc.setter
+    def bc(self, value):
+        '''
+        '''
+        if value is None:
+            return
+        value = np.atleast_1d(value)
+        assert value.shape[0]==2, "BCs shape is invalid. (Must be size 2 x ? )"
+        self._bc = value
+        self.coeff_bc = value 
+
+
+    @property
+    def coeff_bc(self):
+        '''
+        Galerkin coefficients of phi_n-1 and phi_n, forinhomogeneous BCS
+        At the moment, coefficients are equal to bcs in physical space,
+        but this might change in the future
+        '''
+        return self._coeff_bc
+
+    @coeff_bc.setter
+    def coeff_bc(self,value):
+        self._coeff_bc = value
+    
     def slice(self):
         ''' 
         Galerkin space usually of size [0,N-3] (+ 2 BCs bases)
@@ -131,7 +168,7 @@ class GalerkinChebyshev(SpectralBase):
             Galerkin (M) -> Chebyshev (N)
         
         Stencil:
-            N x N Sparse Matrix (diagonal banded)
+            M x N Sparse Matrix (banded)
 
         Literature:
             K. Julien: doi:10.1016/j.jcp.2008.10.043 
@@ -140,11 +177,37 @@ class GalerkinChebyshev(SpectralBase):
         '''
         raise NotImplementedError
 
+    def stencilbc(self,inv=False):
+        '''
+        Should be implemented on child class for 
+        inhomogenoeus BCs!
+
+        Stencil transforms boundary coefficients (phi_N-1 & phi_N)
+        to chebyshev coefficients
+
+        Stencil:
+            2 x N Sparse Matrix
+        '''
+        S = np.zeros((2,self.N))
+        if inv: return S.T 
+        return S
+
     def _to_galerkin(self,cheby_c):
+        ''' transform from T to phi basis '''
         return self.stencil(False)@cheby_c
 
     def _to_chebyshev(self,galerkin_c):
+        ''' transform from ühi to T basis '''
         return self.stencil(True)@galerkin_c
+
+    def _to_chebyshevbc(self):
+        ''' transform bcs coefficients to T basis '''
+        assert self.coeff_bc.shape[0] == 2
+        return self.stencilbc(True)@self.coeff_bc
+
+    def _check_bc_shape(self,shape=(2,)):
+
+        pass
 
     def forward_fft(self,f):
         '''  
@@ -154,11 +217,15 @@ class GalerkinChebyshev(SpectralBase):
         c = self._to_galerkin(c)
         return self._mass_inv@c
 
-    def backward_fft(self,c):
+    def backward_fft(self,c,bc=True):
         '''  
         Transform to physical space via DCT 
         ''' 
+
         c = self._to_chebyshev(c)
+        if bc and self.coeff_bc is not None:
+            # Add BCs along first dimension
+            c = add(self._to_chebyshevbc(), c)
         return Chebyshev.backward_fft(self,c)
 
     def derivative(self,f,deriv,method="fft"):
@@ -203,6 +270,7 @@ class ChebDirichlet(GalerkinChebyshev):
     def __init__(self,N,bc=(0,0)):
         GalerkinChebyshev.__init__(self,N)
         self.id = "CD" 
+        self.bc = bc
 
     def stencil(self,inv=False):
         '''  
@@ -214,6 +282,17 @@ class ChebDirichlet(GalerkinChebyshev):
         S = np.zeros((self.M,self.N))
         for i in range(self.M):
             S[i,i],S[i,i+2] = 1, -1
+        if inv: return S.T 
+        return S
+
+    def stencilbc(self,inv=True):
+        '''
+            phi_N-1 = 0.5*(T_0-T_1)
+            phi_N-2 = 0.5*(T_0+T_1)
+        '''
+        S = np.zeros((2,self.N))
+        S[0,0],S[0,1] = 0.5, -0.5
+        S[1,0],S[1,1] = 0.5, +0.5 
         if inv: return S.T 
         return S
 

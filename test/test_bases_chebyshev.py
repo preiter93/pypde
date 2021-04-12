@@ -144,6 +144,7 @@ class TestBasesChebyshev2D(unittest.TestCase):
 
         assert np.allclose(y,u, rtol=RTOL)
         assert np.allclose(uu[:,0],uu[:,1], rtol=RTOL)
+
 # import matplotlib.pyplot as plt 
 # plt.plot(self.x,y,"k")
 # plt.plot(self.x,cn(self.x),"r--")

@@ -1,4 +1,3 @@
-import pypde.bases.spectralbase as sb
 import numpy as np
 from scipy.sparse import diags
 from .utils import to_sparse
@@ -6,6 +5,7 @@ from itertools import tee
 import warnings
 
 def inner(u,v,w="GL",D=(0,0),**kwargs):
+    import pypde.bases.spectralbase as sb
     '''
     Inner product of <u,v>_w, where w is the weight.
     
@@ -95,7 +95,7 @@ def _inner_spectralbase(u,v,w,D,**kwargs):
 
 class InnerKnown():
 
-	@property
+    @property
     def dict(self):
         return{
             "CH^0,CH^0": self.chebyshev_mass,
@@ -179,10 +179,10 @@ class InnerKnown():
         
         Equivalent to
             S@D2@Si
-            S, Si : Stencil matrix and its inverse
+            S, Si : Stencil matrix T<->Phi and its transpose
             D2:     Stiffness matrix of the Chebyshev Basis <T''T> 
         '''
-        N,M = u.N,u.N
+        N,M = u.M,u.M
         D = np.zeros( (N,M) )
         for m in range(N):
             for n in range(m,M):
