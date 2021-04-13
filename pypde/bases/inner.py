@@ -67,7 +67,7 @@ def inner(u,v,w="GL",D=(0,0),**kwargs):
     if method=="matrix":
         return _inner_spectralbase(u,v,w,D,**kwargs)
 
-def _inner_spectralbase(u,v,w,D,**kwargs):
+def _inner_spectralbase(u,v,w,D,lookup=True):
     ''' 
     Calculates inner product of two SpectralBases, should be
     called from inner
@@ -77,33 +77,58 @@ def _inner_spectralbase(u,v,w,D,**kwargs):
     if len(D)==1: ku=kv=D
 
     # Check list of known inner products first 
-    value = InnerKnown().check(u,v,ku,kv)
-    if value is not None:
-        return value
+    if lookup:
+        value = InnerKnown().check(u,v,ku,kv)
+        if value is not None:
+            return value
 
     # Get Generators from Spectralbase
     gen1 = u.iter_basis() if ku==0 else u.iter_deriv(k=ku)
     gen2 = v.iter_basis() if kv==0 else v.iter_deriv(k=kv)
 
     M = []
-    for j,vv in enumerate(gen2):
-        gen1,gen1_clone = tee(gen1) # clone iterator
-        c = [inner(uu,vv,w) for uu in gen1_clone]
+    for j,uu in enumerate(gen1):
+        gen2,gen2_clone = tee(gen2) # clone iterator
+        c = [inner(uu,vv,w) for vv in gen2_clone]
         M.append(c)
+
     return np.vstack(M)
 
 
 class InnerKnown():
+    '''
+    This class contains familiar inner products of the Functionspaces
+    and its derivative. 
 
+    Use:
+    InnerKnown().check(u,v,ku,kv)
+    
+    If the two input Functionspaces u,v are of the same type, class
+    looks up if the key is contained in dict, and if so returns
+    the stored value,otherwise gives it back to inner to calculate it.
+
+    If the two input Functionspaces are of different type, but one
+    is the family space (T) of the other (P), class tries to derive the inner
+    product from the familys inner product and its childs  stencil .
+        <P,T> = S@<T,T>
+    '''
+    inverted = False
     @property
     def dict(self):
         return{
+            # <Chebyshev Chebyshev>
             "CH^0,CH^0": self.chebyshev_mass,
             "CH^0,CH^1": self.chebyshev_grad,
             "CH^0,CH^2": self.chebyshev_stiff,
+            "CH^0,CH^3": self.chebyshev_cube,
+            "CH^0,CH^4": self.chebyshev_quad,
 
+            # <ChebDirichlet ChebDirichlet>
             "CD^0,CD^0": self.chebdirichlet_mass,
+            "CD^0,CD^1": self.chebdirichlet_grad,
             "CD^0,CD^2": self.chebdirichlet_stiff,
+            "CD^0,CD^3": self.chebdirichlet_cube,
+            "CD^0,CD^4": self.chebdirichlet_quad,
         }
 
     def check(self,u,v,ku,kv):
@@ -126,55 +151,112 @@ class InnerKnown():
         '''
         assert all(hasattr(i,"id") for i in [u,v])
 
+        # --- Check if mixed space is derivable from it's family ---
+        if u.id != v.id:
+            value = self._derive_mixed(u=u,v=v,ku=ku,kv=kv)
+            if value is not None:
+                value,keyfam = value
+                print("Key {:} has been derived from {:}.".format(
+                    self.generate_key(u,v,ku,kv),keyfam))
+                return value
+
+        # --- Check if combination is know ---
         # Put higher derivative in the end, so that key is unique
-        if ku>kv:
-            u, v  = v, u
-            ku,kv = kv,ku
+        if u.id == v.id and ku>kv:
+            u, v, ku,kv  = v, u, kv,ku
+            self.inverted = True
         # Generate Key
-        key = "{:2s}^{:1d},{:2s}^{:1d}".format(u.id,ku,v.id,kv)
+        key = self.generate_key(u,v,ku,kv)
 
         # Lookup Key
         if key in self.dict:
             print("Key {:} exists. Use lookup value.".format(key))
             value = self.dict[key](u=u,v=v,ku=ku,kv=kv)
+            if self.inverted:
+                return value.T
             return value
 
         # Key not found. Add to  inner product is known analytically
-        warnings.warn("Key {:} not found in list. Use inner() instead.".format(key))
+        msg = "Key {:s} not found. Calculated numerically instead.".format(key)
+        warnings.warn(msg)
         return None
 
+    def _derive_mixed(self,u,v,ku,kv):
+        ''' 
+        Try to derive combination of bases from the familys space
+        and the transformation stencil S (Phi=S@T)
+        '''
+        assert u.id != v.id
+        if hasattr(v,"_family") and u.name==v._family:
+            key = self.generate_key(u,u,ku,kv)
+            value = inner(u,u,D=(ku,kv))@v.stencil(inv=True)
+            return value,key
+        if hasattr(u,"_family") and v.name==u._family:
+            key = self.generate_key(v,v,ku,kv)
+            value = u.stencil()@inner(v,v,D=(ku,kv))
+            return value,key
+        return None
+
+    def generate_key(self,u,v,ku,kv):
+        return "{:2s}^{:1d},{:2s}^{:1d}".format(u.id,ku,v.id,kv)
+
+    # ----- Collection of known inner products ------
     @staticmethod
     def chebyshev_mass(u=None,**kwargs):
         ''' <Ti Tj>
         Some literature gives it with a factor of pi
         '''
-        assert u.id=="CH"
+        #assert u.id=="CH"
         return diags([1.0, *[0.5]*(u.N-2), 1.0],0).toarray()
 
     #@staticmethod
     def chebyshev_grad(self,u=None,k=1,**kwargs):
-        '''  <Ti' Tj> (todo: find an analytical expression)'''
+        '''  <Ti Tj^1> (todo: find an analytical expression)'''
         from .dmsuite import diff_mat_spectral as dms 
         mass = self.chebyshev_mass(u)
         return to_sparse( mass@dms(u.N,k) ).toarray()
 
     #@staticmethod
-    def chebyshev_stiff(self,u=None,k=2,**kwargs):
-        '''  <Ti'' Tj> '''
-        return self.chebyshev_grad(u,k)
+    def chebyshev_stiff(self,u=None,**kwargs):
+        '''  <Ti Tj^2> '''
+        return self.chebyshev_grad(u,2)
+
+    def chebyshev_cube(self,u=None,**kwargs):
+        '''  <Ti Tj^3> '''
+        return self.chebyshev_grad(u,3)
+
+    def chebyshev_quad(self,u=None,**kwargs):
+        '''  <Ti Tj^4> '''
+        return self.chebyshev_grad(u,4)
 
     @staticmethod
     def chebdirichlet_mass(u=None,**kwargs):
         ''' 
+        <Phi Phi>
         Eq. (2.5) of Shen - Effcient Spectral-Galerkin Method II.
         '''
         diag0 = [1.5, *[1.0]*(u.N-4), 1.5]
         diag2 = [*[-0.5]*(u.N-4) ]
         return diags([diag2, diag0, diag2], [-2, 0, 2]).toarray()
 
+    #@staticmethod
+    def chebdirichlet_grad(self,u=None,**kwargs):
+        ''' 
+        <Phi Phi^1>
+        Eq. (4.6) of Shen - Effcient Spectral-Galerkin Method II.
+        '''
+        diag0,diag1 = -np.arange(2,u.N-1),np.arange(1,u.N-2)
+        return diags([diag0, diag1], [-1, 1]).toarray()
+        #  -- Alternative ---
+        # S,Si = u.stencil(), u.stencil(inv=True) 
+        # D1 = self.chebyshev_grad(u)
+        # return S@D1@Si
+        # -------------------
+        
     @staticmethod
     def chebdirichlet_stiff(u=None,**kwargs):
         ''' 
+         <Phi Phi^2>
         Eq. (2.6) of Shen - Effcient Spectral-Galerkin Method II.
         
         Equivalent to
@@ -191,6 +273,18 @@ class InnerKnown():
                 elif (n-m)%2==0:
                     D[m,n] = -4*(m+1)
         return to_sparse(D).toarray()
+
+    def chebdirichlet_cube(self,u=None,**kwargs):
+        '''  <Phi Phi^3> '''
+        S,Si = u.stencil(), u.stencil(inv=True) 
+        D = self.chebyshev_cube(u)
+        return S@D@Si
+
+    def chebdirichlet_quad(self,u=None,**kwargs):
+        '''  <Phi Phi^3> '''
+        S,Si = u.stencil(), u.stencil(inv=True) 
+        D = self.chebyshev_quad(u)
+        return S@D@Si
 
     
 

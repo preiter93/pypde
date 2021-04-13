@@ -6,70 +6,82 @@ from numpy.linalg import solve
 import scipy.sparse as sp
 import scipy.sparse.linalg as sla
 
-N = 1000    # Grid size
+N = 2000    # Grid size
 RTOL = 1e-3 # np.allclose tolerance
 
 class TestPoissonCheb(unittest.TestCase):
     def setUp(self):
         self.CD = ChebDirichlet(N)
-        self.x = self.CD.x
-        self.rhs = -self.f(self.x)
-        self.sol =  self.fsol(self.x)
+        # self.x = self.CD.x
+        # self.f = -self.f(self.x)
+        # self.sol =  self.fsol(self.x)
 
     def f(self,x):
         return np.cos(1*np.pi/2*x)
 
     def fsol(self,x):
-        return self.f(x)*(1*np.pi/2)**-2
+        return -np.cos(1*np.pi/2*x)*(1*np.pi/2)**-2
 
-
+    
     @classmethod
+    @timeit
     def setUpClass(cls):
         print("------------------------")
         print("     Solve Poisson      ")
         print("------------------------")
-
+        """ 
+        Calculate fftws only once to test solver independently
+        """
+        super(TestPoissonCheb, cls).setUpClass()
+        CD = ChebDirichlet(N)
+        cls.CD = CD
+        x =  CD.x
+        I  = CD.mass.toarray()
+        D2 = CD.stiff.toarray()
+        
+        # Spectral space
+        cls.rhs = I@CD.forward_fft(cls.f(cls,x))
+        cls.lhs = D2
+        cls.lhssp = sp.triu(cls.lhs).tocsr()
+        cls.solhat = CD.forward_fft(cls.fsol(cls,x))
+        print("Initialization finished.")
+        
     @timeit
     def test_1d(self):
         print("\n ** 1-D (Solve) **  ")
-        CD = self.CD
-        I  = CD.mass.toarray()
-        D2 = CD.stiff.toarray()
-        sl = CD.slice()
 
-        # Solve
-        uhat = np.zeros(N)
-        rhs = CD.forward_fft(self.rhs)
-        rhs = I@rhs[sl]
-        lhs = D2[sl,sl]
+        uhat = solve(self.lhs,self.rhs)
 
-        uhat[sl] = solve(lhs,rhs)
-        u = CD.backward_fft(uhat[sl])
-
-        norm = np.linalg.norm( u-self.sol )
+        norm = np.linalg.norm( uhat-self.solhat )
         print(" |pypde - analytical|: {:5.2e}"
             .format(norm))
 
-        assert np.allclose(u,self.sol, rtol=RTOL)
+        assert np.allclose(uhat,self.solhat, rtol=RTOL)
 
 
     @timeit
     def test_1d_sparse(self):
         print("\n ** 1-D (Sparse) **  ")
-        CD = self.CD
-        I  = CD.mass#.toarray()
-        D2 = CD.stiff#.toarray()
 
         # Solve
-        rhs = I@CD.forward_fft(self.rhs)#[:-2]
-        lhs = sp.triu(D2).tocsr()
-        uhat = sla.spsolve(lhs,rhs)
-        #uhat = solve(lhs.toarray(),rhs)
-        u = CD.backward_fft(uhat)
+        uhat = sla.spsolve(self.lhssp,self.rhs)
 
-        norm = np.linalg.norm( u-self.sol )
+        norm = np.linalg.norm( uhat-self.solhat )
         print(" |pypde - analytical|: {:5.2e}"
             .format(norm))
 
-        assert np.allclose(u,self.sol, rtol=RTOL)
+        assert np.allclose(uhat,self.solhat, rtol=RTOL)
 
+
+    @timeit
+    def test_1d_triangular(self):
+        from scipy.linalg import solve_triangular
+        print("\n ** 1-D (Triangular) **  ")
+
+        uhat = solve_triangular(self.lhs,self.rhs)
+
+        norm = np.linalg.norm( uhat-self.solhat )
+        print(" |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(uhat,self.solhat, rtol=RTOL)

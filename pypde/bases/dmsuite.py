@@ -211,7 +211,7 @@ def gauss_lobatto(n):
 def diff_mat_spectral(N,deriv):
     '''Derivative matrix in spectral space of classical Chebyshev 
     polynomial on Gauss Lobattor points, see
-    Jan S. Hesthaven - Appendix B p. 256  
+    Jan S. Hesthaven - Spectral Methods for Time-Dependent Problems (p. 256)  
 
     Input:
         N: int
@@ -234,8 +234,24 @@ def diff_mat_spectral(N,deriv):
             for p in range(n+2,N):
                 if (p+n)%2==0:
                     D[n,p] = p*(p**2-n**2)
-    if deriv>2:
-        raise NotImplementedError("derivatives larger 2 not implemented")
+    if deriv==3: 
+        for n in range(N):
+            for p in range(n+3,N):
+                if (p+n)%2!=0:
+                    p2,n2 = p**2,n**2
+                    D[n,p] = p*(p2*(p2-2) - 2*p2*n2 +(n2-1)**2)
+        D /= 4
+    if deriv==4:
+        for n in range(N):
+            for p in range(n+4,N):
+                if (p+n)%2==0:
+                    p2,n2 = p**2,n**2
+                    p4,n4 = p**4,n**4
+                    D[n,p] = p*(
+                        p2*(p2-4)**2 - 3*p4*n2 + 3*p2*n4-n2*(n2-4)**2)
+        D /= 24
+    if deriv>4:
+        raise NotImplementedError("derivatives > 4 not implemented")
     D[0,:] *= 0.5
     return D
 

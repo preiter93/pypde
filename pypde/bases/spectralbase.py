@@ -3,6 +3,7 @@ import numpy as np
 from .utils import to_sparse
 from ..utils.memoize import memoized
 from scipy.sparse.linalg import inv as spinv
+from scipy.sparse import issparse
 
 class SpectralBase():
     ''' 
@@ -44,7 +45,7 @@ class SpectralBase():
         return len(range(*self.slice().indices(self.N)))
     
 
-    def _inner(self,TestFunction=None,D=(0,0)):
+    def inner(self,TestFunction=None,D=(0,0),**kwargs):
         ''' 
         Inner Product <Ti^k*Uj> Basefunction T with Testfunction U
         and derivatives D=ku,kv
@@ -53,14 +54,14 @@ class SpectralBase():
             D = (0,2): Stiff matrix
         '''
         if TestFunction is None: TestFunction=self
-        return inner(self,TestFunction,w="GL",D=D)
+        return inner(self,TestFunction,w="GL",D=D,**kwargs)
 
     def _mass(self):
-        return self._to_sparse( self._inner(self,D=(0,0) ) )
+        return self._to_sparse( self.inner(self,D=(0,0) ) )
     def _grad(self):
-        return self._to_sparse( self._inner(self,D=(0,1) ) )
+        return self._to_sparse( self.inner(self,D=(0,1) ) )
     def _stiff(self):
-        return self._to_sparse( self._inner(self,D=(0,2) ) )
+        return self._to_sparse( self.inner(self,D=(0,2) ) )
 
     @property
     @memoized
@@ -89,7 +90,9 @@ class SpectralBase():
         return self._stiff()
 
     def _to_sparse(self,A,tol=1e-12,format="csc"):
-        return to_sparse(A,tol,format)
+        if not issparse(A):
+            return to_sparse(A,tol,format)
+        return A
 
     def project(self,f):
         ''' Transform to spectral space:

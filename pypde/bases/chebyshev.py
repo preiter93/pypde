@@ -112,44 +112,24 @@ class GalerkinChebyshev(SpectralBase):
         SpectralBase.__init__(self,N,x)
         self._bc = None
         self._coeff_bc = None
+        # get family name
+        self._family = Chebyshev(N).__class__.__name__
 
-    @property
-    def bc(self):
-        '''
-        Left and right boundary condition
+    def get_basis(self,i=0,x=None):
+        return self.get_basis_derivative(i=i,k=0,x=x)
 
-        value: ndarray (2x?)
-            At least 2 values for both bases
-            Can be two-dimensional for 2-D Simulations,
-            where BCs are applied along the 2.dimension.
-        '''
-        return self._bc
-    
-    @bc.setter
-    def bc(self, value):
-        '''
-        '''
-        if value is None:
-            return
-        value = np.atleast_1d(value)
-        assert value.shape[0]==2, "BCs shape is invalid. (Must be size 2 x ? )"
-        self._bc = value
-        self.coeff_bc = value 
+    def get_basis_derivative(self, i=0, k=0, x=None):
+        if x is None: x = self.x
+        x = np.atleast_1d(x)
+        if i < self.N-2:
+            basis = self.stencil()[i,:]
+            basis = n_cheb.Chebyshev(basis)
+            if k > 0:
+                basis = basis.deriv(k)
+            return basis(x)
+        else:
+            return self.get_basis_bc(i,k,x)
 
-
-    @property
-    def coeff_bc(self):
-        '''
-        Galerkin coefficients of phi_n-1 and phi_n, forinhomogeneous BCS
-        At the moment, coefficients are equal to bcs in physical space,
-        but this might change in the future
-        '''
-        return self._coeff_bc
-
-    @coeff_bc.setter
-    def coeff_bc(self,value):
-        self._coeff_bc = value
-    
     def slice(self):
         ''' 
         Galerkin space usually of size [0,N-3] (+ 2 BCs bases)
@@ -194,20 +174,16 @@ class GalerkinChebyshev(SpectralBase):
 
     def _to_galerkin(self,cheby_c):
         ''' transform from T to phi basis '''
-        return self.stencil(False)@cheby_c
+        return self._to_sparse(self.stencil(False))@cheby_c
 
     def _to_chebyshev(self,galerkin_c):
         ''' transform from ühi to T basis '''
-        return self.stencil(True)@galerkin_c
+        return self._to_sparse(self.stencil(True))@galerkin_c
 
     def _to_chebyshevbc(self):
         ''' transform bcs coefficients to T basis '''
         assert self.coeff_bc.shape[0] == 2
-        return self.stencilbc(True)@self.coeff_bc
-
-    def _check_bc_shape(self,shape=(2,)):
-
-        pass
+        return self._to_sparse(self.stencilbc(True))@self.coeff_bc
 
     def forward_fft(self,f):
         '''  
@@ -228,30 +204,52 @@ class GalerkinChebyshev(SpectralBase):
             c = add(self._to_chebyshevbc(), c)
         return Chebyshev.backward_fft(self,c)
 
+    @property
+    def bc(self):
+        '''
+        Left and right boundary condition
+
+        value: ndarray (2x?)
+            At least 2 values, can be two-dimensional for 
+            2-D Simulations, where BCs are applied along the 2.dim.
+        '''
+        return self._bc
+    
+    @bc.setter
+    def bc(self, value):
+        '''
+        '''
+        if value is None:
+            return
+        value = np.atleast_1d(value)
+        assert value.shape[0]==2, "BCs shape is invalid. (Must be size 2 x ? )"
+        self._bc = value
+        self.coeff_bc = value 
+
+
+    @property
+    def coeff_bc(self):
+        '''
+        Galerkin coefficients of phi_n-1 and phi_n, for inhomogeneous BCS
+        At the moment, coefficients are equal to bcs in physical space,
+        but this might change in the future
+        '''
+        return self._coeff_bc
+
+    @coeff_bc.setter
+    def coeff_bc(self,value):
+        self._coeff_bc = value
+    
+
     def derivative(self,f,deriv,method="fft"):
         ''' 
         Calculate derivative of input array f 
         '''
-        assert method in ["fft","spectral"]
+        assert method in ["fft","spectral"], "Only fft differentiation supported"
         c = self.forward_fft(f)
         c = self._to_chebyshev(c)
         dc = diff_recursion_spectral(c,deriv)
         return Chebyshev.backward_fft(self,dc)
-
-    def get_basis(self,i=0,x=None):
-        return self.get_basis_derivative(i=i,k=0,x=x)
-
-    def get_basis_derivative(self, i=0, k=0, x=None):
-        if x is None: x = self.x
-        x = np.atleast_1d(x)
-        if i < self.N-2:
-            basis = self.stencil().toarray()[i,:]
-            basis = n_cheb.Chebyshev(basis)
-            if k > 0:
-                basis = basis.deriv(k)
-            return basis(x)
-        else:
-            return self.get_basis_bc(i,k,x)
 
 
 class ChebDirichlet(GalerkinChebyshev):
