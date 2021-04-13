@@ -37,12 +37,13 @@ class SolverBase(metaclass=ABCMeta):
             
             if (self.t%self.tsave<self.dt):
                 self.save()
+                print("Time: {:5.3f}".format(self.t))
 
             if self.check_field(): 
-                print("Nan or large value detected! STOP")
+                print("\nNan or large value detected! STOP\n")
                 break
 
-            print("Time: {:5.3f}".format(self.t))
+            #print("Time: {:5.3f}".format(self.t))
 
     def update_time(self):
         for key in self.fields:
@@ -90,7 +91,7 @@ class SolverImplicit(SolverBase):
         self._set_bc()
         Op = self._lhs(self.dt)
         if not isinstance(Op, list): Op = [Op]
-        rhs = self.v+self.dt*self._rhs()
+        rhs = (self.v+self.dt*self._rhs())
         for O in Op:
             assert isinstance(O,OperatorImplicit)
             v = O.solve( rhs )
