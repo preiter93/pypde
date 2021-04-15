@@ -1,5 +1,8 @@
 import numpy as np 
 from scipy.sparse.linalg import inv as spinv
+import scipy as sp
+from pypde.bases.solver.tdma import solve_twodma
+from pypde.bases.solver.utda import solve_triangular
 
 class OperatorImplicit():
     ''' 
@@ -16,6 +19,14 @@ class OperatorImplicit():
             self.solve = self.solve_inverse
         if method in ["tma", "triangular"]:
             self.solve = self.solve_triangular
+        if method in ["hh", "helmholtz"]:
+            self.lu_decomp(self._L)
+            self.solve = self.solve_helmholtz_fortran
+
+    def lu_decomp(self,A):
+        P,L,U = sp.linalg.lu(A)
+        self.Lower, self.Upper = L,U 
+        self.d, self.u1 = np.diag(self.Lower), np.diag(self.Lower,-2)
 
     def solve_inverse(self,rhs):
         rhs = self.premultiply_rhs(rhs)
@@ -25,8 +36,6 @@ class OperatorImplicit():
             return self.__matmul( rhs,self.LI )
 
     def solve_triangular(self,rhs):
-        from scipy.linalg import solve_triangular
-        
         if self.axis==0:
             rhs = self.premultiply_rhs(rhs)
             return solve_triangular(self.L, rhs,   lower=False)
@@ -35,6 +44,7 @@ class OperatorImplicit():
             rhs = self.premultiply_rhs(rhs.T)
             return solve_triangular(self.L, rhs, lower=False).T
 
+
     def premultiply_rhs(self,rhs):
         if self.rhs_pm is not None:
             try:
@@ -42,6 +52,18 @@ class OperatorImplicit():
             except:
                 return self.rhs_pm*rhs
         return rhs
+
+    def solve_helmholtz(self,rhs):
+        rhs = self.premultiply_rhs(rhs)
+        TwoDMA_SolveU(self.d,self.u1,rhs)
+        return sp.linalg.solve_triangular(self.Upper,rhs)
+
+    def solve_helmholtz_fortran(self,rhs):
+        rhs = self.premultiply_rhs(rhs)
+        solve_twodma(self.d,self.u1,rhs,rhs.size)
+        return solve_triangular(self.Upper,rhs,rhs.size)
+
+
 
     @property
     def L(self):
@@ -77,3 +99,19 @@ class OperatorImplicit():
                 return spinv(A)
         if len(A.shape)==1:
             return A**-1
+
+def TwoDMA_SolveU(d, u1, x, axis=0):
+    ''' 
+    d: N
+        diagonal
+    u1: N-2
+        Diagonal with offset -2
+    x: array ndim==1
+        rhs
+    '''
+    assert x.ndim == 1, "Use optimized version for multidimensional solve"
+    n = d.shape[0]
+    x[0] = x[0]/d[0]
+    x[1] = x[1]/d[1]
+    for i in range(2,n - 1):
+        x[i] = (x[i] - u1[i-2]*x[i-2])/d[i]

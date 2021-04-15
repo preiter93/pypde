@@ -6,15 +6,12 @@ from numpy.linalg import solve
 import scipy.sparse as sp
 import scipy.sparse.linalg as sla
 
-N = 2000    # Grid size
+N = 1000    # Grid size
 RTOL = 1e-3 # np.allclose tolerance
 
 class TestPoissonCheb(unittest.TestCase):
     def setUp(self):
         self.CD = ChebDirichlet(N)
-        # self.x = self.CD.x
-        # self.f = -self.f(self.x)
-        # self.sol =  self.fsol(self.x)
 
     def f(self,x):
         return np.cos(1*np.pi/2*x)

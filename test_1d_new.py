@@ -18,7 +18,8 @@ class Diffusion1D(SolverImplicit):
         "force_strength": 1.0,
         "BC": "Dirichlet",
         "tsave": 0.01,
-        "cfl": 0.4,
+        "cfl": None,
+        "dt": 0.2,
     }
     def __init__(self,N,**kwargs):
         self.__dict__.update(**self.CONFIG)
@@ -30,7 +31,8 @@ class Diffusion1D(SolverImplicit):
     
         self.t = 0.0                      # Time
         self.xf = ChebDirichlet(self.N+2,bc=(0,0))   # Basis in x
-        self.dt = self.cfl_(self.cfl)     # Timestep
+        if self.cfl is not None:
+            self.dt = self.cfl_(self.cfl)     # Timestep
 
         self.sl = self.xf.slice()
         self.I  = self.xf.mass.toarray()
@@ -47,12 +49,12 @@ class Diffusion1D(SolverImplicit):
     def v(self,value):
         self.fields["v"].v = value
     
-    def _rhs(self):
+    def rhs(self):
         ''' Returns rhs of pde. '''
         return self.fhat
 
     @memoized
-    def _lhs(self,dt):
+    def lhs(self,dt):
         ''' Returns inverse of the lhs of the pde. 
         Used for implicit calculation. '''
 
@@ -63,7 +65,7 @@ class Diffusion1D(SolverImplicit):
         lhs = lhs
         lhs = self.I - dt*(self.kappa*lhs)
         return OperatorImplicit(lhs,axis=0,
-            method="inverse",rhs_prefactor=self.Isp)
+            method="helmholtz",rhs_prefactor=self.Isp)
 
     @property
     def x(self):
@@ -84,15 +86,15 @@ class Diffusion1D(SolverImplicit):
         dx = np.min(self.x[1:]-self.x[:-1])
         return 0.5*safety*(dx)**2/self.kappa
 
-    def _set_bc(self):
+    def set_bc(self):
         self.v[ [-2,-1] ] = 0.0
 
-N = 25
-d = Diffusion1D(N,cfl=20.4)
+N = 1000
+d = Diffusion1D(N,dt=0.01,tsave=0.1)
 d.update()
-plt.spy(d._lhs(0.1)._L)
+plt.spy(d.lhs(0.1)._L)
 plt.show()
-d.iterate(maxtime=1.0)
+d.iterate(maxtime=10.0)
 
 # Transfer stored fields to real space
 for i,vv in enumerate(d.fields["v"].V):

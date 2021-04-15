@@ -7,12 +7,11 @@ from scipy.sparse import issparse
 
 class SpectralBase():
     ''' 
-    Baseclass for Chebyshev Spectral Basesclasses.
-    This class defines rudimentary (brute force) inner products
-    of Base and Trialfunctions based on get_basis and get_basis_derivative
-    methods. 
-    Important inner products like mass and stiffness can be overwritten
-    in Childclasses with more accurate definitions.  
+    Baseclass for Spectral Bases. All functionspace classes must inherit 
+    from it.
+    This class defines important inner products of Base and Trialfunctions
+    and how to evaluate and iterate over base functions to derive inner
+    products
 
     Parameters:
         N: int

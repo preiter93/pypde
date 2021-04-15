@@ -107,6 +107,11 @@ class InnerKnown():
     looks up if the key is contained in dict, and if so returns
     the stored value,otherwise gives it back to inner to calculate it.
 
+    Example:
+            Inner product <TiTj> of Chebyshev polynomials T (=mass matrix)
+            has the entries [1,0.5,...,0.5,1], this is stored under the key
+            'CH^0,CH^0'
+
     If the two input Functionspaces are of different type, but one
     is the family space (T) of the other (P), class tries to derive the inner
     product from the familys inner product and its childs  stencil .
@@ -133,72 +138,57 @@ class InnerKnown():
 
     def check(self,u,v,ku,kv):
         ''' 
-        Collection of exact inner products of Functionspaces. 
-        This should be called before _inner_spectralbase calculates 
-        the inner products numerically.
-
-        Keys consist of FunctionSpace ID's and the derivatives;
-        they are stored in self.dict
-
-        Example:
-            Inner product <TiTj> of Chebyshev polynomials T (=mass matrix)
-            has the entries [1,0.5,...,0.5,1], this is stored under the key
-            'CH^0,CH^0'
+        See class' explanation. 
 
         Input:
             u, v:  SpectralBase
             ku,kv: Integers (Order of derivative)
         '''
         assert all(hasattr(i,"id") for i in [u,v])
+        assert u.family_id == v.family_id, "Test and Trial should be of same family.(?)"
 
-        # --- Check if mixed space is derivable from it's family ---
-        if u.id != v.id:
-            value = self._derive_mixed(u=u,v=v,ku=ku,kv=kv)
-            if value is not None:
-                value,keyfam = value
-                print("Key {:} has been derived from {:}.".format(
-                    self.generate_key(u,v,ku,kv),keyfam))
-                return value
+        # Figure out combination <parent base,child_base>, etc
+        generation_u = "parent" if u.id == u.family_id else "child"
+        generation_v = "parent" if v.id == v.family_id else "child"
 
-        # --- Check if combination is know ---
         # Put higher derivative in the end, so that key is unique
-        if u.id == v.id and ku>kv:
-            u, v, ku,kv  = v, u, kv,ku
+        # and transpose later
+        if ku>kv:
+            ku,kv  = kv,ku
             self.inverted = True
         # Generate Key
-        key = self.generate_key(u,v,ku,kv)
+        key_family = self.generate_key(u.family_id,v.family_id,ku,kv)
+        key        = self.generate_key(u.id,v.id,ku,kv)
 
         # Lookup Key
         if key in self.dict:
-            print("Key {:} exists. Use lookup value.".format(key))
+            #  Inner product of input matches is known
             value = self.dict[key](u=u,v=v,ku=ku,kv=kv)
-            if self.inverted:
-                return value.T
+            if self.inverted: value = value.T
             return value
+        elif key_family in self.dict:
+            #  Inner product of family is known from which childs inner can be derived
+            value = self.dict[key_family](u=u,v=v,ku=ku,kv=kv)
+            if self.inverted: value = value.T
+        else:
+            warnings.warn("Key or Family key {:s} not found. Find Inner() numerically...".
+                format(key))
+            return None
 
-        # Key not found. Add to  inner product is known analytically
-        msg = "Key {:s} not found. Calculated numerically instead.".format(key)
-        warnings.warn(msg)
-        return None
+        # Derive inner product from parent (T) with transoform stencil S
+        if [generation_u,generation_v] == ["parent", "child"]:
+            value = value@to_sparse(v.stencil(inv=True))
+            
+        if [generation_u,generation_v] == ["child", "parent"]:
+            value = to_sparse(u.stencil())@value
 
-    def _derive_mixed(self,u,v,ku,kv):
-        ''' 
-        Try to derive combination of bases from the familys space
-        and the transformation stencil S (Phi=S@T)
-        '''
-        assert u.id != v.id
-        if hasattr(v,"_family") and u.name==v._family:
-            key = self.generate_key(u,u,ku,kv)
-            value = inner(u,u,D=(ku,kv))@v.stencil(inv=True)
-            return value,key
-        if hasattr(u,"_family") and v.name==u._family:
-            key = self.generate_key(v,v,ku,kv)
-            value = u.stencil()@inner(v,v,D=(ku,kv))
-            return value,key
-        return None
+        if [generation_u,generation_v] == ["child", "child"]:
+            value = to_sparse(u.stencil())@value@to_sparse(v.stencil(inv=True))
 
-    def generate_key(self,u,v,ku,kv):
-        return "{:2s}^{:1d},{:2s}^{:1d}".format(u.id,ku,v.id,kv)
+        return value
+
+    def generate_key(self,idu,idv,ku,kv):
+        return "{:2s}^{:1d},{:2s}^{:1d}".format(idu,ku,idv,kv)
 
     # ----- Collection of known inner products ------
     @staticmethod

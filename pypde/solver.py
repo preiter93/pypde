@@ -10,7 +10,7 @@ class SolverBase(metaclass=ABCMeta):
     def update(self):
         raise NotImplementedError
 
-    def _set_bc(self):
+    def set_bc(self):
         raise NotImplementedError
 
     @abstract_attribute
@@ -39,11 +39,9 @@ class SolverBase(metaclass=ABCMeta):
                 self.save()
                 print("Time: {:5.3f}".format(self.t))
 
-            if self.check_field(): 
-                print("\nNan or large value detected! STOP\n")
-                break
-
-            #print("Time: {:5.3f}".format(self.t))
+                if self.check_field(): 
+                    print("\nNan or large value detected! STOP\n")
+                    break
 
     def update_time(self):
         for key in self.fields:
@@ -62,7 +60,7 @@ class SolverExplicit(SolverBase):
     ''' 
     Class for explicit approach
     '''
-    def _rhs(self):
+    def rhs(self):
         raise NotImplementedError
 
     def update(self):
@@ -78,24 +76,20 @@ class SolverImplicit(SolverBase):
     ''' 
     Class for implicit approach
     '''
-    def _lhs(self):
+    def lhs(self):
         raise NotImplementedError
 
-    def _rhs(self):
+    def rhs(self):
         raise NotImplementedError
 
     def update(self):
         ''' 
         Update pde by 1 timestep 
         '''
-        self._set_bc()
-        Op = self._lhs(self.dt)
+        self.set_bc()
+        Op = self.lhs(self.dt)
         if not isinstance(Op, list): Op = [Op]
-        rhs = (self.v+self.dt*self._rhs())
+        self.v = (self.v+self.dt*self.rhs())
         for O in Op:
-            assert isinstance(O,OperatorImplicit)
-            v = O.solve( rhs )
-            v = np.array(v).squeeze()
-            rhs = v
-        self.v = np.copy(v)
+            self.v = O.solve( self.v )
         self.update_time()

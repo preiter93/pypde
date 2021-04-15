@@ -29,6 +29,7 @@ class Chebyshev(SpectralBase):
         x = gauss_lobatto(N-1)
         SpectralBase.__init__(self,N,x)
         self.id = "CH" 
+        self.family_id = "CH"
     
     def get_basis(self, i=0, x=None):
         if x is None: x = self.x
@@ -113,7 +114,7 @@ class GalerkinChebyshev(SpectralBase):
         self._bc = None
         self._coeff_bc = None
         # get family name
-        self._family = Chebyshev(N).__class__.__name__
+        self.family_id = "CH"
 
     def get_basis(self,i=0,x=None):
         return self.get_basis_derivative(i=i,k=0,x=x)
