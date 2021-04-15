@@ -1,6 +1,6 @@
 subroutine solve_twodma(d,u1,x,n)
 ! =====================================================
-! Solve Ax = b, where a is a banded matrix filled on
+! Solve Ax = b, where A is a banded matrix filled on
 ! the main diagonal and a upper diagonal with offset 2
 ! This arises in Helmholtz like problems when discre-
 ! tized with chebyshev polynomials

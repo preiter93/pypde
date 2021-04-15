@@ -1,6 +1,6 @@
 subroutine solve_triangular(R, b, x, n)
 ! =====================================================
-! Solve Rx = b, where A is upper triangular
+! Solve Rx = b, where R is upper triangular
 !
 ! R : array (n,n)
 ! b : array (n)
