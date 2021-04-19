@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from pypde.bases_old import * 
 from pypde.field import Field
 from pypde.utils.memoize import memoized
-from pypde.solver import *
+from pypde.solver_old import *
 from pypde.operator import OperatorImplicit
 
 
@@ -38,7 +38,7 @@ class Diffusion2D(SolverImplicit):
     def v(self,value):
         self.fields["v"].v = value
 
-    def _rhs(self):
+    def rhs(self):
         ''' Returns rhs of pde. Used for explicit calculation. '''
         dv = self.xf.deriv_dm( self.fields["v"].v, 2,axis=0 )
         dv+= self.xf.deriv_dm( self.fields["v"].v, 2,axis=1 )
@@ -46,7 +46,7 @@ class Diffusion2D(SolverImplicit):
         #return self.f + self.kappa*dv    # Fully explicit 
 
     @memoized
-    def _lhs(self,dt):
+    def lhs(self,dt):
         ''' Returns inverse of the lhs of the pde. 
         Used for implicit calculation. '''
         L = np.eye(self.N)- dt*(self.kappa*
@@ -73,7 +73,7 @@ class Diffusion2D(SolverImplicit):
         dx = np.min(self.x[1:]-self.x[:-1])
         return 0.5*safety*(dx)**2/self.kappa
 
-    def _set_bc(self):
+    def set_bc(self):
         self.v[ [0,-1], : ] = 0.0
         self.v[ :,  [0,-1]] = 0.0
 

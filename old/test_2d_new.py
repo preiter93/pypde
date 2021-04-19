@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from pypde.bases_old import * 
 from pypde.field import Field
 from pypde.utils.memoize import memoized
-from pypde.solver import *
+from pypde.solver_old import *
 from pypde.operator import OperatorImplicit
 
 
@@ -59,14 +59,19 @@ class Diffusion2D(SolverImplicit):
     def x(self):
         return self.xf.x
 
+    #@property
+    #def f(self):
+    #    ''' Define forcing '''
+    #    pos = self.N*2//4
+    #    f=np.zeros(self.shape)
+    #    f[ pos, pos] += self.force_strength
+    #    #f[-pos, :] -= self.force_strength
+    #    return f
     @property
     def f(self):
-        ''' Define forcing '''
-        pos = self.N*2//4
-        f=np.zeros(self.shape)
-        f[ pos, pos] += self.force_strength
-        #f[-pos, :] -= self.force_strength
-        return f
+        ''' Forcing Functions'''
+        xx,yy = np.meshgrid(self.x,self.x)
+        return np.cos(1*np.pi/2*xx)*np.cos(1*np.pi/2*yy)
 
     def cfl_(self,safety):
         ''' dt < 0.5 dx**2/kappa'''
