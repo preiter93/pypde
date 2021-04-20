@@ -2,11 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pypde.field import Field
 from pypde.utils.memoize import memoized
-from pypde.bases.chebyshev import Chebyshev, ChebDirichlet
+from pypde.bases.chebyshev import ChebDirichlet
 from pypde.solver.matrix import *
 from pypde.solver.operator import *
 from pypde.solver.base import SolverBase
-        
+
+import time   
+TIMER = np.zeros(2)
 class Diffusion1D(SolverBase):
     CONFIG={
         "N": 50,
@@ -44,7 +46,8 @@ class Diffusion1D(SolverBase):
         D2 = self.xf.stiff.toarray()
         M  = self.xf.mass.toarray()
         A = M - self.dt*(self.kappa*D2)
-        A = MatrixLHS(A,ndim=self.ndim,axis=0,solver="uptria2")
+        A = MatrixLHS(A,ndim=self.ndim,axis=0,
+            solver="uptria2")
         return LHSImplicit(A)
     
     @property
@@ -56,7 +59,6 @@ class Diffusion1D(SolverBase):
         '''
         M  = self.xf.mass.toarray()
         fhat = self.dt*self.xf.forward_fft(self._f())
-        
         b = RHSExplicit(f=fhat)
         b.add_PM(MatrixRHS(M,axis=0))
         return b
@@ -77,17 +79,31 @@ class Diffusion1D(SolverBase):
         Update pde by 1 timestep 
         '''
         self.set_bc()
+        tic = time.perf_counter()
         self.RHS.b = self.v
-        self.v = self.LHS.solve(self.RHS.rhs)
+        rhs = self.RHS.rhs
+        toc = time.perf_counter()
+        TIMER[0]+=toc-tic
+        self.v = self.LHS.solve(rhs)
+        tic = time.perf_counter()
+        TIMER[1]+=tic-toc
         self.update_time()
 
-D = Diffusion1D(N=50,dt=0.1,tsave=0.1)
-D.update()
+D = Diffusion1D(N=2500,dt=0.1,tsave=0.1)
+#D.update()
 
-D.iterate(1)
+st=time.perf_counter()
+D.iterate(10)
+en=time.perf_counter()
+
+print("Elapsed time:")
+print("RHS:   {:5.4f}".format(TIMER[0]))
+print("LHS:   {:5.4f}".format(TIMER[1]))
+print("Total: {:5.4f}".format(en-st))
+
 # # Transfer stored fields to real space
-for i,vv in enumerate(D.field.V):
-    D.field.V[i] = D.xf.backward_fft(vv)
+# for i,vv in enumerate(D.field.V):
+#     D.field.V[i] = D.xf.backward_fft(vv)
 
-anim = D.field.animate(D.x,duration=4)
-plt.show()
+# anim = D.field.animate(D.x,duration=4)
+# plt.show()

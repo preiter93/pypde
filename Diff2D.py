@@ -6,8 +6,9 @@ from pypde.bases.chebyshev import Chebyshev, ChebDirichlet
 from pypde.solver.matrix import *
 from pypde.solver.operator import *
 from pypde.solver.base import SolverBase
-        
 
+import time
+TIMER = np.zeros(2)
 class Diffusion2D(SolverBase):
     CONFIG={
         "N": 50,
@@ -72,7 +73,7 @@ class Diffusion2D(SolverBase):
     def _f(self):
         ''' Forcing Functions'''
         xx,yy = np.meshgrid(self.x,self.x)
-        return np.cos(1*np.pi/2*xx)*np.cos(1*np.pi/2*yy)
+        return np.cos(1*np.pi/2*xx)#*np.cos(1*np.pi/2*yy)
         
     def update_config(self,**kwargs):
         self.__dict__.update(**kwargs)
@@ -85,15 +86,26 @@ class Diffusion2D(SolverBase):
         Update pde by 1 timestep 
         '''
         self.set_bc()
+        tic = time.perf_counter()
         self.RHS.b = self.v
-        self.v = self.LHS.solve(self.RHS.rhs)
+        rhs = self.RHS.rhs
+        toc = time.perf_counter()
+        TIMER[0]+=toc-tic
+        self.v = self.LHS.solve(rhs)
+        tic = time.perf_counter()
+        TIMER[1]+=tic-toc
         self.update_time()
-        
 
 D = Diffusion2D(N=40,dt=0.01,tsave=0.05)
 #D.update()
-D.iterate(2.0)
+st=time.perf_counter()
+D.iterate(1.0)
+en=time.perf_counter()
 
+print("Elapsed time:")
+print("RHS:   {:5.4f}".format(TIMER[0]))
+print("LHS:   {:5.4f}".format(TIMER[1]))
+print("Total: {:5.4f}".format(en-st))
 # Transfer stored fields to real space
 for i,vv in enumerate(D.field.V):
     D1 = D.xf.backward_fft(vv)

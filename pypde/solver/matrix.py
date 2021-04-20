@@ -144,22 +144,31 @@ class MatrixLHS(MatrixBase):
         '''
         if self.axis==1:
             assert b.ndim > 1
-
         self._twodia(self.d,self.u1,b,self.axis)
-        return self._triangular(self.U, b,self.axis)
+        if self.ndim==2:
+            if self.axis==0:
+                return self._triangular(self.U, b)
+            elif self.axis==1:
+                return self._triangular(self.U, b.T)
+        else:
+            return self._triangular(self.U, b,self.axis)
         
     def set_subsolver(self):
+        from scipy.linalg import solve_triangular
         if self.ndim==1:
+            # fortrans triangular is faster in 1 dimension
             self._triangular = lafort.triangular.solve_1d
             self._twodia = lafort.tridiagonal.solve_twodia_1d
         elif self.ndim == 2:
-            self._triangular = lafort.triangular.solve_2d
+            #self._triangular = lafort.triangular.solve_2d
+            # scipys solve_triangular is faster in 2 dimensions
+            self._triangular = solve_triangular
             self._twodia = lafort.tridiagonal.solve_twodia_2d
 
     def _lu_decomp(self,A):
         ''' LU Decomposition of A'''
         from scipy.linalg import lu
-        P,L,U = lu(A) 
+        P,L,U = lu(A)
         return L,U
 
 
