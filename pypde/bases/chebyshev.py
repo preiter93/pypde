@@ -4,7 +4,7 @@ from scipy.sparse import diags
 from scipy.sparse.linalg import inv as spinv
 from ..utils.memoize import memoized
 from .dmsuite import (gauss_lobatto,diff_mat_spectral,
-    diff_recursion_spectral,chebdif)
+    diff_recursion_spectral,chebdif,pseudoinverse_spectral)
 from numpy.polynomial import chebyshev as n_cheb
 from .spectralbase import SpectralBase
 from .utils import add,product
@@ -86,6 +86,15 @@ class Chebyshev(SpectralBase):
         Action is equivalent to differentiation via recursion by diff_recursion_spectral
         '''
         return diff_mat_spectral(self.N,deriv)
+
+    @memoized
+    def spec_deriv_mat_inverse(self,deriv):
+        ''' 
+        Pseudoinverse of spec_deriv_mat. If equations are multiplied
+        with this matrix, they often become banded
+        '''
+        assert deriv==2, "Only deriv==2 supported"
+        return pseudoinverse_spectral(self.N,deriv)
 
     def derivative(self,f,deriv,method="fft"):
         assert method in ["fft","spectral","dm","physical"]
@@ -306,6 +315,64 @@ class ChebDirichlet(GalerkinChebyshev):
             return 0*x-0.5 if k==1 else 0.5*(1-x) if k==0 else 0*x
         elif i == self.N-1:
             return 0*x+0.5 if k==1 else 0.5*(1+x) if k==0 else 0*x
+
+
+class ChebNeumann(GalerkinChebyshev):
+    """
+    Function space for Neumann boundary conditions
+    .. math::
+        \phi_k = T_k - k^2/(k+2)^2 T_{k+2}
+    
+    Parameters:
+        N: int
+            Number of grid points
+        bc: 2-tuple of floats, optional
+            Boundary conditions at, respectively, x=(-1, 1).
+            
+    """
+
+    def __init__(self,N,bc=(0,0)):
+        GalerkinChebyshev.__init__(self,N)
+        self.id = "CN" 
+        self.bc = bc
+
+    def stencil(self,inv=False):
+        '''  
+        Matrix representation of:
+            phi_k = T_k - k^2/(k+2)^2 T_{k+2}
+
+        See GalerkinChebyshev for details
+        '''
+        S = np.zeros((self.M,self.N))
+        for i in range(self.M):
+            S[i,i],S[i,i+2] = 1, -(i/(i+2))**2
+        if inv: return S.T 
+        return S
+
+    def stencilbc(self,inv=True):
+        '''
+            phi_N-1 = 1/2*T_1-1/8*T_2
+            phi_N-2 = 1/2*T_1+1/8*T_2
+        '''
+        S = np.zeros((2,self.N))
+        S[0,1],S[0,2] = 0.5, -1/8
+        S[1,1],S[1,2] = 0.5, +1/8
+        if inv: return S.T 
+        return S
+
+    def get_basis_bc(self,i,k=0,x=None):
+        ''' 
+        Base functions for N-2 and N-1 to enforce non-zero BCs
+            N-2: phi(x) = 1/2*T_1-1/8*T_2
+            N-1: phi(x) = 1/2*T_1+1/8*T_2
+        '''
+        assert i == self.N-2 or i == self.N-1
+        ibc = i-self.N+2
+        basis = self.stencilbc(False)[ibc,:]
+        basis = n_cheb.Chebyshev(basis)
+        if k > 0:
+            basis = basis.deriv(k)
+        return basis(x)
 
     # def _mass(self):
     #     ''' 

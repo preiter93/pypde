@@ -10,6 +10,7 @@ class TestInner(unittest.TestCase):
     def setUp(self):
         self.CH = Chebyshev(N)
         self.CD = ChebDirichlet(N)
+        self.CN = ChebNeumann(N)
         self.derivs = [ 
         (0,0), 
         (0,1), 
@@ -44,6 +45,14 @@ class TestInner(unittest.TestCase):
             out_dict = self.CD.inner(self.CD,D=D,lookup=True)
             assert np.allclose(out_derived,out_dict, atol=RTOL)
 
+    def test_chebneumann(self):
+        print("\n  *** ChebNeumann (Pure) ***  ")
+
+        for D in self.derivs:
+            out_derived = self.CN.inner(self.CN,D=D,lookup=False)
+            out_dict = self.CN.inner(self.CN,D=D,lookup=True)
+            assert np.allclose(out_derived,out_dict, atol=RTOL)
+
     def test_mixed(self):
         print("\n  *** Family Chebyshev (Mixed) ***  ")
 
@@ -55,4 +64,14 @@ class TestInner(unittest.TestCase):
         for D in self.derivs:
             out_derived = self.CH.inner(self.CD,D=D,lookup=False)
             out_dict = self.CH.inner(self.CD,D=D,lookup=True)
+            assert np.allclose(out_derived,out_dict, atol=RTOL)
+
+        for D in self.derivs:
+            out_derived = self.CN.inner(self.CH,D=D,lookup=False)
+            out_dict = self.CN.inner(self.CH,D=D,lookup=True)
+            assert np.allclose(out_derived,out_dict, atol=RTOL)
+
+        for D in self.derivs:
+            out_derived = self.CH.inner(self.CN,D=D,lookup=False)
+            out_dict = self.CH.inner(self.CN,D=D,lookup=True)
             assert np.allclose(out_derived,out_dict, atol=RTOL)

@@ -134,6 +134,13 @@ class InnerKnown():
             "CD^0,CD^2": self.chebdirichlet_stiff,
             "CD^0,CD^3": self.chebdirichlet_cube,
             "CD^0,CD^4": self.chebdirichlet_quad,
+
+            # <ChebDirichlet ChebDirichlet>
+            "CN^0,CN^0": self.chebneumann_mass,
+            "CN^0,CN^1": self.chebneumann_grad,
+            "CN^0,CN^2": self.chebneumann_stiff,
+            "CN^0,CN^3": self.chebdirichlet_cube,
+            "CN^0,CN^4": self.chebdirichlet_quad,
         }
 
     def check(self,u,v,ku,kv):
@@ -171,7 +178,7 @@ class InnerKnown():
             value = self.dict[key_family](u=u,v=v,ku=ku,kv=kv)
             if self.inverted: value = value.T
         else:
-            warnings.warn("Key or Family key {:s} not found. Find Inner() numerically...".
+            warnings.warn("Key or Family key {:s} not found. Derive from family...".
                 format(key))
             return None
 
@@ -229,8 +236,8 @@ class InnerKnown():
         diag2 = [*[-0.5]*(u.N-4) ]
         return diags([diag2, diag0, diag2], [-2, 0, 2]).toarray()
 
-    #@staticmethod
-    def chebdirichlet_grad(self,u=None,**kwargs):
+    @staticmethod
+    def chebdirichlet_grad(u=None,**kwargs):
         ''' 
         <Phi Phi^1>
         Eq. (4.6) of Shen - Effcient Spectral-Galerkin Method II.
@@ -271,12 +278,47 @@ class InnerKnown():
         return S@D@Si
 
     def chebdirichlet_quad(self,u=None,**kwargs):
-        '''  <Phi Phi^3> '''
+        '''  <Phi Phi^4> '''
         S,Si = u.stencil(), u.stencil(inv=True) 
         D = self.chebyshev_quad(u)
         return S@D@Si
 
-    
+
+    @staticmethod
+    def chebneumann_mass(u=None,**kwargs):
+        ''' 
+        <Phi Phi>
+        See 8.2.2 Neumann
+            AMS Kruseman - A Chebyshev-Galerkin method for inertial waves 
+        '''
+        cN = np.array([1.0, *[0.5]*(u.N-2),1.0])
+        b  = np.array([(i/(i+2))**2 for i in range(u.N-2)])
+        diag0 = (1*cN[:-2]+b**2*cN[2:])
+        diag2 = -b[:-2]*cN[:-4]
+        return diags([diag2, diag0, diag2], [-2, 0, 2]).toarray()
+
+    def chebneumann_grad(self,u=None,**kwargs):
+        ''' 
+        <Phi Phi^1>
+        '''
+        S,Si = u.stencil(), u.stencil(inv=True) 
+        D = self.chebyshev_grad(u)
+        return S@D@Si
+
+    @staticmethod
+    def chebneumann_stiff(u=None,**kwargs):
+        ''' 
+         <Phi Phi^2>
+        '''
+        N,M = u.M,u.M
+        D = np.zeros( (N,M) )
+        for m in range(N):
+            for n in range(m,M):
+                if (n==m):
+                    D[m,n] = -2*m**2*(m+1)/(m+2)
+                elif (n-m)%2==0:
+                    D[m,n] = -4*n**2*(m+1)/(m+2)**2
+        return to_sparse(D).toarray()
 
 
 

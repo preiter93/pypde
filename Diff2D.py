@@ -46,9 +46,9 @@ class Diffusion2D(SolverBase):
         D2 = self.xf.stiff.toarray()
         M  = self.xf.mass.toarray()
         A = M - self.dt*(self.kappa*D2)
-        A1 = MatrixLHS(A,ndim=self.ndim,axis=0,solver="uptria2")
+        A1 = MatrixLHS(A,ndim=self.ndim,axis=0,solver="solve")
         LHS = LHSImplicit(A1)
-        A2 = MatrixLHS(A,ndim=self.ndim,axis=1,solver="uptria2")
+        A2 = MatrixLHS(A,ndim=self.ndim,axis=1,solver="solve")
         LHS.add(A2)
         return LHS
     
@@ -113,3 +113,5 @@ for i,vv in enumerate(D.field.V):
 
 anim = D.field.animate(D.x,duration=4)
 plt.show()
+
+

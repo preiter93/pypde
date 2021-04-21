@@ -109,68 +109,68 @@ class TestHholtzCheb(unittest.TestCase):
 
         assert np.allclose(uhat,self.solhat, rtol=RTOL)
 
-    @timeit
-    def test_1d_lu_fortran(self):
-        # Use LU Decomposition, which decomposes lhs (A)
-        # into a diagonally banded (0&+2) matrix and a
-        # upper trianguar matrix
-        print("\n ** 1-D (PDA + UTA) FORTRAN**  ")
+    # @timeit
+    # def test_1d_lu_fortran(self):
+    #     # Use LU Decomposition, which decomposes lhs (A)
+    #     # into a diagonally banded (0&+2) matrix and a
+    #     # upper trianguar matrix
+    #     print("\n ** 1-D (PDA + UTA) FORTRAN**  ")
 
-        _triangular = lafort.triangular.solve_1d
-        _twodia = lafort.tridiagonal.solve_twodia_1d
+    #     _triangular = lafort.triangular.solve_1d
+    #     _twodia = lafort.tridiagonal.solve_twodia_1d
 
-        uhat = np.zeros(N)
-        for _ in range(LOOP):
-            b = self.b.copy()
-            _twodia(self.d,self.u1,b,0)
-            uhat = _triangular(self.U,b,0)
+    #     uhat = np.zeros(N)
+    #     for _ in range(LOOP):
+    #         b = self.b.copy()
+    #         _twodia(self.d,self.u1,b,0)
+    #         uhat = _triangular(self.U,b,0)
 
-        norm = np.linalg.norm( uhat-self.solhat )
-        print(" |pypde - analytical|: {:5.2e}"
-            .format(norm))
+    #     norm = np.linalg.norm( uhat-self.solhat )
+    #     print(" |pypde - analytical|: {:5.2e}"
+    #         .format(norm))
 
-        assert np.allclose(uhat,self.solhat, rtol=RTOL)
+    #     assert np.allclose(uhat,self.solhat, rtol=RTOL)
 
-    @timeit
-    def test_1d_lu_fortran_scipy(self):
-        # Use LU Decomposition, which decomposes lhs (A)
-        # into a diagonally banded (0&+2) matrix and a
-        # upper trianguar matrix
-        print("\n ** 1-D (PDA + UTA) FORTRAN + SCIPY**  ")
+    # @timeit
+    # def test_1d_lu_fortran_scipy(self):
+    #     # Use LU Decomposition, which decomposes lhs (A)
+    #     # into a diagonally banded (0&+2) matrix and a
+    #     # upper trianguar matrix
+    #     print("\n ** 1-D (PDA + UTA) FORTRAN + SCIPY**  ")
 
-        _triangular = sp.linalg.solve_triangular
-        _twodia = lafort.tridiagonal.solve_twodia_1d
+    #     _triangular = sp.linalg.solve_triangular
+    #     _twodia = lafort.tridiagonal.solve_twodia_1d
 
-        uhat = np.zeros(N)
-        for _ in range(LOOP):
-            b = self.b.copy()
-            _twodia(self.d,self.u1,b,0)
-            uhat = _triangular(self.U,b)
+    #     uhat = np.zeros(N)
+    #     for _ in range(LOOP):
+    #         b = self.b.copy()
+    #         _twodia(self.d,self.u1,b,0)
+    #         uhat = _triangular(self.U,b)
 
-        norm = np.linalg.norm( uhat-self.solhat )
-        print(" |pypde - analytical|: {:5.2e}"
-            .format(norm))
+    #     norm = np.linalg.norm( uhat-self.solhat )
+    #     print(" |pypde - analytical|: {:5.2e}"
+    #         .format(norm))
 
-        assert np.allclose(uhat,self.solhat, rtol=RTOL)
+    #     assert np.allclose(uhat,self.solhat, rtol=RTOL)
 
-    @timeit
-    def test_1d_lu_cython(self):
-        # Use LU Decomposition, which decomposes lhs (A)
-        # into a diagonally banded (0&+2) matrix and a
-        # upper trianguar matrix
-        print("\n ** 1-D (PDA + UTA) CYTHON**  ")
+    # @timeit
+    # def test_1d_lu_cython(self):
+    #     # Use LU Decomposition, which decomposes lhs (A)
+    #     # into a diagonally banded (0&+2) matrix and a
+    #     # upper trianguar matrix
+    #     print("\n ** 1-D (PDA + UTA) CYTHON**  ")
 
-        uhat = np.zeros(self.b.shape)
-        for _ in range(LOOP):
-            b = self.b.copy()
-            solve_twodma_c(self.d,self.u1,b)
-            uhat = solve_triangular_c(self.Uc,b)
+    #     uhat = np.zeros(self.b.shape)
+    #     for _ in range(LOOP):
+    #         b = self.b.copy()
+    #         solve_twodma_c(self.d,self.u1,b)
+    #         uhat = solve_triangular_c(self.Uc,b)
 
-        norm = np.linalg.norm( uhat-self.solhat )
-        print(" |pypde - analytical|: {:5.2e}"
-            .format(norm))
+    #     norm = np.linalg.norm( uhat-self.solhat )
+    #     print(" |pypde - analytical|: {:5.2e}"
+    #         .format(norm))
 
-        assert np.allclose(uhat,self.solhat, rtol=RTOL)
+    #     assert np.allclose(uhat,self.solhat, rtol=RTOL)
     
 #N = 1600
 #LAM = 1/np.pi**6
@@ -280,56 +280,56 @@ class TestHholtzCheb2D(unittest.TestCase):
 
         assert np.allclose(uhat,self.solhat, rtol=RTOL)
 
-    @timeit
-    def test_fortran_scipy(self):
-        print("\n ** Fortran+Scipy **  ")
+    # @timeit
+    # def test_fortran_scipy(self):
+    #     print("\n ** Fortran+Scipy **  ")
 
-        #_triangular = lafort.triangular.solve_2d
-        _triangular = sp.linalg.solve_triangular
-        _twodia = lafort.tridiagonal.solve_twodia_2d
+    #     #_triangular = lafort.triangular.solve_2d
+    #     _triangular = sp.linalg.solve_triangular
+    #     _twodia = lafort.tridiagonal.solve_twodia_2d
 
-        for _ in range(LOOP):
-            # b = np.array(self.b,order="F")
-            b = np.array(self.b.copy(),order="F")
-            # Solve along axis 0
-            _twodia(self.d,self.u1,b,0)
-            uhat = _triangular(self.U,b)
-            # Solve along axis 1
-            _twodia(self.d,self.u1,uhat,1)
-            uhat = _triangular(self.U,uhat.T)
-
-
-        norm = np.linalg.norm( uhat-self.solhat )
-        print(" |pypde - analytical|: {:5.2e}"
-            .format(norm))
-
-        assert np.allclose(uhat,self.solhat, rtol=RTOL)
+    #     for _ in range(LOOP):
+    #         # b = np.array(self.b,order="F")
+    #         b = np.array(self.b.copy(),order="F")
+    #         # Solve along axis 0
+    #         _twodia(self.d,self.u1,b,0)
+    #         uhat = _triangular(self.U,b)
+    #         # Solve along axis 1
+    #         _twodia(self.d,self.u1,uhat,1)
+    #         uhat = _triangular(self.U,uhat.T)
 
 
-    @timeit
-    def test_fortran(self):
-        print("\n ** Fortran **  ")
+    #     norm = np.linalg.norm( uhat-self.solhat )
+    #     print(" |pypde - analytical|: {:5.2e}"
+    #         .format(norm))
 
-        _triangular = lafort.triangular.solve_2d
-        #_triangular = sp.linalg.solve_triangular
-        _twodia = lafort.tridiagonal.solve_twodia_2d
-
-        for _ in range(LOOP):
-            # b = np.array(self.b,order="F")
-            b = np.array(self.b.copy(),order="F")
-            # Solve along axis 0
-            _twodia(self.d,self.u1,b,0)
-            uhat = _triangular(self.U,b,0)
-            # Solve along axis 1
-            _twodia(self.d,self.u1,uhat,1)
-            uhat = _triangular(self.U,uhat,1)
+    #     assert np.allclose(uhat,self.solhat, rtol=RTOL)
 
 
-        norm = np.linalg.norm( uhat-self.solhat )
-        print(" |pypde - analytical|: {:5.2e}"
-            .format(norm))
+    # @timeit
+    # def test_fortran(self):
+    #     print("\n ** Fortran **  ")
 
-        assert np.allclose(uhat,self.solhat, rtol=RTOL)
+    #     _triangular = lafort.triangular.solve_2d
+    #     #_triangular = sp.linalg.solve_triangular
+    #     _twodia = lafort.tridiagonal.solve_twodia_2d
+
+    #     for _ in range(LOOP):
+    #         # b = np.array(self.b,order="F")
+    #         b = np.array(self.b.copy(),order="F")
+    #         # Solve along axis 0
+    #         _twodia(self.d,self.u1,b,0)
+    #         uhat = _triangular(self.U,b,0)
+    #         # Solve along axis 1
+    #         _twodia(self.d,self.u1,uhat,1)
+    #         uhat = _triangular(self.U,uhat,1)
+
+
+    #     norm = np.linalg.norm( uhat-self.solhat )
+    #     print(" |pypde - analytical|: {:5.2e}"
+    #         .format(norm))
+
+    #     assert np.allclose(uhat,self.solhat, rtol=RTOL)
 
         # u = self.CD.backward_fft(uhat)
         # u = self.CD.backward_fft(u.T).T

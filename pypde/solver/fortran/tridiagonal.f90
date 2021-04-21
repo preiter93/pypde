@@ -5,17 +5,18 @@ module tridiagonal
 
 contains
 
-subroutine solve_twodia_1d(d,u1,x,axis,n)
+
+subroutine solve_tdma(d,u1,x,axis,n)
 ! =====================================================
 ! Solve Ax = b, where A is a banded matrix filled on
 ! the main diagonal and a upper diagonal with offset 2
-! This arises in Helmholtz like problems when discre-
-! tized with chebyshev polynomials
+! This arises in Poisson problems that are preconditioned
+! with the pseudoinverse of D2
 !
 ! d: N
 !     diagonal
 ! u1: N-2
-!     Diagonal with offset -2
+!     Diagonal with offset +2
 ! x: array ndim==1
 !     rhs
 ! axis : int 
@@ -25,52 +26,49 @@ subroutine solve_twodia_1d(d,u1,x,axis,n)
     real(8), intent(in)  :: d(n),u1(n-2)
     real(8), intent(inout):: x(n)
     integer :: i
-    x(1) = x(1)/d(1)
-    x(2) = x(2)/d(2)
-    do i=3,n
-        x(i) = (x(i) - u1(i-2)*x(i-2))/d(i)
+    x(n) = x(n)/d(n)
+    x(n-1) = x(n-1)/d(n-1)
+    do i=n-3,1,-1
+        x(i) = (x(i) - u1(i)*x(i+2))/d(i)
     enddo
     return
 end subroutine
 
-subroutine solve_twodia_2d(d,u1,x,axis,n,m)
+
+subroutine solve_fdma(d,u1,u2,l,x,axis,n)
 ! =====================================================
-! Solve Ax = b, along axis
-! where A is a banded matrix filled on
-! the main diagonal and a upper diagonal with offset 2
-! This arises in Helmholtz like problems when discre-
-! tized with chebyshev polynomials
+! Solve Ax = b, where A 
+! 4-diagonal matrix with diagonals in offsets -2, 0, 2, 4
 !
 ! d: N
 !     diagonal
 ! u1: N-2
+!     Diagonal with offset +2
+! u2: N-4
+!     Diagonal with offset +4
+! l:  N-2
 !     Diagonal with offset -2
-! x: array ndim==2
+! x: array ndim==1
 !     rhs
-! axis: int
-!     Solve along axis
+! axis : int 
+!    (not used in 1d)
 ! =====================================================
-    integer, intent(in)   :: n,m,axis
-    real(8), intent(in)  :: d(n),u1(n-2)
-    real(8), intent(inout):: x(n,m)
-    integer :: i,k
-    if (axis==0) then
-        do k=1,m
-            x(1,k) = x(1,k)/d(1)
-            x(2,k) = x(2,k)/d(2)
-            do i=3,n
-                x(i,k) = (x(i,k) - u1(i-2)*x(i-2,k))/d(i)
-            enddo
-        enddo
-    elseif (axis==1) then
-        do k=1,m
-            x(k,1) = x(k,1)/d(1)
-            x(k,2) = x(k,2)/d(2)
-            do i=3,n
-                x(k,i) = (x(k,i) - u1(i-2)*x(k,i-2))/d(i)
-            enddo
-        enddo
-    endif
+    integer, intent(in)   :: n,axis
+    real(8), intent(in)  :: d(n),u1(n-2),u2(n-4),l(n-2)
+    real(8), intent(inout):: x(n)
+    integer :: i
+
+    do i=3,n
+        x(i) = x(i) - l(i-2)*x(i-2)
+    enddo
+
+    x(n) = x(n)/d(n)
+    x(n-1) = x(n-1)/d(n-1)
+    x(n-2) = (x(n-2) - u1(n-2)*x(n-0))/d(n-2)
+    x(n-3) = (x(n-3) - u1(n-3)*x(n-1))/d(n-3)
+    do i=n-4,1,-1
+        x(i) = (x(i) - u1(i)*x(i+2) - u2(i)*x(i+4))/d(i)
+    enddo
     return
 end subroutine
 

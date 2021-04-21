@@ -3,65 +3,56 @@ from pypde.bases.chebyshev import *
 import unittest
 from test.timer import timeit 
 from numpy.linalg import solve
-import scipy.sparse as sp
-import scipy.sparse.linalg as sla
+from pypde.solver.fortran import linalg as lafort
 
-N = 1000    # Grid size
+N = 2000    # Grid size
 RTOL = 1e-3 # np.allclose tolerance
 
-class TestPoissonCheb(unittest.TestCase):
+class TestPoissonChebNPI(unittest.TestCase):
     def setUp(self):
         self.CD = ChebDirichlet(N)
 
     def f(self,x):
-        return np.cos(1*np.pi/2*x)
+        return np.sin(1*np.pi/2*x)
 
     def fsol(self,x):
-        return -np.cos(1*np.pi/2*x)*(1*np.pi/2)**-2
+        return -np.sin(1*np.pi/2*x)*(1*np.pi/2)**-2
 
     
     @classmethod
     @timeit
     def setUpClass(cls):
-        print("------------------------")
-        print("     Solve Poisson      ")
-        print("------------------------")
+        print("----------------------------------------------------")
+        print("     Solve Poisson (Neumann) - Pseudoinverse      ")
+        print("----------------------------------------------------")
         """ 
         Calculate fftws only once to test solver independently
         """
-        super(TestPoissonCheb, cls).setUpClass()
-        CD = ChebDirichlet(N)
-        cls.CD = CD
+        super(TestPoissonChebNPI, cls).setUpClass()
+        CD = ChebNeumann(N)
+        CH = Chebyshev(N)
+        cls.CD,cls.CD = CD,CH
         x =  CD.x
-        I  = CD.mass.toarray()
-        D2 = CD.stiff.toarray()
-        
+        D  = CH.spec_deriv_mat(2)
+        B  = CH.spec_deriv_mat_inverse(2)
+        S  = CD.stencil(True) # Transform stencil
+
         # Spectral space
-        cls.rhs = I@CD.forward_fft(cls.f(cls,x))
-        cls.lhs = D2
-        cls.lhssp = sp.triu(cls.lhs).tocsr()
+        cls.rhs = (B@CH.forward_fft(cls.f(cls,x)))[2:]
+        cls.lhs = (B@D@S)[2:,:]
+
+        cls.d = np.diag(cls.lhs,0)
+        cls.u1 = np.diag(cls.lhs,2)
+
         cls.solhat = CD.forward_fft(cls.fsol(cls,x))
         print("Initialization finished.")
         
     @timeit
     def test_1d(self):
-        print("\n ** 1-D (Solve) **  ")
+        print("\n ** Solve **  ")
 
-        uhat = solve(self.lhs,self.rhs)
-
-        norm = np.linalg.norm( uhat-self.solhat )
-        print(" |pypde - analytical|: {:5.2e}"
-            .format(norm))
-
-        assert np.allclose(uhat,self.solhat, rtol=RTOL)
-
-
-    @timeit
-    def test_1d_sparse(self):
-        print("\n ** 1-D (Sparse) **  ")
-
-        # Solve
-        uhat = sla.spsolve(self.lhssp,self.rhs)
+        uhat = np.zeros(self.rhs.size)
+        uhat[1:] = solve(self.lhs[1:,1:],self.rhs[1:])
 
         norm = np.linalg.norm( uhat-self.solhat )
         print(" |pypde - analytical|: {:5.2e}"
@@ -69,13 +60,15 @@ class TestPoissonCheb(unittest.TestCase):
 
         assert np.allclose(uhat,self.solhat, rtol=RTOL)
 
-
     @timeit
-    def test_1d_triangular(self):
-        from scipy.linalg import solve_triangular
-        print("\n ** 1-D (Triangular) **  ")
+    def test_banded(self):
+        print("\n ** Banded **  ")
 
-        uhat = solve_triangular(self.lhs,self.rhs)
+        _twodia = lafort.tridiagonal.solve_tdma
+
+        uhat = np.zeros(self.rhs.size)
+        uhat[1:] = self.rhs[1:]
+        _twodia(self.d[1:],self.u1[1:],uhat[1:],0)
 
         norm = np.linalg.norm( uhat-self.solhat )
         print(" |pypde - analytical|: {:5.2e}"

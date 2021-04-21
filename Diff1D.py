@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pypde.field import Field
 from pypde.utils.memoize import memoized
-from pypde.bases.chebyshev import ChebDirichlet
+from pypde.bases.chebyshev import ChebDirichlet,Chebyshev
 from pypde.solver.matrix import *
 from pypde.solver.operator import *
 from pypde.solver.base import SolverBase
@@ -26,6 +26,7 @@ class Diffusion1D(SolverBase):
         self.field = Field(self.N)   # Field variable
         self.time = 0.0              # Time
         self.xf = ChebDirichlet(self.N+2,bc=(0,0))   # Basis in x
+        self.CH = Chebyshev(self.N+2)
         self.x  = self.xf.x          # X-coordinates
     
     @property
@@ -43,11 +44,14 @@ class Diffusion1D(SolverBase):
         '''
         (I-alpha*dt*D2) u = rhs
         '''
-        D2 = self.xf.stiff.toarray()
-        M  = self.xf.mass.toarray()
+        D  = self.CH.spec_deriv_mat(2)
+        B  = self.CH.spec_deriv_mat_inverse(2)
+        S  = self.xf.stencil(True) # Transform stencil
+        M  = (B@S)[2:,:]
+        D2 = (B@D@S)[2:,:]
         A = M - self.dt*(self.kappa*D2)
         A = MatrixLHS(A,ndim=self.ndim,axis=0,
-            solver="uptria2")
+            solver="fdma")
         return LHSImplicit(A)
     
     @property
@@ -57,7 +61,10 @@ class Diffusion1D(SolverBase):
         lhs = dt*f + u
         only dt*f is stored initially, u is updated in update()
         '''
-        M  = self.xf.mass.toarray()
+        B  = self.CH.spec_deriv_mat_inverse(2)
+        S  = self.xf.stencil(True) # Transform stencil
+        M  = (B@S)[2:,:]
+
         fhat = self.dt*self.xf.forward_fft(self._f())
         b = RHSExplicit(f=fhat)
         b.add_PM(MatrixRHS(M,axis=0))
@@ -89,7 +96,10 @@ class Diffusion1D(SolverBase):
         TIMER[1]+=tic-toc
         self.update_time()
 
-D = Diffusion1D(N=2500,dt=0.1,tsave=0.1)
+D = Diffusion1D(N=4500,dt=0.001,tsave=0.1)
+# L = D.LHS.A[0].A
+# plt.spy(L)
+# plt.show()
 #D.update()
 
 st=time.perf_counter()

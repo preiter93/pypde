@@ -59,10 +59,7 @@ class MatrixRHS(MatrixBase):
     def __init__(self,A,axis=0):
         MatrixBase.__init__(self,A,axis,sparse=True)  
 
-
-from scipy.linalg import solve_triangular as sp_triangular
 from pypde.solver.fortran import linalg as lafort
-from pypde.bases.solver.tdma import solve_twodma
 
 class MatrixLHS(MatrixBase):
     '''
@@ -82,16 +79,16 @@ class MatrixLHS(MatrixBase):
         
         solver: str (default='solve')
             'solve' : General solver np.linalg.solver(A,b)
-            'diag'  :  A is filled only on the main diagonal
-            'uptria':  A is upper triangular
-            'uptria2': A is upper triangular with 1 lower
-                subdiagonal shifted by 2. Arising in HelmholtzProblem
+            'tdma': A is banded with diagonals in offsets  0, 2
+            'fdma': A is banded with diagonals in offsets -2, 0, 2, 4
             
     '''
     all_methods = [
         "solve",
-        "uptria",
-        "uptria2",
+        #"uptria",
+        #"uptria2",
+        "tdma",
+        "fdma"
     ]
     def __init__(self,A,ndim,axis,sparse=False,solver="solve"):
         MatrixBase.__init__(self,A,axis,sparse=sparse)
@@ -104,12 +101,16 @@ class MatrixLHS(MatrixBase):
             self.solve = self.solver_solve
         if solver in ["uptria"]:
             self.solve = self.solve_uptria
-        if solver in ["uptria2"]:
-            L,U = self._lu_decomp(self.A)
-            self.U = U
-            self.d, self.u1 = np.diag(L), np.diag(L,-2)
-            self.solve = self.solve_uptria2
-        
+        if solver in ["fdma"]:
+            L = self.A
+            self.d, self.u1 = np.diag(L).copy(),np.diag(L,+2).copy()
+            self.solve = self.solve_tdma
+        if solver in ["fdma"]:
+            L = self.A
+            self.d, self.u1 = np.diag(L).copy(),    np.diag(L,+2).copy()
+            self.u2, self.l = np.diag(L,+4).copy(), np.diag(L,-2).copy()
+            FDMA_LU(self.l, self.d, self.u1, self.u2)
+            self.solve = self.solve_fdma
 
     def solver_solve(self,b):
         ''' 
@@ -121,69 +122,29 @@ class MatrixLHS(MatrixBase):
         elif self.axis==1:
             assert b.ndim > 1
             return np.linalg.solve(self.A,b.T)
-        
-    def solve_uptria(self,b):
-        ''' 
-        Solve Ax=b, where A is upper triangular
-        '''
-        if self.axis==1:
-            assert b.ndim > 1
 
-        return self._triangular(self.A, b,self.axis)
+    def solve_tdma(self,b):
+        self._tdma(self.d,self.u1,b,0)
+        return b
 
-    def solve_uptria2(self,b):
-        ''' 
-        Solve Ax=b, where A is triangular with 
-        only 1 subdiagonal.
-            | 1  2   3   4 |
-            |    1   2   3 |
-        A = | 2      1   2 |
-            |    2       1 |
-        LU Decomposition of A gives a diagonal
-        banded matrix L and upper triangular matrix U
-        '''
-        if self.axis==1:
-            assert b.ndim > 1
-        self._twodia(self.d,self.u1,b,self.axis)
-        if self.ndim==2:
-            if self.axis==0:
-                return self._triangular(self.U, b)
-            elif self.axis==1:
-                return self._triangular(self.U, b.T)
-        else:
-            return self._triangular(self.U, b,self.axis)
+    def solve_fdma(self,b):
+        self._fdma(self.d,self.u1,self.u2,self.l,b,0)
+        return b
         
     def set_subsolver(self):
-        from scipy.linalg import solve_triangular
-        if self.ndim==1:
-            # fortrans triangular is faster in 1 dimension
-            self._triangular = lafort.triangular.solve_1d
-            self._twodia = lafort.tridiagonal.solve_twodia_1d
-        elif self.ndim == 2:
-            #self._triangular = lafort.triangular.solve_2d
-            # scipys solve_triangular is faster in 2 dimensions
-            self._triangular = solve_triangular
-            self._twodia = lafort.tridiagonal.solve_twodia_2d
+        self._tdma = lafort.tridiagonal.solve_tdma
+        self._fdma = lafort.tridiagonal.solve_fdma
 
     def _lu_decomp(self,A):
         ''' LU Decomposition of A'''
         from scipy.linalg import lu
         P,L,U = lu(A)
-        return L,U
 
 
-def TwoDMA_SolveU(d, u1, x, axis=0):
-    ''' 
-    d: N
-        diagonal
-    u1: N-2
-        Diagonal with offset -2
-    x: array ndim==1
-        rhs
-    '''
-    assert x.ndim == 1, "Use optimized version for multidimensional solve"
-    n = d.shape[0]
-    x[0] = x[0]/d[0]
-    x[1] = x[1]/d[1]
-    for i in range(2,n - 1):
-        x[i] = (x[i] - u1[i-2]*x[i-2])/d[i]
+def FDMA_LU(ld, d, u1, u2):
+        n = d.shape[0]
+        for i in range(2, n):
+            ld[i-2] = ld[i-2]/d[i-2]
+            d[i] = d[i] - ld[i-2]*u1[i-2]
+            if i < n-2:
+                u1[i] = u1[i] - ld[i-2]*u2[i-2]

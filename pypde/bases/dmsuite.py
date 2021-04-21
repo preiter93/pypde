@@ -281,6 +281,44 @@ def diff_recursion_spectral(c,deriv):
         a[0,ell]=a[1,ell-1]+a[2,ell]/2
     return a[:,deriv]
 
+def pseudoinverse_spectral(N,deriv=2):
+    '''Pseudoinverse Operator for chebyshev spectral
+    differentiation parameters 
+    (pseudoinverse of diff_mat_spectral(), see above)
+
+    Second order equations preconditioned with the
+    pseudoinverse become banded.
+
+    Literature:
+    Sahuck Oh - An Efficient Spectral Method to SolveMulti-Dimensional 
+    Linear Partial Different EquationsUsing Chebyshev Polynomials
+
+
+    Input:
+        N: int
+            Number of grit points
+        deriv: int
+            Order of derivative. Only 2 is supported
+            at the momen
+
+    Output:
+        ndarray (N x N)
+            Derivative matrix, must be applied in spectral
+            space to chebyshev coefficients array
+            '''
+    from scipy.sparse import diags
+
+    diag0 = np.zeros(N)
+    diag0[2:-2] = np.array([-1/(2*(i**2-1)) for i in range(2,N-2)]) 
+
+    diag1 = np.zeros(N-2)
+    diag1[2:-2] = np.array([1/(4*i*(i+1)) for i in range(2,N-4)]) 
+
+    diag2 = np.zeros(N-2)
+    diag2[:] = np.array([1/(4*i*(i-1)) for i in range(2,N)]) 
+    diag2[0] *=2
+    return diags([diag2, diag0, diag1], [-2, 0, 2]).toarray()
+
 # ------------------------------------------------
 # Unused Routines
 # ------------------------------------------------

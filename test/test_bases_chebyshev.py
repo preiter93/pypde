@@ -257,3 +257,71 @@ class TestBasesChebDirichlet2D(unittest.TestCase):
 
         assert np.allclose(y,u, rtol=RTOL)
         assert np.allclose(uu[:,0],uu[:,1], rtol=RTOL)
+
+class TestBasesChebNeumann(unittest.TestCase):
+
+    def setUp(self):
+        self.CD = ChebNeumann(N)
+        self.x = self.CD.x
+
+    @classmethod
+    def setUpClass(cls):
+        print("----------------------------")
+        print(" Test: ChebNeumann Basis  ")
+        print("----------------------------")
+
+    @timeit
+    def test_chebyshev_dct(self):
+        print("\n ** Forward & Backward via DCT **  ")
+        from numpy.polynomial.chebyshev import Chebyshev as Chebnumpy
+        # Test projection
+        arg = 2*np.pi/2
+        y = np.sin(arg*self.x)+np.cos(arg*self.x)
+        yhat = self.CD.forward_fft(y)
+        u = self.CD.backward_fft(yhat)
+        
+        # Compare with numpy chebyshev
+        # Transform to Chebyshev coefficients
+        yhat = self.CD._to_chebyshev(yhat) 
+        cn = Chebnumpy(yhat)
+        norm = np.linalg.norm( cn(self.x)-u )
+        
+        print("|pypde - numpy|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(cn(self.x),u, rtol=RTOL)
+        assert np.allclose(y[1:-1],u[1:-1], rtol=RTOL)
+
+    @timeit
+    def test_chebyshev_derivative1(self):
+        print("\n ** 1.Derivative **  ")
+        deriv = 1
+        # Test projection
+        arg = 2*np.pi/2
+        y = +np.cos(arg*self.x)
+        dyc = self.CD.derivative(y,deriv)
+
+        # Compate with analytical solution chebyshev
+        dy = -arg**deriv*np.sin(arg*self.x)#-arg**deriv*np.sin(arg*self.x)
+        norm = np.linalg.norm( dyc-dy )
+        print("fft |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(dyc,dy, rtol=RTOL)
+
+    @timeit
+    def test_chebyshev_derivative1_fail(self):
+        print("\n ** 1.Derivative (should fail) **  ")
+        deriv = 1
+        # Test projection
+        arg = 2*np.pi/2
+        y = np.sin(arg*self.x)+np.cos(arg*self.x)
+        dyc = self.CD.derivative(y,deriv)
+
+        # Compate with analytical solution chebyshev
+        dy = arg**deriv*np.cos(arg*self.x)-arg**deriv*np.sin(arg*self.x)
+        norm = np.linalg.norm( dyc-dy )
+        print("fft |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert not np.allclose(dyc,dy, rtol=RTOL)
