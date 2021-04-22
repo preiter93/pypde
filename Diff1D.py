@@ -26,8 +26,15 @@ class Diffusion1D(SolverBase):
         self.field = Field(self.N)   # Field variable
         self.time = 0.0              # Time
         self.xf = ChebDirichlet(self.N+2,bc=(0,0))   # Basis in x
-        self.CH = Chebyshev(self.N+2)
         self.x  = self.xf.x          # X-coordinates
+
+        # -- Matrices ------
+        D = Chebyshev(self.N+2).D(2)
+        B = Chebyshev(self.N+2).B(2)
+        S = self.xf.S
+        self.M =  (B@S)[2:,:]
+        self.D2 = (B@D@S)[2:,:]
+        
     
     @property
     def v(self):
@@ -44,12 +51,7 @@ class Diffusion1D(SolverBase):
         '''
         (I-alpha*dt*D2) u = rhs
         '''
-        D  = self.CH.spec_deriv_mat(2)
-        B  = self.CH.spec_deriv_mat_inverse(2)
-        S  = self.xf.stencil(True) # Transform stencil
-        M  = (B@S)[2:,:]
-        D2 = (B@D@S)[2:,:]
-        A = M - self.dt*(self.kappa*D2)
+        A = self.M - self.dt*(self.kappa*self.D2)
         A = MatrixLHS(A,ndim=self.ndim,axis=0,
             solver="fdma")
         return LHSImplicit(A)
@@ -61,13 +63,10 @@ class Diffusion1D(SolverBase):
         lhs = dt*f + u
         only dt*f is stored initially, u is updated in update()
         '''
-        B  = self.CH.spec_deriv_mat_inverse(2)
-        S  = self.xf.stencil(True) # Transform stencil
-        M  = (B@S)[2:,:]
 
         fhat = self.dt*self.xf.forward_fft(self._f())
         b = RHSExplicit(f=fhat)
-        b.add_PM(MatrixRHS(M,axis=0))
+        b.add_PM(MatrixRHS(self.M,axis=0))
         return b
         
     def _f(self):
@@ -96,7 +95,7 @@ class Diffusion1D(SolverBase):
         TIMER[1]+=tic-toc
         self.update_time()
 
-D = Diffusion1D(N=4500,dt=0.001,tsave=0.1)
+D = Diffusion1D(N=50,dt=0.001,tsave=0.1)
 # L = D.LHS.A[0].A
 # plt.spy(L)
 # plt.show()
@@ -111,9 +110,9 @@ print("RHS:   {:5.4f}".format(TIMER[0]))
 print("LHS:   {:5.4f}".format(TIMER[1]))
 print("Total: {:5.4f}".format(en-st))
 
-# # Transfer stored fields to real space
-# for i,vv in enumerate(D.field.V):
-#     D.field.V[i] = D.xf.backward_fft(vv)
+# Transfer stored fields to real space
+for i,vv in enumerate(D.field.V):
+    D.field.V[i] = D.xf.backward_fft(vv)
 
-# anim = D.field.animate(D.x,duration=4)
-# plt.show()
+anim = D.field.animate(D.x,duration=4)
+plt.show()

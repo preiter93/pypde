@@ -79,6 +79,12 @@ class Chebyshev(SpectralBase):
         ''' Collocation derivative matrix, must be applied in physical space.'''
         return chebdif(self.N,deriv)[1]
 
+    def D(self,deriv):
+        return self.spec_deriv_mat(deriv)
+
+    def B(self,deriv):
+        return self.spec_deriv_mat_inverse(deriv)
+
     @memoized
     def spec_deriv_mat(self,deriv):
         ''' 
@@ -146,6 +152,10 @@ class GalerkinChebyshev(SpectralBase):
         Can be overwritten in child classes
         '''
         return slice(0, self.N-2)
+
+    @property
+    def S(self):
+        return self.stencil(True)
 
     def stencil(self,inv=False):
         ''' 

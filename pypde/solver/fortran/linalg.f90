@@ -1,2 +1,2 @@
-include "triangular.f90"
-include "tridiagonal.f90"
+!include "triangular.f90"
+include "diagonal.f90"
