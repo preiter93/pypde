@@ -255,33 +255,33 @@ class MatrixLHS(MatrixBase):
         from scipy.linalg import lu
         P,L,U = lu(A)
 
-    def solve_poisson2(self,b):
-        '''
-        Pure Numpy version of solve_poisson.
-        Following type of equation arises in 2D Poisson problems: 
+    # def solve_poisson2(self,b):
+    #     '''
+    #     Pure Numpy version of solve_poisson.
+    #     Following type of equation arises in 2D Poisson problems: 
                     
-                (M*diag(lam_i) + D) u_i = f_i
-        where
-            M: matrix with diagonals in offsets -2, 0, 2, 4
-            D: matrix with diagonals in offsets  0, 2
-            lam: array of size b.shape[1] (b.shape[0]) if axis=0 (axis=1) 
-        '''
-        _fdma = lafort.tridiagonal.solve_fdma
-        m = b.shape[1] if self.axis==0 else b.shape[0]
-        n = b.shape[0] if self.axis==0 else b.shape[1]
-        assert self.lam.size == m, \
-        "Size of eigenvalue array does not match!"
-        w = self.lam
-        uhat = np.zeros((n,m))
-        for i in range(m):
-            W = np.eye(n)*w[i]
-            A = self.A@W + self.C
-            l,d,u1,u2 = self._init_fmda(A,False)
-            bb = b[:,i] if self.axis==0 else b[i,:]
-            #uhat[:,i] = np.linalg.solve(A,bb)
-            _fdma(d,u1,u2,l,bb); uhat[:,i] = bb
+    #             (M*diag(lam_i) + D) u_i = f_i
+    #     where
+    #         M: matrix with diagonals in offsets -2, 0, 2, 4
+    #         D: matrix with diagonals in offsets  0, 2
+    #         lam: array of size b.shape[1] (b.shape[0]) if axis=0 (axis=1) 
+    #     '''
+    #     _fdma = lafort.tridiagonal.solve_fdma
+    #     m = b.shape[1] if self.axis==0 else b.shape[0]
+    #     n = b.shape[0] if self.axis==0 else b.shape[1]
+    #     assert self.lam.size == m, \
+    #     "Size of eigenvalue array does not match!"
+    #     w = self.lam
+    #     uhat = np.zeros((n,m))
+    #     for i in range(m):
+    #         W = np.eye(n)*w[i]
+    #         A = self.A@W + self.C
+    #         l,d,u1,u2 = self._init_fmda(A,False)
+    #         bb = b[:,i] if self.axis==0 else b[i,:]
+    #         #uhat[:,i] = np.linalg.solve(A,bb)
+    #         _fdma(d,u1,u2,l,bb); uhat[:,i] = bb
             
-        return uhat if self.axis==0 else uhat.T
+    #     return uhat if self.axis==0 else uhat.T
 
 def FDMA_LU(ld, d, u1, u2):
         n = d.shape[0]
