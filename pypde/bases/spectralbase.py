@@ -121,3 +121,35 @@ class SpectralBase():
         if sl is None: sl=self.slice()
         return (self.get_basis_derivative(i,k) 
             for i in range(self.N)[self.slice()])
+
+
+    # -- For PseudoInverse Method ------
+
+    def D(self,deriv):
+        if hasattr(self,"dmat_spectral"):
+            return self.dmat_spectral(deriv)
+        else:
+            raise NotImplementedError
+
+    def B(self,deriv,discard=True):
+        if hasattr(self,"dmat_spectral_inverse"):
+            if not discard:
+                return self.dmat_spectral_inverse(deriv)
+            return self._discard(self.dmat_spectral_inverse(deriv))
+        else:
+            raise NotImplementedError
+
+    def J(self,discard=True):
+        '''  Pseudo identity matrix where first two entries are zero'''
+        I = np.eye(self.N)
+        I[0,0] = I[1,1] = 0
+        if hasattr(self,"stencil"):
+            I = I@self.stencil(True)
+        if not discard:
+            return I
+        return self._discard(I)
+
+    @staticmethod
+    def _discard(A):
+        ''' Discard first two rows'''
+        return A[2:,:]

@@ -6,7 +6,7 @@ from ..utils.memoize import memoized
 
 class Fourier(SpectralBase):
     """
-    Function space for Fourier 
+    Function space for Fourier transform (R2C)
     .. math::
         s_k = a/2 + ak*(cos(k*x)) + bk*(sin(k*x))
         x_k = 2*np.pi*k/N; k=0..N
@@ -17,13 +17,59 @@ class Fourier(SpectralBase):
         
     """
     def __init__(self,N):
+        assert N%2==0, "Fourier dim should be even"
         x = 2*pi*np.arange(N)/N
         SpectralBase.__init__(self,N,x)
+        self.id = "FO" 
+        self.family_id = "FO"
+
+    @property
+    def _k(self):
+        return np.fft.rfftfreq(self.N,d=(1.0 / self.N )).astype(int)
 
     @property
     def k(self):
         ''' wavenumber vector '''
-        return np.fft.fftfreq(self.N,d=(1.0 / self.N ))
+        k = self._k
+        if self.N % 2 == 0:
+            k[self.N//2] = 0 
+        return k
+
+    def forward_fft(self,f,axis=0):
+        return np.fft.rfft(f,axis=axis)
+
+    def backward_fft(self,c,axis=0):
+        return np.real(  np.fft.irfft(c,axis=axis) )
+
+    def get_basis(self, i=0, x=None):
+        if x is None: x = self.x
+        k = self._k[i]
+        return np.exp(1j*x*k)
+
+    def get_basis_derivative(self, i=0, k=0, x=None):
+        l = self._k[i]
+        output = ((1j*l)**k)*self.get_basis(i,x)
+        return output
+
+    def slice(self):
+        ''' R2C '''
+        return slice(0, self.N//2+1)
+
+    @memoized
+    def dmat_spectral(self,deriv):
+        ''' 
+        Fourier differentation matrix, applied in spectral space.
+        '''
+        return np.diag((1j*self._k)**deriv)
+
+    @memoized
+    def dmat_spectral_inverse(self,deriv):
+        ''' 
+        Pseudoinverse of dmat_spectral. Since dmat_spectral is diagonal
+        the inverse will be B = 1/diag(D) but with a zero element on B[0,0]
+        '''
+        k_inv = [0 if i==0 else 1/(1j*k)**deriv for i,k in enumerate(self._k)]
+        return np.diag( k_inv )
 
     @memoized
     def colloc_deriv_mat(self,deriv):
@@ -40,32 +86,7 @@ class Fourier(SpectralBase):
         elif method in ("dm", "physical"):
             return self.colloc_deriv_mat(deriv)@f
 
-    def forward_fft(self,f):
-        return np.fft.fft(f)
-
-    def backward_fft(self,c):
-        return np.real(  np.fft.ifft(c) )
-
-    def project(self):
-        raise NotImplementedError
-
-    def evaluate(self):
-        raise NotImplementedError
-
-    def _mass(self):
-        raise NotImplementedError
-    
-    def _stiff(self):
-        raise NotImplementedError
-
-    def get_basis(self):
-        raise NotImplementedError
-
-    def get_basis_derivative(self):
-        raise NotImplementedError
-
-    def iter_basis(self):
-        raise NotImplementedError
-
-    def iter_deriv(self):
-        raise NotImplementedError
+    @staticmethod
+    def _discard(A):
+        ''' Discard'''
+        return A[:,:]

@@ -138,7 +138,7 @@ def animate_wireframe(x,y,Z,**kwargs):
 	assert len(x.shape)==1
 	assert len(y.shape)==1
 	assert len(Z.shape)==3
-	xx,yy = np.meshgrid(x,y)
+	xx,yy = np.meshgrid(x,y,indexing="ij")
 	fig = plt.figure()
 	ax = plt.axes(projection='3d')
 	ax.set_xlim((np.amin(x),np.amax(x)))

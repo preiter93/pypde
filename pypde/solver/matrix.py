@@ -129,10 +129,6 @@ class MatrixLHS(MatrixBase):
             self.solve = self.solve_tdma if self.ndim==1 else self.solve_tdma2d
 
         if solver in ["fdma"]:
-            # L = self.A
-            # self.d, self.u1 = np.diag(L).copy(),    np.diag(L,+2).copy()
-            # self.u2, self.l = np.diag(L,+4).copy(), np.diag(L,-2).copy()
-            # FDMA_LU(self.l, self.d, self.u1, self.u2)
             self.l,self.d,self.u1,self.u2 = self._init_fmda(self.A,True)
             self.solve = self.solve_fdma if self.ndim==1 else self.solve_fdma2d
 

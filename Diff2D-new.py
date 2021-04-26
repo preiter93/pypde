@@ -1,6 +1,6 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-from pypde.field import Field
+from pypde.field import SpectralField
 from pypde.utils.memoize import memoized
 from pypde.bases.chebyshev import Chebyshev, ChebDirichlet
 from pypde.solver.matrix import *
@@ -22,33 +22,48 @@ class Diffusion2D(SolverBase):
         self.__dict__.update(**self.CONFIG)
         self.update_config(**kwargs)
         
-        shape = (self.N,self.N)
-        self.field = Field(shape)   # Field variable
+        shape = (self.N+2,self.N+2)
+        self.field = SpectralField(shape, ("CD","CN"))
         self.time = 0.0              # Time
-        self.xf = ChebDirichlet(self.N+2,bc=(0,0))   # Basis in x
-        self.x  = self.xf.x          # X-coordinates
     
     @property
     def v(self):
         '''  Main variable (dv/dt) '''
-        return self.field.v
+        return self.field.vhat
     
     @v.setter
     def v(self,value):
-        self.field.v = value
-        
+        self.field.vhat = value
+    
+    @property
+    def x(self):
+        return self.field.x
+
+    @property
+    def y(self):
+        return self.field.y
+
     @property
     @memoized
     def LHS(self):
         '''
         (I-alpha*dt*D2) u = rhs
         '''
-        D2 = self.xf.stiff.toarray()
-        M  = self.xf.mass.toarray()
+        D2 = self.field.xs[0].stiff.toarray()
+        M  = self.field.xs[0].mass.toarray()
         A = M - self.dt*(self.kappa*D2)
         A1 = MatrixLHS(A,ndim=self.ndim,axis=0,solver="solve")
-        LHS = LHSImplicit(A1)
+
+        D2 = self.field.xs[1].stiff.toarray()
+        M  = self.field.xs[1].mass.toarray()
+        #D2 = self.field.xs[1].D(2)
+        #M  = np.eye(self.field.xs[1].M)
+        A = M - self.dt*(self.kappa*D2)
+        plt.spy(A)
+        plt.show()
         A2 = MatrixLHS(A,ndim=self.ndim,axis=1,solver="solve")
+        
+        LHS = LHSImplicit(A1)
         LHS.add(A2)
         return LHS
     
@@ -59,27 +74,26 @@ class Diffusion2D(SolverBase):
         lhs = dt*f + u
         only dt*f is stored initially, u is updated in update()
         '''
-        M  = self.xf.mass.toarray()
-        fhat = self._f()
-        fhat = self.xf.forward_fft(self._f())
-        fhat = self.xf.forward_fft(fhat.T).T
+        fhat = self.field.forward(self._f())
         fhat *= self.dt
         
         b = RHSExplicit(f=fhat)
-        b.add_PM(MatrixRHS(M,axis=0))
-        b.add_PM(MatrixRHS(M,axis=1))
+        b.add_PM(MatrixRHS(self.field.xs[0].mass.toarray(),axis=0))
+        b.add_PM(MatrixRHS(self.field.xs[1].mass.toarray(),axis=1))
         return b
         
     def _f(self):
         ''' Forcing Functions'''
-        xx,yy = np.meshgrid(self.x,self.x)
-        return np.cos(1*np.pi/2*xx)#*np.cos(1*np.pi/2*yy)
+        xx,yy = np.meshgrid(self.x,self.y,indexing="ij")
+        return np.cos(1*np.pi/2*xx)*np.cos(1*yy)
         
     def update_config(self,**kwargs):
         self.__dict__.update(**kwargs)
         
     def set_bc(self):
-        self.v[ [-2,-1] ] = 0.0
+        #self.v[ [0],: ] = 0.0 # For neumann
+        #self.v[ :,[0] ] = 0.0
+        pass
         
     def update(self):
         ''' 
@@ -96,7 +110,7 @@ class Diffusion2D(SolverBase):
         TIMER[1]+=tic-toc
         self.update_time()
 
-D = Diffusion2D(N=40,dt=0.01,tsave=0.05)
+D = Diffusion2D(N=20,dt=0.1,tsave=0.05)
 #D.update()
 st=time.perf_counter()
 D.iterate(1.0)
@@ -106,12 +120,8 @@ print("Elapsed time:")
 print("RHS:   {:5.4f}".format(TIMER[0]))
 print("LHS:   {:5.4f}".format(TIMER[1]))
 print("Total: {:5.4f}".format(en-st))
-# Transfer stored fields to real space
-for i,vv in enumerate(D.field.V):
-    D1 = D.xf.backward_fft(vv)
-    D.field.V[i] = D.xf.backward_fft(D1.T).T
 
-anim = D.field.animate(D.x,D.x,duration=4)
+anim = D.field.animate(D.x,D.y,duration=4)
 plt.show()
 
 

@@ -46,12 +46,6 @@ class Chebyshev(SpectralBase):
             basis = basis.deriv(k)
         return basis(x)
     
-    # @property
-    # def _mass(self):
-    #     ''' Sparse Mass matrix <Ti*Tj>_w,
-    #     the same as mass in Parent SpectralBase'''
-    #     return diags([1.0, *[0.5]*(self.N-2), 1.0],0)
-    
     @property
     def _mass_inv(self):
         return diags([1.0, *[2.0]*(self.N-2), 1.0],0)
@@ -79,24 +73,18 @@ class Chebyshev(SpectralBase):
         ''' Collocation derivative matrix, must be applied in physical space.'''
         return chebdif(self.N,deriv)[1]
 
-    def D(self,deriv):
-        return self.spec_deriv_mat(deriv)
-
-    def B(self,deriv):
-        return self.spec_deriv_mat_inverse(deriv)
-
     @memoized
-    def spec_deriv_mat(self,deriv):
+    def dmat_spectral(self,deriv):
         ''' 
         Chebyshev differentation matrix. Applied in spectral space.
-        Action is equivalent to differentiation via recursion by diff_recursion_spectral
+        It is equivalent to differentiation via recursion by diff_recursion_spectral
         '''
         return diff_mat_spectral(self.N,deriv)
 
     @memoized
-    def spec_deriv_mat_inverse(self,deriv):
+    def dmat_spectral_inverse(self,deriv):
         ''' 
-        Pseudoinverse of spec_deriv_mat. If equations are multiplied
+        Pseudoinverse of dmat_spectral. If equations are multiplied
         with this matrix, they often become banded
         '''
         assert deriv==2, "Only deriv==2 supported"
@@ -152,10 +140,6 @@ class GalerkinChebyshev(SpectralBase):
         Can be overwritten in child classes
         '''
         return slice(0, self.N-2)
-
-    @property
-    def S(self):
-        return self.stencil(True)
 
     def stencil(self,inv=False):
         ''' 
@@ -271,6 +255,25 @@ class GalerkinChebyshev(SpectralBase):
         dc = diff_recursion_spectral(c,deriv)
         return Chebyshev.backward_fft(self,dc)
 
+
+    @memoized
+    def dmat_spectral(self,deriv):
+        '''  See Chebyshev (Not sure if this is general)'''
+        return (Chebyshev(self.N).dmat_spectral(deriv)@self.stencil(True))
+
+    @memoized
+    def dmat_spectral_inverse(self,deriv):
+        '''  See Chebyshev (Not sure if this is general)'''
+        return Chebyshev(self.N).dmat_spectral_inverse(deriv)@self.stencil(True)
+
+    @property
+    def S(self):
+        return self.stencil(True)
+
+    @staticmethod
+    def _discard(A):
+        ''' Discard first two rows'''
+        return A[2:,:]
 
 class ChebDirichlet(GalerkinChebyshev):
     """

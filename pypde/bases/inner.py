@@ -141,6 +141,13 @@ class InnerKnown():
             "CN^0,CN^2": self.chebneumann_stiff,
             "CN^0,CN^3": self.chebdirichlet_cube,
             "CN^0,CN^4": self.chebdirichlet_quad,
+
+            # <Fourier Fourier>
+            "FO^0,FO^0": self.fourier_mass,
+            "FO^0,FO^1": self.fourier_grad,
+            "FO^0,FO^2": self.fourier_stiff,
+            "FO^0,FO^3": self.fourier_cube,
+            "FO^0,FO^4": self.fourier_quad,
         }
 
     def check(self,u,v,ku,kv):
@@ -319,6 +326,31 @@ class InnerKnown():
                 elif (n-m)%2==0:
                     D[m,n] = -4*n**2*(m+1)/(m+2)**2
         return to_sparse(D).toarray()
+
+
+    @staticmethod
+    def fourier(u,k):
+        return diags(0.5*u._k**k,0).toarray()
+    
+    def fourier_mass(self,u=None,**kwargs):
+        ''' <Fi Fj> '''
+        return self.fourier(u=u,k=0)
+
+    def fourier_grad(self,u=None,**kwargs):
+        ''' <Fi Fj'> '''
+        return self.fourier(u=u,k=1)
+
+    def fourier_stiff(self,u=None,**kwargs):
+        ''' <Fi Fj^2> '''
+        return self.fourier(u=u,k=2)
+
+    def fourier_cube(self,u=None,**kwargs):
+        ''' <Fi Fj^3> '''
+        return self.fourier(u=u,k=3)
+
+    def fourier_quad(self,u=None,**kwargs):
+        ''' <Fi Fj^4> '''
+        return self.fourier(u=u,k=4)
 
 
 
