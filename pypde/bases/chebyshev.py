@@ -69,26 +69,34 @@ class Chebyshev(SpectralBase):
         return 0.5*dctn(f,type=1,axes=0)
 
     @memoized
-    def colloc_deriv_mat(self,deriv):
+    def dmp_collocation(self,deriv):
         ''' Collocation derivative matrix, must be applied in physical space.'''
         return chebdif(self.N,deriv)[1]
 
     @memoized
-    def dmat_spectral(self,deriv):
+    def dms(self,deriv):
         ''' 
-        Chebyshev differentation matrix. Applied in spectral space.
+        Chebyshev differentation matrix in spectral space.
         It is equivalent to differentiation via recursion by diff_recursion_spectral
         '''
         return diff_mat_spectral(self.N,deriv)
 
     @memoized
-    def dmat_spectral_inverse(self,deriv):
+    def pseudoinverse(self,deriv,discard=True):
         ''' 
-        Pseudoinverse of dmat_spectral. If equations are multiplied
-        with this matrix, they often become banded
+        Pseudoinverse of differentiation matrix dms. 
+        Makes system banded and fast to solve.
+        Returns pseudoidentity matrix if deriv is zero
         '''
-        assert deriv==2, "Only deriv==2 supported"
-        return pseudoinverse_spectral(self.N,deriv)
+        assert deriv==2 or deriv==0, "Only deriv==2 or 0 supported"
+        discrows = 2 # Discard rows
+        if deriv==0:
+            rv = np.eye(self.N); rv[0,0] = rv[1,1] = 0
+        elif deriv==2:
+            rv = pseudoinverse_spectral(self.N,deriv)
+        if discard: 
+            return rv[discrows:,:]
+        return rv
 
     def derivative(self,f,deriv,method="fft"):
         assert method in ["fft","spectral","dm","physical"]
@@ -99,7 +107,7 @@ class Chebyshev(SpectralBase):
             #dc = diff_mat_spectral(self.N,deriv)@c
             return self.backward_fft(dc)
         elif method in ("dm", "physical"):
-            return self.colloc_deriv_mat(deriv)@f
+            return self.dmp_collocation(deriv)@f
 
 
 class GalerkinChebyshev(SpectralBase):
@@ -118,6 +126,7 @@ class GalerkinChebyshev(SpectralBase):
         self._coeff_bc = None
         # get family name
         self.family_id = "CH"
+        self.family = Chebyshev(self.N)
 
     def get_basis(self,i=0,x=None):
         return self.get_basis_derivative(i=i,k=0,x=x)
@@ -193,7 +202,7 @@ class GalerkinChebyshev(SpectralBase):
         '''  
         Transform to spectral space via DCT 
         '''
-        c = Chebyshev.forward_fft(self,f,mass=False)
+        c = self.family.forward_fft(f,mass=False)
         c = self._to_galerkin(c)
         return self._mass_inv@c
 
@@ -206,7 +215,7 @@ class GalerkinChebyshev(SpectralBase):
         if bc and self.coeff_bc is not None:
             # Add BCs along first dimension
             c = add(self._to_chebyshevbc(), c)
-        return Chebyshev.backward_fft(self,c)
+        return self.family.backward_fft(c)
 
     @property
     def bc(self):
@@ -253,27 +262,27 @@ class GalerkinChebyshev(SpectralBase):
         c = self.forward_fft(f)
         c = self._to_chebyshev(c)
         dc = diff_recursion_spectral(c,deriv)
-        return Chebyshev.backward_fft(self,dc)
+        return self.family.backward_fft(dc)
 
 
     @memoized
-    def dmat_spectral(self,deriv):
+    def dms(self,deriv):
         '''  See Chebyshev (Not sure if this is general)'''
-        return (Chebyshev(self.N).dmat_spectral(deriv)@self.stencil(True))
+        return self.family.dms(deriv)#@self.stencil(True))
 
     @memoized
-    def dmat_spectral_inverse(self,deriv):
+    def pseudoinverse(self,*args,**kwargs):
         '''  See Chebyshev (Not sure if this is general)'''
-        return Chebyshev(self.N).dmat_spectral_inverse(deriv)@self.stencil(True)
+        return self.family.pseudoinverse(*args,**kwargs)
 
-    @property
-    def S(self):
-        return self.stencil(True)
+    # @property
+    # def S(self):
+    #     return self.stencil(True)
 
-    @staticmethod
-    def _discard(A):
-        ''' Discard first two rows'''
-        return A[2:,:]
+    # @staticmethod
+    # def _discard(A):
+    #     ''' Discard first two rows'''
+    #     return A[2:,:]
 
 class ChebDirichlet(GalerkinChebyshev):
     """

@@ -56,23 +56,26 @@ class Fourier(SpectralBase):
         return slice(0, self.N//2+1)
 
     @memoized
-    def dmat_spectral(self,deriv):
+    def dms(self,deriv):
         ''' 
         Fourier differentation matrix, applied in spectral space.
         '''
         return np.diag((1j*self._k)**deriv)
 
     @memoized
-    def dmat_spectral_inverse(self,deriv):
+    def pseudoinverse(self,deriv,discard=True):
         ''' 
-        Pseudoinverse of dmat_spectral. Since dmat_spectral is diagonal
+        Pseudoinverse of dmat_spectral dms. Since dms is diagonal
         the inverse will be B = 1/diag(D) but with a zero element on B[0,0]
         '''
         k_inv = [0 if i==0 else 1/(1j*k)**deriv for i,k in enumerate(self._k)]
-        return np.diag( k_inv )
+        rv = np.diag( k_inv )
+        if discard:
+            return rv[1:,1:]
+        return rv
 
     @memoized
-    def colloc_deriv_mat(self,deriv):
+    def dmp_collocation(self,deriv):
         ''' Collocation derivative matrix, must be applied in physical space.'''
         return fourdif(self.N,deriv,L=2*pi)[1]
 
@@ -84,9 +87,9 @@ class Fourier(SpectralBase):
             c = self.forward_fft(f)
             return self.backward_fft(c*k)
         elif method in ("dm", "physical"):
-            return self.colloc_deriv_mat(deriv)@f
+            return self.dmp_collocation(deriv)@f
 
-    @staticmethod
-    def _discard(A):
-        ''' Discard'''
-        return A[:,:]
+    # @staticmethod
+    # def _discard(A):
+    #     ''' Discard'''
+    #     return A[:,:]

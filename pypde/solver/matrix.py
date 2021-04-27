@@ -14,6 +14,7 @@ class MatrixBase():
     '''
     scalar = False
     def __init__(self,A,axis=0,sparse=False):
+        self._check_input(A)
         self.sparse = sparse
         self.axis = axis
         
@@ -21,7 +22,6 @@ class MatrixBase():
         if isinstance(A,float) or isinstance(A,int):
             self.A = float(A)
             self.scalar=True
-            
         # Input is a Matrix
         elif not sp.issparse(A) and sparse:
             self.A = sp.csr_matrix(A)
@@ -54,6 +54,13 @@ class MatrixBase():
         
     def dot_sc(self,b):
         return self.A*b
+
+    def _check_input(self,A):
+        assert np.any([isinstance(A,float),
+            isinstance(A,int),
+            sp.issparse(A),
+            isinstance(A,np.ndarray)]), \
+        "MatrixBase: Input type does not match any method!"
     
 class MatrixRHS(MatrixBase):
     def __init__(self,A,axis=0):
@@ -129,7 +136,7 @@ class MatrixLHS(MatrixBase):
             self.solve = self.solve_tdma if self.ndim==1 else self.solve_tdma2d
 
         if solver in ["fdma"]:
-            self.l,self.d,self.u1,self.u2 = self._init_fmda(self.A,True)
+            self.l,self.d,self.u1,self.u2 = self._init_fdma(self.A,True)
             self.solve = self.solve_fdma if self.ndim==1 else self.solve_fdma2d
 
         if solver in ["matmul"]:
@@ -143,9 +150,9 @@ class MatrixLHS(MatrixBase):
             assert self.ndim == 2 
             self.solve = self.solve_poisson
 
-    def _init_fmda(self,A,fortran=True):
+    def _init_fdma(self,A,fortran=True):
         ''' 
-        Initialize fmda solver 
+        Initialize fdma solver 
         '''
         if fortran:
             d,u1,u2,l = lafort.tridiagonal.init_fdma(A,A.shape[0])
@@ -251,33 +258,6 @@ class MatrixLHS(MatrixBase):
         from scipy.linalg import lu
         P,L,U = lu(A)
 
-    # def solve_poisson2(self,b):
-    #     '''
-    #     Pure Numpy version of solve_poisson.
-    #     Following type of equation arises in 2D Poisson problems: 
-                    
-    #             (M*diag(lam_i) + D) u_i = f_i
-    #     where
-    #         M: matrix with diagonals in offsets -2, 0, 2, 4
-    #         D: matrix with diagonals in offsets  0, 2
-    #         lam: array of size b.shape[1] (b.shape[0]) if axis=0 (axis=1) 
-    #     '''
-    #     _fdma = lafort.tridiagonal.solve_fdma
-    #     m = b.shape[1] if self.axis==0 else b.shape[0]
-    #     n = b.shape[0] if self.axis==0 else b.shape[1]
-    #     assert self.lam.size == m, \
-    #     "Size of eigenvalue array does not match!"
-    #     w = self.lam
-    #     uhat = np.zeros((n,m))
-    #     for i in range(m):
-    #         W = np.eye(n)*w[i]
-    #         A = self.A@W + self.C
-    #         l,d,u1,u2 = self._init_fmda(A,False)
-    #         bb = b[:,i] if self.axis==0 else b[i,:]
-    #         #uhat[:,i] = np.linalg.solve(A,bb)
-    #         _fdma(d,u1,u2,l,bb); uhat[:,i] = bb
-            
-    #     return uhat if self.axis==0 else uhat.T
 
 def FDMA_LU(ld, d, u1, u2):
         n = d.shape[0]

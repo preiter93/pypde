@@ -95,8 +95,8 @@ class SpectralField(Field,SpectralSpace):
             raise ValueError("Dimension y not defined for dim<2.")
             
     def save(self):
-        v = self.backward(self.vhat)
-        self.V.append(v)
+        self.backward()
+        self.V.append(self.v)
         self.T.append(self.t)
         
     def check(self):

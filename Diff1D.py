@@ -1,6 +1,6 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-from pypde.field import Field
+from pypde.field import Field,SpectralField
 from pypde.utils.memoize import memoized
 from pypde.bases.chebyshev import ChebDirichlet,Chebyshev
 from pypde.solver.matrix import *
@@ -21,37 +21,37 @@ class Diffusion1D(SolverBase):
         SolverBase.__init__(self)
         self.__dict__.update(**self.CONFIG)
         self.update_config(**kwargs)
-        
-        
-        self.field = Field(self.N)   # Field variable
         self.time = 0.0              # Time
-        self.xf = ChebDirichlet(self.N+2,bc=(0,0))   # Basis in x
-        self.x  = self.xf.x          # X-coordinates
+        self.field = SpectralField(self.N+2, "ChebDirichlet")
 
         # -- Matrices ------
-        D = Chebyshev(self.N+2).D(2)
-        B = Chebyshev(self.N+2).B(2)
-        S = self.xf.S
-        self.M =  (B@S)[2:,:]
-        self.D2 = (B@D@S)[2:,:]
+        S = self.field.xs[0].S
+        B = self.field.xs[0].B(2)@S
+        I = self.field.xs[0].I()@S
+        lam = self.dt*self.kappa
+        self.A = B - lam*I  # lhs
+        self.B = B          # rhs
         
-    
     @property
     def v(self):
         '''  Main variable (dv/dt) '''
-        return self.field.v
+        return self.field.vhat
     
     @v.setter
     def v(self,value):
-        self.field.v = value
-        
+        self.field.vhat = value
+
+    @property
+    def x(self):
+        return self.field.x
+    
     @property
     @memoized
     def LHS(self):
         '''
         (I-alpha*dt*D2) u = rhs
         '''
-        A = self.M - self.dt*(self.kappa*self.D2)
+        A = self.A#self.M - self.dt*(self.kappa*self.D2)
         A = MatrixLHS(A,ndim=self.ndim,axis=0,
             solver="fdma")
         return LHSImplicit(A)
@@ -63,16 +63,15 @@ class Diffusion1D(SolverBase):
         lhs = dt*f + u
         only dt*f is stored initially, u is updated in update()
         '''
-
-        fhat = self.dt*self.xf.forward_fft(self._f())
+        f = self._f()
+        fhat = self.dt*self.field.forward_fft(f)
         b = RHSExplicit(f=fhat)
-        b.add_PM(MatrixRHS(self.M,axis=0))
+        b.add_PM(MatrixRHS(self.B,axis=0))
         return b
         
     def _f(self):
         ''' Forcing Functions'''
         return np.cos(1*np.pi/2*self.x)
-        
         
     def update_config(self,**kwargs):
         self.__dict__.update(**kwargs)
@@ -109,10 +108,6 @@ print("Elapsed time:")
 print("RHS:   {:5.4f}".format(TIMER[0]))
 print("LHS:   {:5.4f}".format(TIMER[1]))
 print("Total: {:5.4f}".format(en-st))
-
-# Transfer stored fields to real space
-for i,vv in enumerate(D.field.V):
-    D.field.V[i] = D.xf.backward_fft(vv)
 
 anim = D.field.animate(D.x,duration=4)
 plt.show()

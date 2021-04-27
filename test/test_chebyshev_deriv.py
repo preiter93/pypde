@@ -59,12 +59,12 @@ class TestChebyshev(unittest.TestCase):
     def test_inverse(self):
         print("\n ** Solve with Pseudoinverse **  ")
 
-        D2 = self.C.D(2)
+        #D2 = self.C.D(2)
         B  = self.C.B(2)
         
         # Pure Chebyshev will be singular
-        A = B@D2 
-        A = self.C.J()
+        #A = B@D2 
+        A = self.C.I(True)
         b = B@self.fhat[:]
 
         #uhat = np.linalg.lstsq(A,b,rcond=None)[0]
@@ -126,7 +126,8 @@ class TestChebDirichlet(unittest.TestCase):
     def test_solve(self):
         print("\n ** Solve with lstsq **  ")
 
-        D2 = self.C.D(2)
+        S  = self.C.S
+        D2 = self.C.D(2)@S
 
         # Ax = b
         A = D2 
@@ -135,10 +136,6 @@ class TestChebDirichlet(unittest.TestCase):
         # Pure Chebyshev will be singular
         uhat = np.linalg.lstsq(A,b,rcond=None)[0]
         u = self.C.backward_fft(uhat)
-
-        # Remove const part
-        u -= u[0]
-
 
         norm = np.linalg.norm( u-self.sol )
         print(" |u - u_sol|: {:5.2e}"
@@ -158,19 +155,14 @@ class TestChebDirichlet(unittest.TestCase):
         from pypde.solver.fortran import linalg as lafort
         _tdma = lafort.tridiagonal.solve_tdma
 
-        B  = self.CH.B(2)
-        A = self.C.J()
+        B  = self.C.B(2)
+        A = self.C.I()@self.C.S
         b = B@self.fhat
 
         # A is diagonal with elements on 0,+2
-        b = b[:]
         d, u1 = np.diag(A),np.diag(A,+2)
         _tdma(d,u1,b)
         u = self.C.backward_fft(b)
-
-        # Remove const part
-        u -= u[0]
-
 
         norm = np.linalg.norm( u-self.sol )
         print(" |u - u_sol|: {:5.2e}"

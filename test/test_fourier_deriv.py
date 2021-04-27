@@ -67,11 +67,11 @@ class TestFourier(unittest.TestCase):
         B = self.C.B(2)
 
         # x = B@b
-        b = self.fhat[:]
+        b = self.fhat[1:]
 
         # Pure Fourier will be singular
-        uhat = np.zeros(b.shape, dtype=np.complex_)
-        uhat[1:] = b[1:]*np.diag(B)[1:]
+        uhat = np.zeros(self.fhat.shape, dtype=np.complex_)
+        uhat[1:] = b[:]*np.diag(B)[:]
         u = self.C.backward_fft(uhat)
 
         # Remove const part

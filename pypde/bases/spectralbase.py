@@ -123,33 +123,49 @@ class SpectralBase():
             for i in range(self.N)[self.slice()])
 
 
+    def D(self,deriv):
+        ''' Differentiation matrix '''
+        if hasattr(self,"dms"):
+            return self.dms(deriv)
+        else:
+            raise NotImplementedError
+
     # -- For PseudoInverse Method ------
 
-    def D(self,deriv):
-        if hasattr(self,"dmat_spectral"):
-            return self.dmat_spectral(deriv)
-        else:
-            raise NotImplementedError
-
     def B(self,deriv,discard=True):
-        if hasattr(self,"dmat_spectral_inverse"):
-            if not discard:
-                return self.dmat_spectral_inverse(deriv)
-            return self._discard(self.dmat_spectral_inverse(deriv))
+        ''' Pseudoinverse '''
+        if hasattr(self,"pseudoinverse"):
+            return self.pseudoinverse(deriv,discard)
+        else:
+            raise NotImplementedError
+    
+    def I(self,discard=True):
+        ''' Identitiy matrix corresponding to B: B@D = I '''
+        if hasattr(self,"pseudoinverse"):
+            return self.pseudoinverse(0,discard)
         else:
             raise NotImplementedError
 
-    def J(self,discard=True):
-        '''  Pseudo identity matrix where first two entries are zero'''
-        I = np.eye(self.N)
-        I[0,0] = I[1,1] = 0
-        if hasattr(self,"stencil"):
-            I = I@self.stencil(True)
-        if not discard:
-            return I
-        return self._discard(I)
+    @property
+    def S(self):
+        ''' 
+        Transformation Galerkin <-> Chebyshev 
+        Returns Identity matrix if there is no stencil defined
+        '''
+        if hasattr(self,"stencil"): return self.stencil(True)
+        return np.eye(self.N)
 
-    @staticmethod
-    def _discard(A):
-        ''' Discard first two rows'''
-        return A[2:,:]
+    # def J(self,discard=True):
+    #     '''  Pseudo identity matrix where first two entries are zero'''
+    #     I = np.eye(self.N)
+    #     I[0,0] = I[1,1] = 0
+    #     if hasattr(self,"stencil"):
+    #         I = I@self.stencil(True)
+    #     if not discard:
+    #         return I
+    #     return self._discard(I)
+
+    # @staticmethod
+    # def _discard(A):
+    #     ''' Discard first two rows'''
+    #     return A[2:,:]
