@@ -278,7 +278,7 @@ class TestPoisson2DNeumann(unittest.TestCase):
         super(TestPoisson2DNeumann, cls).setUpClass()
         cls.N  = N
         shape = (N+2,N+2)
-        skipfirst = True
+        skipfirst = False # Skipping is now happening in fdma2 solver
         skip = slice(1,None) if skipfirst else slice(0,None)
         cls.skip = skip
         # -- u
@@ -313,7 +313,7 @@ class TestPoisson2DNeumann(unittest.TestCase):
 
         # -- LHS ---
         Ax = MatrixLHS(A=Bx[skip,skip],ndim=2,axis=0,
-            solver="poisson",lam=wy[skip],C=Ax[skip,skip])
+            solver="poisson",lam=wy[skip],C=Ax[skip,skip],pure_neumann=True)
         Ay = MatrixLHS(A=Qyi[skip,skip].T,ndim=2,axis=1,
             solver="matmul")
         cls.A = LHSImplicit(Ax)

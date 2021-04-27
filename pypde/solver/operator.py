@@ -92,8 +92,8 @@ class LHSImplicit():
         assert isinstance(A,MatrixLHS), "PM must be instance MatrixLHS"
         self.A.append(A)
         
-    def solve(self,b):
+    def solve(self,b,*args,**kwargs):
         if self.A:
             for a in self.A:
-                b = a.solve(b)
+                b = a.solve(b,*args,**kwargs)
         return b

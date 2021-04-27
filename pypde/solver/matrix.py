@@ -98,8 +98,18 @@ class MatrixLHS(MatrixBase):
                       2-dimensional domains
             
             'poisson': Solve 2D Poisson problems: 
-                Note: A helper must be supplied containing the eigenvalues
-                      lambda i.e. init(.., helper=lambda)
+                
+                Additional arguments must be supplied: 
+                
+                MatrixLHS(A=Bx,ndim=2,axis=0,
+                solver="poisson",lam=wy,C=Ax,pure_neumann=True)
+                
+                where B is inverse of D2 and A the corresponding pseudo
+                identity matrix (see test_poisson)
+                
+                With pure_neumann (default=False) the first equation
+                when lam==0 is skipped (pure neumann is singular)
+
     '''
     all_methods = [
         "solve",
@@ -148,6 +158,10 @@ class MatrixLHS(MatrixBase):
             assert self.lam.ndim==1,  "Eigenvalues must be 1D array!"
             assert self.C.ndim==2,     "C Matrix must be 2D matrix!"
             assert self.ndim == 2 
+
+            if not hasattr(self,"pure_neumann"):
+                self.pure_neumann = False
+
             self.solve = self.solve_poisson
 
     def _init_fdma(self,A,fortran=True):
@@ -229,8 +243,8 @@ class MatrixLHS(MatrixBase):
         assert self.lam.size == m, \
         "Size of eigenvalue array does not match!"
 
-        _fdma2(self.A,self.C,self.lam,b,self.axis)
-            
+        _fdma2(self.A,self.C,self.lam,b,self.axis,self.pure_neumann)
+
         return b
 
     def matmul(self,b):

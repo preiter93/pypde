@@ -210,7 +210,7 @@ enddo
 
 end subroutine
 
-subroutine solve_fdma2d_type2(A,C,lam,x,axis,n,m)
+subroutine solve_fdma2d_type2(A,C,lam,x,axis,pure_neumann, n,m)
 ! =====================================================
 ! Solve (lam*A + C)x = b, where LHS is a 
 ! 4-diagonal matrix with diagonals in offsets -2, 0, 2, 4
@@ -226,30 +226,46 @@ subroutine solve_fdma2d_type2(A,C,lam,x,axis,n,m)
 !     rhs (in) / solution (out)
 ! axis : int 
 !    Axis over which to solve
+! pure_neumann: bool
+!   Skip first element when lam==0
 ! =====================================================
     integer, intent(in)   :: axis,n,m
     real(8), intent(in)  :: A(:,:),C(:,:),lam(:)
     real(8), intent(inout) :: x(n,m)
-    real(8):: d(n),u1(n-2),u2(n-4),l(n-2)
+    logical, intent(in) :: pure_neumann
+    real(8), dimension(:), allocatable :: d,u1,u2,l
     integer :: i
 
     ! ------- axis 0 ------------
     if (axis==0) then
+        allocate(d(n),u1(n-2),u2(n-4),l(n-2))
         do i=1,m
-            call init_fdma( (A*lam(i) + C ), d,u1,u2,l,n)
-            call solve_fdma(d,u1,u2,l,x(:,i),n)
+            if (pure_neumann .and. lam(i)==0) then
+                call init_fdma( (A(2:,2:)*lam(i) + C(2:,2:) ), d(2:),u1(2:),u2(2:),l(2:),n-1)
+                call solve_fdma(d(2:),u1(2:),u2(2:),l(2:),x(2:,i),n-1)
+                x(1,i) = 0
+            else
+                call init_fdma( (A*lam(i) + C ), d,u1,u2,l,n)
+                call solve_fdma(d,u1,u2,l,x(:,i),n)
+            endif
         enddo
         return
     ! ------- axis 1 ------------
     elseif (axis==1) then
+        allocate(d(m),u1(m-2),u2(m-4),l(m-2))
         do i=1,n
-            call init_fdma( (A*lam(i) + C ), d,u1,u2,l,m)
-            call solve_fdma(d,u1,u2,l,x(i,:),m)
+            if (pure_neumann .and. lam(i)==0) then
+                call init_fdma( (A(2:,2:)*lam(i) + C(2:,2:) ), d(2:),u1(2:),u2(2:),l(2:),m-1)
+                call solve_fdma(d(2:),u1(2:),u2(2:),l(2:),x(i,2:),m-1)
+                x(i,1) = 0
+            else
+                call init_fdma( (A*lam(i) + C ), d,u1,u2,l,m)
+                call solve_fdma(d,u1,u2,l,x(i,:),m)
+            endif
         enddo
         return
     endif
 
 end subroutine
-
 
 end module
