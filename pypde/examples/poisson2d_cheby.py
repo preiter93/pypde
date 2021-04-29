@@ -104,3 +104,21 @@ fig = plt.figure()
 ax = plt.axes(projection='3d')
 ax.plot_surface(xx,yy,u.v, rstride=1, cstride=1, cmap="viridis",edgecolor="k")
 plt.show()
+
+# ----------- Mixed -----------------
+u = SpectralField(shape, ("CD","CN"))
+f = SpectralField(shape, ("CD","CN"))
+x,y = u.x,u.y; xx,yy = np.meshgrid(x,y)
+
+Poisson = SolverPoisson2dChebyshev(u,f,pure_neumann=False)
+f.v = _f(xx,yy)
+f.forward()
+fhat = f.vhat
+
+u.vhat = Poisson.solve(fhat)
+u.backward()
+
+fig = plt.figure()
+ax = plt.axes(projection='3d')
+ax.plot_surface(xx,yy,u.v, rstride=1, cstride=1, cmap="viridis",edgecolor="k")
+plt.show()

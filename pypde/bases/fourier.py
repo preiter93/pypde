@@ -1,10 +1,10 @@
 import numpy as np
 from numpy import pi
-from .spectralbase import SpectralBase
+from .spectralbase import MetaBase
 from .dmsuite import fourdif
 from ..utils.memoize import memoized
 
-class Fourier(SpectralBase):
+class Fourier(MetaBase):
     """
     Function space for Fourier transform (R2C)
     .. math::
@@ -19,7 +19,7 @@ class Fourier(SpectralBase):
     def __init__(self,N):
         assert N%2==0, "Fourier dim should be even"
         x = 2*pi*np.arange(N)/N
-        SpectralBase.__init__(self,N,x)
+        MetaBase.__init__(self,N,x)
         self.id = "FO" 
         self.family_id = "FO"
 
@@ -63,16 +63,15 @@ class Fourier(SpectralBase):
         return np.diag((1j*self._k)**deriv)
 
     @memoized
-    def pseudoinverse(self,deriv,discard=True):
+    def pseudoinverse(self,deriv,discardrow=None):
         ''' 
         Pseudoinverse of dmat_spectral dms. Since dms is diagonal
         the inverse will be B = 1/diag(D) but with a zero element on B[0,0]
         '''
+        if discardrow is None: discardrow = 1
         k_inv = [0 if i==0 else 1/(1j*k)**deriv for i,k in enumerate(self._k)]
         rv = np.diag( k_inv )
-        if discard:
-            return rv[1:,1:]
-        return rv
+        return rv[discardrow:,1:]
 
     @memoized
     def dmp_collocation(self,deriv):

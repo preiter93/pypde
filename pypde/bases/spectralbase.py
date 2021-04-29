@@ -1,13 +1,43 @@
-from .inner import inner
+from .inner import inner,inner_inv
 import numpy as np 
 from .utils import to_sparse
 from ..utils.memoize import memoized
 from scipy.sparse.linalg import inv as spinv
 from scipy.sparse import issparse
+#from .chebyshev import Chebyshev,ChebDirichlet,ChebNeumann
+#from .fourier import Fourier
 
-class SpectralBase():
+SPARSE = True  
+
+def SpectralBase(N,key):
+    '''
+    Convenient way to initalize SpectralBase classes from key
+    
+    Parameters:
+        N: int
+            Number of grid points
+        key: str
+            Key (ID) of respective class
+    '''
+    return _bases_from_key(key)(N)
+
+def _bases_from_key(key):
+    from .chebyshev import Chebyshev,ChebDirichlet,ChebNeumann
+    from .fourier import Fourier
+    if key == "CH" or key == "Chebyshev":
+        return Chebyshev
+    elif key == "CD" or key == "ChebDirichlet":
+        return ChebDirichlet
+    elif key == "CN" or key == "ChebNeumann":
+        return ChebNeumann
+    elif key == "FO" or key == "Fourier":
+        return Fourier
+    else:
+        raise ValueError("Key {:} not available.".format(key)) 
+
+class MetaBase():
     ''' 
-    Baseclass for Spectral Bases. All functionspace classes must inherit 
+    Metaclass for Spectral Bases. All functionspace classes must inherit 
     from it.
     This class defines important inner products of Base and Trialfunctions
     and how to evaluate and iterate over base functions to derive inner
@@ -18,13 +48,15 @@ class SpectralBase():
             Number of grid points
         x: array of floats
             Coordinates of grid points
+        key: str (optional)
+            Initialize subclass if key is supplied
     '''
-    def __init__(self,N,x):
+    def __init__(self,N,x,key=None):
         self._N = N
         self._x = x
         self.name = self.__class__.__name__
         # ID for class, each Space should have its own
-        self.id = "SB" 
+        self.id = "MB" 
 
     @property
     def x(self):
@@ -43,6 +75,9 @@ class SpectralBase():
         ''' Size without BC Functions'''
         return len(range(*self.slice().indices(self.N)))
     
+    # ---------------------------------------------
+    #               Inner Products
+    # ---------------------------------------------
 
     def inner(self,TestFunction=None,D=(0,0),**kwargs):
         ''' 
@@ -55,12 +90,20 @@ class SpectralBase():
         if TestFunction is None: TestFunction=self
         return inner(self,TestFunction,w="GL",D=D,**kwargs)
 
-    def _mass(self):
-        return self._to_sparse( self.inner(self,D=(0,0) ) )
-    def _grad(self):
-        return self._to_sparse( self.inner(self,D=(0,1) ) )
-    def _stiff(self):
-        return self._to_sparse( self.inner(self,D=(0,2) ) )
+    def _mass(self,sparse=SPARSE):
+        if sparse:
+            return self._to_sparse( self.inner(self,D=(0,0) ) )
+        return self.inner(self,D=(0,0) ) 
+
+    def _grad(self,sparse=SPARSE):
+        if sparse:
+            return self._to_sparse( self.inner(self,D=(0,1) ) )
+        return self.inner(self,D=(0,1) )
+
+    def _stiff(self,sparse=SPARSE):
+        if sparse:
+            return self._to_sparse( self.inner(self,D=(0,2) ) )
+        return self.inner(self,D=(0,2))
 
     @property
     @memoized
@@ -70,11 +113,6 @@ class SpectralBase():
         Can be overwritten with more exact inner product
         '''
         return self._mass()
-
-    @property
-    @memoized
-    def _mass_inv(self):
-        return spinv(self.mass).toarray()
 
     @property
     @memoized
@@ -88,10 +126,51 @@ class SpectralBase():
         '''  Stiffness matrix <Ti''Tj> '''
         return self._stiff()
 
+    # ---------------------------------------------
+    #           Inverse Inner Products
+    # ---------------------------------------------
+
+    def inner_inv(self,D=0,**kwargs):
+        ''' 
+        Inverse if inner products. Not defined for many classes yet.
+        '''
+        return inner_inv(self,D,**kwargs)
+
+    @property
+    @memoized
+    def mass_inv(self):
+        return self._mass_inv()
+
+    @property
+    @memoized
+    def grad_inv(self):
+        ''' Inverse of Gradient matrix <Ti'Tj> '''
+        return self._grad_inv()
+
+
+    def _mass_inv(self):
+        return spinv(self.mass).toarray()
+
+    def _grad_inv(self):
+        raise NotImplementedError
+
+    def _stiff_inv(self):
+        raise NotImplementedError
+
+    @property
+    @memoized
+    def stiff_inv(self):
+        '''  Inverse of Stiffness matrix <Ti''Tj> '''
+        return self._stiff_inv()
+
     def _to_sparse(self,A,tol=1e-12,format="csc"):
         if not issparse(A):
             return to_sparse(A,tol,format)
         return A
+
+    # ---------------------------------------------
+    #     Project/Iterate over basis functions
+    # ---------------------------------------------
 
     def project(self,f):
         ''' Transform to spectral space:
@@ -123,24 +202,29 @@ class SpectralBase():
             for i in range(self.N)[self.slice()])
 
 
-    def D(self,deriv):
-        ''' Differentiation matrix '''
-        if hasattr(self,"dms"):
-            return self.dms(deriv)
-        else:
-            raise NotImplementedError
+    # ---------------------------------------------
+    #             Special Matrices
+    # ---------------------------------------------
+
+    # def D(self,deriv):
+    #     ''' Differentiation matrix '''
+    #     if hasattr(self,"dms"):
+    #         return self.dms(deriv)
+    #     else:
+    #         raise NotImplementedError
 
     # -- For PseudoInverse Method ------
 
-    def B(self,deriv,discard=True):
+    def B2(self,deriv,discardrow=None):
         ''' Pseudoinverse '''
         if hasattr(self,"pseudoinverse"):
-            return self.pseudoinverse(deriv,discard)
+            return self.pseudoinverse(deriv,discardrow)
         else:
             raise NotImplementedError
     
-    def I(self,discard=True):
-        ''' Identitiy matrix corresponding to B: B@D = I '''
+    def I(self,deriv,discard=2):
+        ''' Identitiy matrix corresponding to B: B@D = I
+        '''
         if hasattr(self,"pseudoinverse"):
             return self.pseudoinverse(0,discard)
         else:
@@ -152,8 +236,28 @@ class SpectralBase():
         Transformation Galerkin <-> Chebyshev 
         Returns Identity matrix if there is no stencil defined
         '''
-        if hasattr(self,"stencil"): return self.stencil(True)
+        if hasattr(self,"stencil"): 
+            return self.stencil(True)
         return np.eye(self.N)
+
+    def B(self,deriv,discardrow=0):
+        ''' Pseudoinverse '''
+        if deriv==0:
+            return self.mass_inv[discardrow:,:]
+        if deriv==1: 
+            return self.grad_inv[discardrow:,:] 
+        if deriv==2:
+            return self.stiff_inv[discardrow:,:]
+        raise ValueError("deriv>2 not supported")
+
+    def D(self,deriv):
+        if deriv==0:
+            return self.mass
+        if deriv==1: 
+            return self.grad 
+        if deriv==2:
+            return self.stiff
+        raise ValueError("deriv>2 not supported")
 
     # def J(self,discard=True):
     #     '''  Pseudo identity matrix where first two entries are zero'''

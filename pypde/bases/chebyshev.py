@@ -6,11 +6,11 @@ from ..utils.memoize import memoized
 from .dmsuite import (gauss_lobatto,diff_mat_spectral,
     diff_recursion_spectral,chebdif,pseudoinverse_spectral)
 from numpy.polynomial import chebyshev as n_cheb
-from .spectralbase import SpectralBase
+from .spectralbase import MetaBase,SPARSE
 from .utils import add,product
 
 
-class Chebyshev(SpectralBase):
+class Chebyshev(MetaBase):
     """
     Function space for Chebyshev polynomials
     .. math::
@@ -27,7 +27,7 @@ class Chebyshev(SpectralBase):
     """
     def __init__(self,N):
         x = gauss_lobatto(N-1)
-        SpectralBase.__init__(self,N,x)
+        MetaBase.__init__(self,N,x)
         self.id = "CH" 
         self.family_id = "CH"
     
@@ -82,21 +82,23 @@ class Chebyshev(SpectralBase):
         return diff_mat_spectral(self.N,deriv)
 
     @memoized
-    def pseudoinverse(self,deriv,discard=True):
+    def pseudoinverse(self,deriv,discardrow=None):
         ''' 
         Pseudoinverse of differentiation matrix dms. 
         Makes system banded and fast to solve.
         Returns pseudoidentity matrix if deriv is zero
         '''
-        assert deriv==2 or deriv==0, "Only deriv==2 or 0 supported"
-        discrows = 2 # Discard rows
+        assert deriv==2 or deriv==1 or deriv==0, \
+        "Only deriv==1,2 or 0 supported"
+        if discardrow is None: discardrow = deriv 
+
         if deriv==0:
             rv = np.eye(self.N); rv[0,0] = rv[1,1] = 0
-        elif deriv==2:
+        elif deriv==1 or deriv==2:
             rv = pseudoinverse_spectral(self.N,deriv)
-        if discard: 
-            return rv[discrows:,:]
-        return rv
+
+        return rv[discardrow:,:]
+
 
     def derivative(self,f,deriv,method="fft"):
         assert method in ["fft","spectral","dm","physical"]
@@ -104,13 +106,27 @@ class Chebyshev(SpectralBase):
         if method in ("fft", "spectral"):
             c = self.forward_fft(f)
             dc = diff_recursion_spectral(c,deriv)
-            #dc = diff_mat_spectral(self.N,deriv)@c
             return self.backward_fft(dc)
         elif method in ("dm", "physical"):
             return self.dmp_collocation(deriv)@f
 
+    def _mass_inv(self,sparse=SPARSE):
+        if sparse:
+            return self._to_sparse( self.inner_inv(D=0 ) )
+        return self.inner_inv(D = 0 )
 
-class GalerkinChebyshev(SpectralBase):
+    def _grad_inv(self,sparse=SPARSE):
+        if sparse:
+            return self._to_sparse( self.inner_inv(D=1 ) )
+        return self.inner_inv(D = 1 )
+
+    def _stiff_inv(self,sparse=SPARSE):
+        if sparse:
+            return self._to_sparse( self.inner_inv(D=2 ) )
+        return self.inner_inv(D = 2 )
+
+
+class GalerkinChebyshev(MetaBase):
     """
     Base class for composite Chebyshev spaces
     like ChebDirichlet used in the Galerkin method.
@@ -121,7 +137,7 @@ class GalerkinChebyshev(SpectralBase):
     """
     def __init__(self,N):
         x = gauss_lobatto(N-1)
-        SpectralBase.__init__(self,N,x)
+        MetaBase.__init__(self,N,x)
         self._bc = None
         self._coeff_bc = None
         # get family name

@@ -299,7 +299,7 @@ def pseudoinverse_spectral(N,deriv=2):
             Number of grit points
         deriv: int
             Order of derivative. Only 2 is supported
-            at the momen
+            at the moment
 
     Output:
         ndarray (N x N)
@@ -307,17 +307,31 @@ def pseudoinverse_spectral(N,deriv=2):
             space to chebyshev coefficients array
             '''
     from scipy.sparse import diags
+    assert deriv==1 or deriv==2, \
+    "pseudoinverse_spectral does only support deriv==1 or 2"
 
-    diag0 = np.zeros(N)
-    diag0[2:-2] = np.array([-1/(2*(i**2-1)) for i in range(2,N-2)]) 
+    if deriv==2:
+        diag0 = np.zeros(N)
+        diag0[2:-2] = np.array([-1/(2*(i**2-1)) for i in range(2,N-2)]) 
 
-    diag1 = np.zeros(N-2)
-    diag1[2:-2] = np.array([1/(4*i*(i+1)) for i in range(2,N-4)]) 
+        diag1 = np.zeros(N-2)
+        diag1[2:-2] = np.array([1/(4*i*(i+1)) for i in range(2,N-4)]) 
 
-    diag2 = np.zeros(N-2)
-    diag2[:] = np.array([1/(4*i*(i-1)) for i in range(2,N)]) 
-    diag2[0] *=2
-    return diags([diag2, diag0, diag1], [-2, 0, 2]).toarray()
+        diag2 = np.zeros(N-2)
+        diag2[:] = np.array([1/(4*i*(i-1)) for i in range(2,N)]) 
+        diag2[0] *=2
+        return diags([diag2, diag0, diag1], [-2, 0, 2]).toarray()
+    
+    if deriv==1:
+        diag0 = np.zeros(N-1)
+        diag0[:] = np.array([1/(2*i) for i in range(1,N)]) 
+        diag0[0] *=2 
+
+        diag1 = np.zeros(N-1)
+        diag1[1:-1] = np.array([-1/(2*i) for i in range(1,N-2)])
+        return diags([diag0, diag1], [-1, 1]).toarray()
+
+    return None
 
 # ------------------------------------------------
 # Unused Routines
