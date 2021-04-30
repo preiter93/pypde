@@ -151,14 +151,15 @@ class GalerkinChebyshev(MetaBase):
         from numpy.polynomial import chebyshev
         if x is None: x = self.x
         x = np.atleast_1d(x)
-        if i < self.N-2:
+        if i < self.M:
             basis = self.stencil()[:,i]
             basis = chebyshev.Chebyshev(basis)
             if k > 0:
                 basis = basis.deriv(k)
             return basis(x)
         else:
-            return self.get_basis_bc(i,k,x)
+            raise ValueError("basis not known for i={:4d}"
+                .format(i))
 
     def slice(self):
         ''' 
@@ -172,7 +173,7 @@ class GalerkinChebyshev(MetaBase):
         Must be implemented on child class! 
         All Transformations are derived from the stencil.
 
-        Stencil Matrix to transform Coefficients (NxM):  
+        Stencil Matrix (NxM) to transform :  
             Galerkin (M) -> Chebyshev (N)
                     u = S v
         
@@ -189,33 +190,19 @@ class GalerkinChebyshev(MetaBase):
             return self._stencil().T 
         return self._stencil() 
 
-    def _stencilbc(self):
-        '''
-        Should be implemented on child class for 
-        inhomogenoeus BCs!
-
-        Stencil transforms boundary coefficients (phi_N-1 & phi_N)
-        to chebyshev coefficients
-
-        Stencilbc:
-            N x 2 Matrix
-        '''
-        raise NotImplementedError
-
-    def stencilbc(self,transpose=False):
-        if transpose:
-            return self._stencilbc().T 
-        return self._stencilbc() 
+    # ---------------------------------------------
+    #      Forward & Backward transform
+    # ---------------------------------------------
 
     def _to_galerkin(self,cheby_c):
         ''' 
         Transform from T to phi basis 
 
-        It is implied that cheby_c are the chebyshev coefficients 
-        BEFORE multiplying them with the inverse mass matrix,
-        i.e. cheby_c = M@c
+        cheby_c are the chebyshev coefficients 
+        before chebyshev.solve_mass(c), i.e. cheby_c = M@c
         '''
         c = self.stencil(True)@cheby_c
+
         return self.solve_mass(c)
 
     def _to_chebyshev(self,galerkin_c):
@@ -225,21 +212,27 @@ class GalerkinChebyshev(MetaBase):
         '''
         return self.stencil()@galerkin_c
 
-    def forward_fft(self,f):
+    def forward_fft(self,f,bc=None):
         '''  
         Transform to spectral space via DCT 
         '''
         c = self.family.forward_fft(f,mass=False)
+
+        if bc is not None:
+            self._subtract_bc_before_to_galerkin(c,bc)
+        
         return self._to_galerkin(c)
 
-    def backward_fft(self,c,bc=True):
+    def backward_fft(self,c,bc=None):
         '''  
         Transform to physical space via DCT 
         ''' 
         c = self._to_chebyshev(c)
-        # if bc and self.coeff_bc is not None:
-        #     # Add BCs along first dimension
-        #     c = add(self._to_chebyshevbc(), c)
+
+        # Add BCs along first dimension
+        if bc is not None:
+            self._add_bc_after_to_chebyshev(c,bc)
+
         return self.family.backward_fft(c)
 
     @memoized
@@ -262,6 +255,34 @@ class GalerkinChebyshev(MetaBase):
         l2,d,u2=self._init_solve_mass()
         return TDMA(l2,d,u2,f,2)
 
+    # ---------------------------------------------
+    #      Handle boundary conditions
+    # ---------------------------------------------
+
+    @memoized
+    def _bcmat(self):
+        '''  equivalent to S@inner(self,self.bc) '''
+        return self.family.mass@self.bc.stencil()
+
+    def _add_bc_after_to_chebyshev(self,cheby_c, galerkin_bc):
+        '''
+        Add bc coefficients to chebyshev coefficients
+        '''
+        cheby_c += self.bc._to_chebyshev(galerkin_bc)
+
+    def _subtract_bc_before_to_galerkin(self,cheby_c, galerkin_bc):
+        '''
+        When transforming from Chebyshev -> Galerkin coefficients
+        the contributions of the bc_coefficients must be subtracted
+        from the chebyshev coefficients. 
+
+            S^T @ ( cheby_c - M_bc @ galerkin_bc ) =  M @ galerkin_c
+
+        Apply before .solve_mass
+        '''
+        assert galerkin_bc.shape[0] == self._bcmat().shape[1] 
+        cheby_c -= self._bcmat()@galerkin_bc 
+
 class ChebDirichlet(GalerkinChebyshev):
     """
     Function space for Dirichlet boundary conditions
@@ -275,7 +296,7 @@ class ChebDirichlet(GalerkinChebyshev):
     def __init__(self,N):
         GalerkinChebyshev.__init__(self,N)
         self.id = "CD" 
-        #self.bc = bc
+        self.bc = DirichletC(N)
 
     def _stencil(self):
         '''  
@@ -288,7 +309,6 @@ class ChebDirichlet(GalerkinChebyshev):
         for i in range(self.M):
             S[i,i],S[i+2,i] = 1, -1
         return S
-
 
 class ChebNeumann(GalerkinChebyshev):
     """
@@ -303,7 +323,7 @@ class ChebNeumann(GalerkinChebyshev):
     def __init__(self,N):
         GalerkinChebyshev.__init__(self,N)
         self.id = "CN" 
-        #self.bc = bc
+        self.bc = NeumannC(N)
 
     def _stencil(self):
         '''  
@@ -316,3 +336,102 @@ class ChebNeumann(GalerkinChebyshev):
         for i in range(self.M):
             S[i,i],S[i+2,i] = 1, -(i/(i+2))**2
         return S
+
+
+
+# ---------------------------------------------
+#       Bases for Boundary Conditions
+# ---------------------------------------------
+
+class DirichletC(GalerkinChebyshev):
+    """
+    Function space purely for Dirichlet boundary conditions
+    .. math::
+        \phi_0 = 0.5*T_0 - 0.5*T_1
+        \phi_1 = 0.5*T_0 + 0.5*T_1
+    
+    Parameters:
+        N: int
+            Number of grid points    
+    """
+    def __init__(self,N):
+        GalerkinChebyshev.__init__(self,N)
+        self.id = "DC" 
+
+    def _stencil(self):
+        S = np.zeros((self.N,self.M))
+        S[0,0],S[1,0] =  0.5,-0.5
+        S[0,1],S[1,1] =  0.5, 0.5 
+        return S
+
+    def slice(self):
+        return slice(0,2)
+
+
+class NeumannC(GalerkinChebyshev):
+    """
+    Function space purely for Neumann boundary conditions
+    .. math::
+        \phi_N-2 = 0.5*T_0 - 1/8*T_1
+        \phi_N-1 = 0.5*T_0 + 1/8*T_1
+    
+    Parameters:
+        N: int
+            Number of grid points    
+    """
+    def __init__(self,N):
+        GalerkinChebyshev.__init__(self,N)
+        self.id = "NC" 
+
+    def _stencil(self):
+        S = np.zeros((self.N,self.M))
+        S[0,0],S[1,0] =  0.5,-1/8
+        S[0,1],S[1,1] =  0.5, 1/8 
+        return S
+
+    def slice(self):
+        return slice(0,2)
+
+    # def _stencilbc(self):
+    #     '''
+    #     Should be implemented on child class for 
+    #     inhomogenoeus BCs!
+
+    #     Stencil transforms boundary coefficients (phi_N-1 & phi_N)
+    #     to chebyshev coefficients
+
+    #     Stencilbc:
+    #         N x 2 Matrix
+    #     '''
+    #     raise NotImplementedError
+
+    # def stencilbc(self,transpose=False):
+    #     if transpose:
+    #         return self._stencilbc().T 
+    #     return self._stencilbc() 
+
+    # def stencilfull(self):
+    #     return np.hstack( (self.stencil(),self.stencilbc()) )
+        #return inner(self,self.bc)
+
+    # def _stencilbc(self):
+    #     '''
+    #         phi_N-1 = 0.5*(T_0-T_1)
+    #         phi_N-2 = 0.5*(T_0+T_1)
+    #     '''
+    #     S = np.zeros((self.N,2))
+    #     S[0,0],S[0,1] =  0.5, 0.5
+    #     S[1,0],S[1,1] = -0.5, 0.5 
+    #     return S
+
+    # def _stencilbc(self,inv=True):
+    #     '''
+    #         phi_N-1 = 1/2*T_1-1/8*T_2
+    #         phi_N-2 = 1/2*T_1+1/8*T_2
+    #     '''
+    #     S = np.zeros((2,self.N))
+    #     S[0,0],S[0,1] =  0.5, 0.5
+    #     S[1,0],S[1,1] = -1/8, 1/8 
+    #     if inv: return S.T 
+    #     return S
+

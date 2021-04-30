@@ -189,15 +189,15 @@ class InnerKnown():
                 format(key))
             return None
 
-        # Derive inner product from parent (T) with transoform stencil S
+        # Derive inner product from parent (T) with transform stencil S
         if [generation_u,generation_v] == ["parent", "child"]:
-            value = value@tosparse(v.stencil(inv=True))
+            value = value@tosparse(v.stencil())
             
         if [generation_u,generation_v] == ["child", "parent"]:
-            value = tosparse(u.stencil())@value
+            value = tosparse(u.stencil().T)@value
 
         if [generation_u,generation_v] == ["child", "child"]:
-            value = tosparse(u.stencil())@value@tosparse(v.stencil(inv=True))
+            value = u.stencil().T@value@v.stencil()
 
         return value
 
