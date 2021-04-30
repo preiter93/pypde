@@ -1,20 +1,17 @@
 import numpy as np
 from scipy.fftpack import dctn
 from scipy.sparse import diags
-from scipy.sparse.linalg import inv as spinv
-from ..utils.memoize import memoized
 from .dmsuite import (gauss_lobatto,diff_mat_spectral,
     diff_recursion_spectral,chebdif,pseudoinverse_spectral)
-from numpy.polynomial import chebyshev as n_cheb
-from .spectralbase import MetaBase,SPARSE
-from .utils import add,product
-
+from .memoize import memoized
+from .spectralbase import MetaBase 
+from .utils import * 
 
 class Chebyshev(MetaBase):
     """
     Function space for Chebyshev polynomials
     .. math::
-        \phi_k = T_k = cos(k*arccos(x))
+        T_k = cos(k*arccos(x))
         x_k = cos(pi*k/N); k=0..N
     
     Parameters:
@@ -37,18 +34,15 @@ class Chebyshev(MetaBase):
         return np.cos(i*w)
 
     def get_basis_derivative(self, i=0, k=0, x=None):
+        from numpy.polynomial import chebyshev
         if x is None: x = self.x
         x = np.atleast_1d(x)
         basis = np.zeros(self.N)
         basis[i] = 1
-        basis = n_cheb.Chebyshev(basis)
+        basis = chebyshev.Chebyshev(basis)
         if k > 0:
             basis = basis.deriv(k)
         return basis(x)
-    
-    @property
-    def _mass_inv(self):
-        return diags([1.0, *[2.0]*(self.N-2), 1.0],0)
 
     def forward_fft(self,f,mass=True):
         '''  
@@ -59,46 +53,28 @@ class Chebyshev(MetaBase):
         sign = np.array([(-1)**k for k in np.arange(self.N)]) 
         c = 0.5*dctn(f,type=1,axes=0)/(self.N-1)
         c = product(sign,c) # mutliplication along first dimension
-        return self._mass_inv@c if mass else c
+        return self.solve_mass(c) if mass else c
     
     def backward_fft(self,c):
         '''  Transform to physical space via DCT ''' 
         sign = np.array([(-1)**k for k in np.arange(self.N)]) 
         f = product(sign,c) # mutliplication along first dimension
-        f[[0,-1]] = product(np.array([2,2]),f[[0,-1]]) # multiply first and last by 2
+        f[[0,-1]] = product(np.array([2,2]),f[[0,-1]]) # first and last times 2
         return 0.5*dctn(f,type=1,axes=0)
 
     @memoized
     def dmp_collocation(self,deriv):
-        ''' Collocation derivative matrix, must be applied in physical space.'''
+        ''' Collocation derivative matrix, acts in physical space.'''
         return chebdif(self.N,deriv)[1]
 
     @memoized
     def dms(self,deriv):
         ''' 
-        Chebyshev differentation matrix in spectral space.
-        It is equivalent to differentiation via recursion by diff_recursion_spectral
+        Chebyshev differentation matrix, acts in spectral space.
+        Differentiation can be done more efficientrly via recursion, 
+        see self.derivative
         '''
         return diff_mat_spectral(self.N,deriv)
-
-    @memoized
-    def pseudoinverse(self,deriv,discardrow=None):
-        ''' 
-        Pseudoinverse of differentiation matrix dms. 
-        Makes system banded and fast to solve.
-        Returns pseudoidentity matrix if deriv is zero
-        '''
-        assert deriv==2 or deriv==1 or deriv==0, \
-        "Only deriv==1,2 or 0 supported"
-        if discardrow is None: discardrow = deriv 
-
-        if deriv==0:
-            rv = np.eye(self.N); rv[0,0] = rv[1,1] = 0
-        elif deriv==1 or deriv==2:
-            rv = pseudoinverse_spectral(self.N,deriv)
-
-        return rv[discardrow:,:]
-
 
     def derivative(self,f,deriv,method="fft"):
         assert method in ["fft","spectral","dm","physical"]
@@ -110,21 +86,42 @@ class Chebyshev(MetaBase):
         elif method in ("dm", "physical"):
             return self.dmp_collocation(deriv)@f
 
-    def _mass_inv(self,sparse=SPARSE):
-        if sparse:
-            return self._to_sparse( self.inner_inv(D=0 ) )
+    def _mass_inv(self):
         return self.inner_inv(D = 0 )
 
-    def _grad_inv(self,sparse=SPARSE):
-        if sparse:
-            return self._to_sparse( self.inner_inv(D=1 ) )
+    def _grad_inv(self):
         return self.inner_inv(D = 1 )
 
-    def _stiff_inv(self,sparse=SPARSE):
-        if sparse:
-            return self._to_sparse( self.inner_inv(D=2 ) )
+    def _stiff_inv(self):
         return self.inner_inv(D = 2 )
 
+    def solve_mass(self,f):
+        ''' 
+        Solve Mx = f, where m is mass matrix. 
+        In this case M is purely diagonal.
+        '''
+        m_inv = diags([1.0, *[2.0]*(self.N-2), 1.0],0)
+        return m_inv@f
+
+
+
+    # @memoized
+    # def pseudoinverse(self,deriv,discardrow=None):
+    #     ''' 
+    #     Pseudoinverse of differentiation matrix dms. 
+    #     Makes system banded and fast to solve.
+    #     Returns pseudoidentity matrix if deriv is zero
+    #     '''
+    #     assert deriv==2 or deriv==1 or deriv==0, \
+    #     "Only deriv==1,2 or 0 supported"
+    #     if discardrow is None: discardrow = deriv 
+
+    #     if deriv==0:
+    #         rv = np.eye(self.N); rv[0,0] = rv[1,1] = 0
+    #     elif deriv==1 or deriv==2:
+    #         rv = pseudoinverse_spectral(self.N,deriv)
+
+    #     return rv[discardrow:,:]
 
 class GalerkinChebyshev(MetaBase):
     """
@@ -138,9 +135,12 @@ class GalerkinChebyshev(MetaBase):
     def __init__(self,N):
         x = gauss_lobatto(N-1)
         MetaBase.__init__(self,N,x)
+
+        # Boundary conditions
         self._bc = None
         self._coeff_bc = None
-        # get family name
+
+        # Get family info
         self.family_id = "CH"
         self.family = Chebyshev(self.N)
 
@@ -148,11 +148,12 @@ class GalerkinChebyshev(MetaBase):
         return self.get_basis_derivative(i=i,k=0,x=x)
 
     def get_basis_derivative(self, i=0, k=0, x=None):
+        from numpy.polynomial import chebyshev
         if x is None: x = self.x
         x = np.atleast_1d(x)
         if i < self.N-2:
-            basis = self.stencil()[i,:]
-            basis = n_cheb.Chebyshev(basis)
+            basis = self.stencil()[:,i]
+            basis = chebyshev.Chebyshev(basis)
             if k > 0:
                 basis = basis.deriv(k)
             return basis(x)
@@ -166,27 +167,29 @@ class GalerkinChebyshev(MetaBase):
         '''
         return slice(0, self.N-2)
 
-    def stencil(self,inv=False):
+    def _stencil(self):
         ''' 
         Must be implemented on child class! 
         All Transformations are derived from the stencil.
 
-        Stencil Matrix to transform Coefficients (MxN):      
-            Chebyshev (N) -> Galerkin (M)
-        Inverse of stencil (NxM): 
+        Stencil Matrix to transform Coefficients (NxM):  
             Galerkin (M) -> Chebyshev (N)
+                    u = S v
         
         Stencil:
-            M x N Sparse Matrix (banded)
+            N x M Matrix
 
         Literature:
             K. Julien: doi:10.1016/j.jcp.2008.10.043 
-            https://www.sciencedirect.com/science/article/
-            pii/S002199910800569X
         '''
         raise NotImplementedError
 
-    def stencilbc(self,inv=False):
+    def stencil(self,transpose=False):
+        if transpose:
+            return self._stencil().T 
+        return self._stencil() 
+
+    def _stencilbc(self):
         '''
         Should be implemented on child class for 
         inhomogenoeus BCs!
@@ -194,111 +197,70 @@ class GalerkinChebyshev(MetaBase):
         Stencil transforms boundary coefficients (phi_N-1 & phi_N)
         to chebyshev coefficients
 
-        Stencil:
-            2 x N Sparse Matrix
+        Stencilbc:
+            N x 2 Matrix
         '''
-        S = np.zeros((2,self.N))
-        if inv: return S.T 
-        return S
+        raise NotImplementedError
+
+    def stencilbc(self,transpose=False):
+        if transpose:
+            return self._stencilbc().T 
+        return self._stencilbc() 
 
     def _to_galerkin(self,cheby_c):
-        ''' transform from T to phi basis '''
-        return self._to_sparse(self.stencil(False))@cheby_c
+        ''' 
+        Transform from T to phi basis 
+
+        It is implied that cheby_c are the chebyshev coefficients 
+        BEFORE multiplying them with the inverse mass matrix,
+        i.e. cheby_c = M@c
+        '''
+        c = self.stencil(True)@cheby_c
+        return self.solve_mass(c)
 
     def _to_chebyshev(self,galerkin_c):
-        ''' transform from ühi to T basis '''
-        return self._to_sparse(self.stencil(True))@galerkin_c
-
-    def _to_chebyshevbc(self):
-        ''' transform bcs coefficients to T basis '''
-        assert self.coeff_bc.shape[0] == 2
-        return self._to_sparse(self.stencilbc(True))@self.coeff_bc
+        ''' 
+        Transform from phi to T basis 
+                  u = S v
+        '''
+        return self.stencil()@galerkin_c
 
     def forward_fft(self,f):
         '''  
         Transform to spectral space via DCT 
         '''
         c = self.family.forward_fft(f,mass=False)
-        c = self._to_galerkin(c)
-        return self._mass_inv@c
+        return self._to_galerkin(c)
 
     def backward_fft(self,c,bc=True):
         '''  
         Transform to physical space via DCT 
         ''' 
-
         c = self._to_chebyshev(c)
-        if bc and self.coeff_bc is not None:
-            # Add BCs along first dimension
-            c = add(self._to_chebyshevbc(), c)
+        # if bc and self.coeff_bc is not None:
+        #     # Add BCs along first dimension
+        #     c = add(self._to_chebyshevbc(), c)
         return self.family.backward_fft(c)
 
-    @property
-    def bc(self):
-        '''
-        Left and right boundary condition
+    @memoized
+    def _init_solve_mass(self):
+        from .utils import extract_diag
+        ''' Return diagonals -2,0,2 of mass matrix'''
+        return extract_diag(self.mass,k=(-2,0,2))
 
-        value: ndarray (2x?)
-            At least 2 values, can be two-dimensional for 
-            2-D Simulations, where BCs are applied along the 2.dim.
-        '''
-        return self._bc
-    
-    @bc.setter
-    def bc(self, value):
-        '''
-        '''
-        if value is None:
-            return
-        value = np.atleast_1d(value)
-        assert value.shape[0]==2, "BCs shape is invalid. (Must be size 2 x ? )"
-        self._bc = value
-        self.coeff_bc = value 
-
-
-    @property
-    def coeff_bc(self):
-        '''
-        Galerkin coefficients of phi_n-1 and phi_n, for inhomogeneous BCS
-        At the moment, coefficients are equal to bcs in physical space,
-        but this might change in the future
-        '''
-        return self._coeff_bc
-
-    @coeff_bc.setter
-    def coeff_bc(self,value):
-        self._coeff_bc = value
-    
-
-    def derivative(self,f,deriv,method="fft"):
+    def solve_mass(self,f):
+        from .linalg.tdma import TDMA_offset as TDMA
         ''' 
-        Calculate derivative of input array f 
+        Solve Mx = f, where m is the mass matrix. 
+        M has entries on -2,0,2, which can be solved
+        efficiently
+
+        Note:
+            Not generic for all combined galerkin bases,
+            keep in mind.
         '''
-        assert method in ["fft","spectral"], "Only fft differentiation supported"
-        c = self.forward_fft(f)
-        c = self._to_chebyshev(c)
-        dc = diff_recursion_spectral(c,deriv)
-        return self.family.backward_fft(dc)
-
-
-    @memoized
-    def dms(self,deriv):
-        '''  See Chebyshev (Not sure if this is general)'''
-        return self.family.dms(deriv)#@self.stencil(True))
-
-    @memoized
-    def pseudoinverse(self,*args,**kwargs):
-        '''  See Chebyshev (Not sure if this is general)'''
-        return self.family.pseudoinverse(*args,**kwargs)
-
-    # @property
-    # def S(self):
-    #     return self.stencil(True)
-
-    # @staticmethod
-    # def _discard(A):
-    #     ''' Discard first two rows'''
-    #     return A[2:,:]
+        l2,d,u2=self._init_solve_mass()
+        return TDMA(l2,d,u2,f,2)
 
 class ChebDirichlet(GalerkinChebyshev):
     """
@@ -308,51 +270,24 @@ class ChebDirichlet(GalerkinChebyshev):
     
     Parameters:
         N: int
-            Number of grid points
-        bc: 2-tuple of floats, optional
-            Boundary conditions at, respectively, x=(-1, 1).
-            
+            Number of grid points    
     """
-    def __init__(self,N,bc=(0,0)):
+    def __init__(self,N):
         GalerkinChebyshev.__init__(self,N)
         self.id = "CD" 
-        self.bc = bc
+        #self.bc = bc
 
-    def stencil(self,inv=False):
+    def _stencil(self):
         '''  
         Matrix representation of:
             phi_k = T_k - T_{k+2}
 
-        See GalerkinChebyshev for details
+        See GalerkinChebyshev class
         '''
-        S = np.zeros((self.M,self.N))
+        S = np.zeros((self.N,self.M))
         for i in range(self.M):
-            S[i,i],S[i,i+2] = 1, -1
-        if inv: return S.T 
+            S[i,i],S[i+2,i] = 1, -1
         return S
-
-    def stencilbc(self,inv=True):
-        '''
-            phi_N-1 = 0.5*(T_0-T_1)
-            phi_N-2 = 0.5*(T_0+T_1)
-        '''
-        S = np.zeros((2,self.N))
-        S[0,0],S[0,1] = 0.5, -0.5
-        S[1,0],S[1,1] = 0.5, +0.5 
-        if inv: return S.T 
-        return S
-
-    def get_basis_bc(self,i,k=0,x=None):
-        ''' 
-        Base functions for N-2 and N-1 to enforce non-zero BCs
-            N-2: phi(x) = 0.5*(1-x)
-            N-1: phi(x) = 0.5*(1+x)
-        '''
-        assert i == self.N-2 or i == self.N-1
-        if i == self.N-2:
-            return 0*x-0.5 if k==1 else 0.5*(1-x) if k==0 else 0*x
-        elif i == self.N-1:
-            return 0*x+0.5 if k==1 else 0.5*(1+x) if k==0 else 0*x
 
 
 class ChebNeumann(GalerkinChebyshev):
@@ -363,96 +298,21 @@ class ChebNeumann(GalerkinChebyshev):
     
     Parameters:
         N: int
-            Number of grid points
-        bc: 2-tuple of floats, optional
-            Boundary conditions at, respectively, x=(-1, 1).
-            
+            Number of grid points    
     """
-
-    def __init__(self,N,bc=(0,0)):
+    def __init__(self,N):
         GalerkinChebyshev.__init__(self,N)
         self.id = "CN" 
-        self.bc = bc
+        #self.bc = bc
 
-    def stencil(self,inv=False):
+    def _stencil(self):
         '''  
         Matrix representation of:
-            phi_k = T_k - k^2/(k+2)^2 T_{k+2}
+            phi_k = T_k - T_{k+2}
 
-        See GalerkinChebyshev for details
+        See GalerkinChebyshev class
         '''
-        S = np.zeros((self.M,self.N))
+        S = np.zeros((self.N,self.M))
         for i in range(self.M):
-            S[i,i],S[i,i+2] = 1, -(i/(i+2))**2
-        if inv: return S.T 
+            S[i,i],S[i+2,i] = 1, -(i/(i+2))**2
         return S
-
-    def stencilbc(self,inv=True):
-        '''
-            phi_N-1 = 1/2*T_1-1/8*T_2
-            phi_N-2 = 1/2*T_1+1/8*T_2
-        '''
-        S = np.zeros((2,self.N))
-        S[0,1],S[0,2] = 0.5, -1/8
-        S[1,1],S[1,2] = 0.5, +1/8
-        if inv: return S.T 
-        return S
-
-    def get_basis_bc(self,i,k=0,x=None):
-        ''' 
-        Base functions for N-2 and N-1 to enforce non-zero BCs
-            N-2: phi(x) = 1/2*T_1-1/8*T_2
-            N-1: phi(x) = 1/2*T_1+1/8*T_2
-        '''
-        assert i == self.N-2 or i == self.N-1
-        ibc = i-self.N+2
-        basis = self.stencilbc(False)[ibc,:]
-        basis = n_cheb.Chebyshev(basis)
-        if k > 0:
-            basis = basis.deriv(k)
-        return basis(x)
-
-    # def _mass(self):
-    #     ''' 
-    #     Eq. (2.5) of Shen - Effcient Spectral-Galerkin Method II.
-    #     '''
-    #     diag0 = [1.5, *[1.0]*(self.N-4), 1.5]
-    #     diag2 = [*[-0.5]*(self.N-4) ]
-    #     return diags([diag2, diag0, diag2], [-2, 0, 2],format="csc")
-
-    # def _mass_inv(self):
-    #     return spinv(self._mass())
-
-    # def _stiff(self):
-    #     ''' 
-    #     Eq. (2.6) of Shen - Effcient Spectral-Galerkin Method II.
-        
-    #     Equivalent to
-    #         S@D2@Si
-    #         S, Si : Stencil matrix and its inverse
-    #         D2:     Stiffness matrix of the Chebyshev Basis <T''T> 
-    #     '''
-    #     N,M = self.N-2, self.N-2
-    #     D = np.zeros( (N,M) )
-    #     for m in range(N):
-    #         for n in range(m,M):
-    #             if (n==m):
-    #                 D[m,n] = -2*(m+1)*(m+2)
-    #             elif (n-m)%2==0:
-    #                 D[m,n] = -4*(m+1)
-    #     return self._to_sparse(D)
-
-
-    # def stencil(self,inv=False):
-    #     '''  
-    #     Matrix representation of:
-    #         phi_k = T_k - T_{k+2}
-
-    #     See GalerkinChebyshev for details
-    #     '''
-    #     d0 = [ 1]*(self.N)
-    #     d1 = [-1]*(self.N-2)
-    #     if inv:
-    #         return diags([d0,d1], [0,-2],format="csc")#.toarray()
-    #     else:
-    #         return diags([d0,d1], [0, 2],format="csc")#.toarray()

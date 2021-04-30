@@ -1,4 +1,3 @@
-import collections
 import functools
 try:
     from collections.abc import Hashable 

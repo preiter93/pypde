@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.sparse import diags
-from .utils import to_sparse
+from .utils import tosparse
 from itertools import tee
 import warnings
 
@@ -191,13 +191,13 @@ class InnerKnown():
 
         # Derive inner product from parent (T) with transoform stencil S
         if [generation_u,generation_v] == ["parent", "child"]:
-            value = value@to_sparse(v.stencil(inv=True))
+            value = value@tosparse(v.stencil(inv=True))
             
         if [generation_u,generation_v] == ["child", "parent"]:
-            value = to_sparse(u.stencil())@value
+            value = tosparse(u.stencil())@value
 
         if [generation_u,generation_v] == ["child", "child"]:
-            value = to_sparse(u.stencil())@value@to_sparse(v.stencil(inv=True))
+            value = tosparse(u.stencil())@value@tosparse(v.stencil(inv=True))
 
         return value
 
@@ -218,7 +218,7 @@ class InnerKnown():
         '''  <Ti Tj^1> (todo: find an analytical expression)'''
         from .dmsuite import diff_mat_spectral as dms 
         mass = self.chebyshev_mass(u)
-        return to_sparse( mass@dms(u.N,k) ).toarray()
+        return tosparse( mass@dms(u.N,k) ).toarray()
 
     #@staticmethod
     def chebyshev_stiff(self,u=None,**kwargs):
@@ -276,7 +276,7 @@ class InnerKnown():
                     D[m,n] = -2*(m+1)*(m+2)
                 elif (n-m)%2==0:
                     D[m,n] = -4*(m+1)
-        return to_sparse(D).toarray()
+        return tosparse(D).toarray()
 
     def chebdirichlet_cube(self,u=None,**kwargs):
         '''  <Phi Phi^3> '''
@@ -325,7 +325,7 @@ class InnerKnown():
                     D[m,n] = -2*m**2*(m+1)/(m+2)
                 elif (n-m)%2==0:
                     D[m,n] = -4*n**2*(m+1)/(m+2)**2
-        return to_sparse(D).toarray()
+        return tosparse(D).toarray()
 
 
     @staticmethod
@@ -437,7 +437,7 @@ class InnerInvKnown():
         '''
         from .dmsuite import pseudoinverse_spectral as pis 
         mass_inv = self.chebyshev_mass_inv(u)
-        return to_sparse( pis(u.N,k)@mass_inv ).toarray()
+        return tosparse( pis(u.N,k)@mass_inv ).toarray()
 
     def chebyshev_stiff_inv(self,u=None,**kwargs):
         '''  

@@ -1,7 +1,7 @@
 import numpy as np
-from pypde.bases.fourier import *
+from ..fourier import *
 import unittest
-from test.timer import timeit 
+from .timer import timeit 
 
 
 N = 1000    # Grid size

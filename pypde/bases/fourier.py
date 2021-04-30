@@ -2,7 +2,7 @@ import numpy as np
 from numpy import pi
 from .spectralbase import MetaBase
 from .dmsuite import fourdif
-from ..utils.memoize import memoized
+from .memoize import memoized
 
 class Fourier(MetaBase):
     """
@@ -63,17 +63,6 @@ class Fourier(MetaBase):
         return np.diag((1j*self._k)**deriv)
 
     @memoized
-    def pseudoinverse(self,deriv,discardrow=None):
-        ''' 
-        Pseudoinverse of dmat_spectral dms. Since dms is diagonal
-        the inverse will be B = 1/diag(D) but with a zero element on B[0,0]
-        '''
-        if discardrow is None: discardrow = 1
-        k_inv = [0 if i==0 else 1/(1j*k)**deriv for i,k in enumerate(self._k)]
-        rv = np.diag( k_inv )
-        return rv[discardrow:,1:]
-
-    @memoized
     def dmp_collocation(self,deriv):
         ''' Collocation derivative matrix, must be applied in physical space.'''
         return fourdif(self.N,deriv,L=2*pi)[1]
@@ -92,3 +81,14 @@ class Fourier(MetaBase):
     # def _discard(A):
     #     ''' Discard'''
     #     return A[:,:]
+
+    # @memoized
+    # def pseudoinverse(self,deriv,discardrow=None):
+    #     ''' 
+    #     Pseudoinverse of dmat_spectral dms. Since dms is diagonal
+    #     the inverse will be B = 1/diag(D) but with a zero element on B[0,0]
+    #     '''
+    #     if discardrow is None: discardrow = 1
+    #     k_inv = [0 if i==0 else 1/(1j*k)**deriv for i,k in enumerate(self._k)]
+    #     rv = np.diag( k_inv )
+    #     return rv[discardrow:,1:]

@@ -1,11 +1,9 @@
-from .inner import inner,inner_inv
 import numpy as np 
-from .utils import to_sparse
-from ..utils.memoize import memoized
+from .inner import inner,inner_inv
+from .utils import tosparse
+from .memoize import memoized
 from scipy.sparse.linalg import inv as spinv
 from scipy.sparse import issparse
-#from .chebyshev import Chebyshev,ChebDirichlet,ChebNeumann
-#from .fourier import Fourier
 
 SPARSE = True  
 
@@ -33,7 +31,8 @@ def _bases_from_key(key):
     elif key == "FO" or key == "Fourier":
         return Fourier
     else:
-        raise ValueError("Key {:} not available.".format(key)) 
+        raise ValueError("Key {:} not available."
+            .format(key)) 
 
 class MetaBase():
     ''' 
@@ -55,8 +54,9 @@ class MetaBase():
         self._N = N
         self._x = x
         self.name = self.__class__.__name__
+
         # ID for class, each Space should have its own
-        self.id = "MB" 
+        self.id = None
 
     @property
     def x(self):
@@ -64,15 +64,12 @@ class MetaBase():
 
     @property
     def N(self):
-        ''' 
-        Number of grid points in physical space, equal to 
-        size of unrestricted Functionspace'
-        '''
+        ''' Number of grid points in physical space '''
         return self._N
 
     @property
     def M(self):
-        ''' Size without BC Functions'''
+        ''' Number of coefficients without BC'''
         return len(range(*self.slice().indices(self.N)))
     
     # ---------------------------------------------
@@ -90,19 +87,13 @@ class MetaBase():
         if TestFunction is None: TestFunction=self
         return inner(self,TestFunction,w="GL",D=D,**kwargs)
 
-    def _mass(self,sparse=SPARSE):
-        if sparse:
-            return self._to_sparse( self.inner(self,D=(0,0) ) )
+    def _mass(self):
         return self.inner(self,D=(0,0) ) 
 
-    def _grad(self,sparse=SPARSE):
-        if sparse:
-            return self._to_sparse( self.inner(self,D=(0,1) ) )
+    def _grad(self):
         return self.inner(self,D=(0,1) )
 
-    def _stiff(self,sparse=SPARSE):
-        if sparse:
-            return self._to_sparse( self.inner(self,D=(0,2) ) )
+    def _stiff(self):
         return self.inner(self,D=(0,2))
 
     @property
@@ -126,6 +117,21 @@ class MetaBase():
         '''  Stiffness matrix <Ti''Tj> '''
         return self._stiff()
 
+    @property
+    @memoized
+    def mass_sp(self):
+        return self._tosparse( self.mass )
+
+    @property
+    @memoized
+    def grad_sp(self):
+        return self._tosparse( self.grad )
+
+    @property
+    @memoized
+    def stiff_sp(self):
+        return self._tosparse( self.stiff )
+
     # ---------------------------------------------
     #           Inverse Inner Products
     # ---------------------------------------------
@@ -133,20 +139,11 @@ class MetaBase():
     def inner_inv(self,D=0,**kwargs):
         ''' 
         Inverse if inner products. Not defined for many classes yet.
+
+        Those are good preconditioner which make matrices banded
+        (Pseudoinverse Method)
         '''
         return inner_inv(self,D,**kwargs)
-
-    @property
-    @memoized
-    def mass_inv(self):
-        return self._mass_inv()
-
-    @property
-    @memoized
-    def grad_inv(self):
-        ''' Inverse of Gradient matrix <Ti'Tj> '''
-        return self._grad_inv()
-
 
     def _mass_inv(self):
         return spinv(self.mass).toarray()
@@ -159,14 +156,32 @@ class MetaBase():
 
     @property
     @memoized
+    def mass_inv(self):
+        return self._mass_inv()
+
+    @property
+    @memoized
+    def grad_inv(self):
+        ''' Inverse of Gradient matrix <Ti'Tj> '''
+        return self._grad_inv()
+
+    @property
+    @memoized
     def stiff_inv(self):
         '''  Inverse of Stiffness matrix <Ti''Tj> '''
         return self._stiff_inv()
 
-    def _to_sparse(self,A,tol=1e-12,format="csc"):
+    def _tosparse(self,A,tol=1e-12,format="csc"):
         if not issparse(A):
-            return to_sparse(A,tol,format)
+            return tosparse(A,tol,format)
         return A
+
+    def solve_mass(self,f):
+        ''' 
+        Solve Mx = f, where m is mass matrix. 
+        Can be implemented more efficient in subclasses
+        '''
+        return np.linalg.solve(self.mass,f)
 
     # ---------------------------------------------
     #     Project/Iterate over basis functions
@@ -176,7 +191,7 @@ class MetaBase():
         ''' Transform to spectral space:
         cn = <Ti,Tj>^-1 @ <Tj,f> where <Ti,Tj> is (sparse) mass matrix'''
         c,sl = np.zeros(self.N), self.slice()
-        c[sl] = self._mass_inv@inner(self,f)
+        c[sl] = self.solve_mass(inner(self,f))
         return c
 
     def evaluate(self,c):
@@ -203,32 +218,8 @@ class MetaBase():
 
 
     # ---------------------------------------------
-    #             Special Matrices
+    #    Short Names for widely used functions
     # ---------------------------------------------
-
-    # def D(self,deriv):
-    #     ''' Differentiation matrix '''
-    #     if hasattr(self,"dms"):
-    #         return self.dms(deriv)
-    #     else:
-    #         raise NotImplementedError
-
-    # -- For PseudoInverse Method ------
-
-    def B2(self,deriv,discardrow=None):
-        ''' Pseudoinverse '''
-        if hasattr(self,"pseudoinverse"):
-            return self.pseudoinverse(deriv,discardrow)
-        else:
-            raise NotImplementedError
-    
-    def I(self,deriv,discard=2):
-        ''' Identitiy matrix corresponding to B: B@D = I
-        '''
-        if hasattr(self,"pseudoinverse"):
-            return self.pseudoinverse(0,discard)
-        else:
-            raise NotImplementedError
 
     @property
     def S(self):
@@ -237,8 +228,17 @@ class MetaBase():
         Returns Identity matrix if there is no stencil defined
         '''
         if hasattr(self,"stencil"): 
-            return self.stencil(True)
+            return self.stencil()
         return np.eye(self.N)
+
+    def D(self,deriv):
+        if deriv==0:
+            return self.mass
+        if deriv==1: 
+            return self.grad 
+        if deriv==2:
+            return self.stiff
+        raise ValueError("deriv>2 not supported")
 
     def B(self,deriv,discardrow=0):
         ''' Pseudoinverse '''
@@ -250,14 +250,47 @@ class MetaBase():
             return self.stiff_inv[discardrow:,:]
         raise ValueError("deriv>2 not supported")
 
-    def D(self,deriv):
-        if deriv==0:
-            return self.mass
-        if deriv==1: 
-            return self.grad 
-        if deriv==2:
-            return self.stiff
-        raise ValueError("deriv>2 not supported")
+    def I(self,discardrow=0):
+        ''' (Discarded) Identitiy matrix '''
+        return np.eye(self.N)[discardrow:,:]
+
+    
+
+    # def D(self,deriv):
+    #     ''' Differentiation matrix '''
+    #     if hasattr(self,"dms"):
+    #         return self.dms(deriv)
+    #     else:
+    #         raise NotImplementedError
+
+    # -- For PseudoInverse Method ------
+
+    # def B2(self,deriv,discardrow=None):
+    #     ''' Pseudoinverse '''
+    #     if hasattr(self,"pseudoinverse"):
+    #         return self.pseudoinverse(deriv,discardrow)
+    #     else:
+    #         raise NotImplementedError
+    
+    # def I2(self,deriv,discard=2):
+    #     ''' Identitiy matrix corresponding to B: B@D = I
+    #     '''
+    #     if hasattr(self,"pseudoinverse"):
+    #         return self.pseudoinverse(0,discard)
+    #     else:
+    #         raise NotImplementedError
+
+    
+
+
+
+    # @property
+    # @memoized
+    # def _mass_inv_(self):
+    #     if SPARSE:
+    #         return spinv(self.mass).toarray()
+    #     else:
+    #         return np.linalg.inv(self.mass)
 
     # def J(self,discard=True):
     #     '''  Pseudo identity matrix where first two entries are zero'''
