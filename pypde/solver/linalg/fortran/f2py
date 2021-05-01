@@ -1,0 +1,10 @@
+# run 
+# pkg-config --cflags --libs python3 
+# to find include paths 
+
+
+f2py -I/usr/include/python3.8 -I/usr/include/x86_64-linux-gnu/python3.8 -c fdma.f90 -m fdma
+
+#old
+#python3 -m numpy.f2py  -DF2PY_REPORT_ON_ARRAY_COPY=1 --fcompiler=gnu95 --opt='-O3' -c linalg.f90 -m linalg
+

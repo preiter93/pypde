@@ -8,7 +8,7 @@ def inner(u,v,w="GL",D=(0,0),**kwargs):
     import pypde.bases.spectralbase as sb
     '''
     Inner product of <u,v>_w, where w is the weight.
-    
+
     The function can handle 3 scenarios:
     1)  u: array
         v: array
@@ -16,19 +16,19 @@ def inner(u,v,w="GL",D=(0,0),**kwargs):
         v: array
     3)  u: MetaBase
         v: MetaBase
-    
-    
+
+
     Input
         u: ndarray or MetaBase
         v: ndarray or MetaBase
-        w: ndarray or "GL" 
-            Weights of inner product 
+        w: ndarray or "GL"
+            Weights of inner product
             "GL": Gauss-Lobatto weight
             "NO": No weighs, use array of ones
         D: tuple of integers, size 1 or 2
             Order of derivative if input is a MetaBase
             (0: Standard Basis )
-        
+
     Output
         (1) scalar, (2) array or (3) matrix
     '''
@@ -42,7 +42,7 @@ def inner(u,v,w="GL",D=(0,0),**kwargs):
         method = "array"
         N = v.size
     elif isinstance(v,sb.MetaBase) and isinstance(u,np.ndarray):
-         return inner(v,u,w,D,**kwargs) # Switch u and v    
+         return inner(v,u,w,D,**kwargs) # Switch u and v
     elif all([isinstance(i,sb.MetaBase) for i in [u,v]]):
         assert u.N==v.N
         method = "matrix"
@@ -56,19 +56,19 @@ def inner(u,v,w="GL",D=(0,0),**kwargs):
         w_ = np.concatenate(([0.5],np.ones(N-2),[0.5] ))
     elif w == ("NO"):
         w_ = np.ones(N)
-    
+
     # -- inner product
     if method=="scalar":
         return np.sum(u*v*w_)/(N-1)
-    
+
     if method=="array":
         return np.array([inner(uu,v,w) for uu in u.iter_basis()])
-    
+
     if method=="matrix":
         return _inner_spectralbase(u,v,w,D,**kwargs)
 
 def _inner_spectralbase(u,v,w,D,lookup=True):
-    ''' 
+    '''
     Calculates inner product of two SpectralBases, should be
     called from inner
     '''
@@ -76,7 +76,7 @@ def _inner_spectralbase(u,v,w,D,lookup=True):
     if len(D)==2: ku,kv=D
     if len(D)==1: ku=kv=D
 
-    # Check list of known inner products first 
+    # Check list of known inner products first
     if lookup:
         value = InnerKnown().check(u,v,ku,kv)
         if value is not None:
@@ -98,11 +98,11 @@ def _inner_spectralbase(u,v,w,D,lookup=True):
 class InnerKnown():
     '''
     This class contains familiar inner products of the Functionspaces
-    and its derivative. 
+    and its derivative.
 
     Use:
     InnerKnown().check(u,v,ku,kv)
-    
+
     If the two input Functionspaces u,v are of the same type, class
     looks up if the key is contained in dict, and if so returns
     the stored value,otherwise gives it back to inner to calculate it.
@@ -151,8 +151,8 @@ class InnerKnown():
         }
 
     def check(self,u,v,ku,kv):
-        ''' 
-        See class' explanation. 
+        '''
+        See class' explanation.
 
         Input:
             u, v:  MetaBase
@@ -192,7 +192,7 @@ class InnerKnown():
         # Derive inner product from parent (T) with transform stencil S
         if [generation_u,generation_v] == ["parent", "child"]:
             value = value@tosparse(v.stencil())
-            
+
         if [generation_u,generation_v] == ["child", "parent"]:
             value = tosparse(u.stencil().T)@value
 
@@ -216,7 +216,7 @@ class InnerKnown():
     #@staticmethod
     def chebyshev_grad(self,u=None,k=1,**kwargs):
         '''  <Ti Tj^1> (todo: find an analytical expression)'''
-        from .dmsuite import diff_mat_spectral as dms 
+        from .dmsuite import diff_mat_spectral as dms
         mass = self.chebyshev_mass(u)
         return tosparse( mass@dms(u.N,k) ).toarray()
 
@@ -235,7 +235,7 @@ class InnerKnown():
 
     @staticmethod
     def chebdirichlet_mass(u=None,**kwargs):
-        ''' 
+        '''
         <Phi Phi>
         Eq. (2.5) of Shen - Effcient Spectral-Galerkin Method II.
         '''
@@ -245,28 +245,28 @@ class InnerKnown():
 
     @staticmethod
     def chebdirichlet_grad(u=None,**kwargs):
-        ''' 
+        '''
         <Phi Phi^1>
         Eq. (4.6) of Shen - Effcient Spectral-Galerkin Method II.
         '''
         diag0,diag1 = -np.arange(2,u.N-1),np.arange(1,u.N-2)
         return diags([diag0, diag1], [-1, 1]).toarray()
         #  -- Alternative ---
-        # S,Si = u.stencil(), u.stencil(inv=True) 
+        # S,Si = u.stencil(), u.stencil(inv=True)
         # D1 = self.chebyshev_grad(u)
         # return S@D1@Si
         # -------------------
-        
+
     @staticmethod
     def chebdirichlet_stiff(u=None,**kwargs):
-        ''' 
+        '''
          <Phi Phi^2>
         Eq. (2.6) of Shen - Effcient Spectral-Galerkin Method II.
-        
+
         Equivalent to
             S@D2@Si
             S, Si : Stencil matrix T<->Phi and its transpose
-            D2:     Stiffness matrix of the Chebyshev Basis <T''T> 
+            D2:     Stiffness matrix of the Chebyshev Basis <T''T>
         '''
         N,M = u.M,u.M
         D = np.zeros( (N,M) )
@@ -280,23 +280,21 @@ class InnerKnown():
 
     def chebdirichlet_cube(self,u=None,**kwargs):
         '''  <Phi Phi^3> '''
-        S,Si = u.stencil(), u.stencil(inv=True) 
         D = self.chebyshev_cube(u)
-        return S@D@Si
+        return u.stencil().T@D@u.stencil()
 
     def chebdirichlet_quad(self,u=None,**kwargs):
         '''  <Phi Phi^4> '''
-        S,Si = u.stencil(), u.stencil(inv=True) 
         D = self.chebyshev_quad(u)
-        return S@D@Si
+        return u.stencil().T@D@u.stencil()
 
 
     @staticmethod
     def chebneumann_mass(u=None,**kwargs):
-        ''' 
+        '''
         <Phi Phi>
         See 8.2.2 Neumann
-            AMS Kruseman - A Chebyshev-Galerkin method for inertial waves 
+            AMS Kruseman - A Chebyshev-Galerkin method for inertial waves
         '''
         cN = np.array([1.0, *[0.5]*(u.N-2),1.0])
         b  = np.array([(i/(i+2))**2 for i in range(u.N-2)])
@@ -305,16 +303,15 @@ class InnerKnown():
         return diags([diag2, diag0, diag2], [-2, 0, 2]).toarray()
 
     def chebneumann_grad(self,u=None,**kwargs):
-        ''' 
+        '''
         <Phi Phi^1>
         '''
-        S,Si = u.stencil(), u.stencil(inv=True) 
         D = self.chebyshev_grad(u)
-        return S@D@Si
+        return u.stencil().T@D@u.stencil()
 
     @staticmethod
     def chebneumann_stiff(u=None,**kwargs):
-        ''' 
+        '''
          <Phi Phi^2>
         '''
         N,M = u.M,u.M
@@ -331,7 +328,7 @@ class InnerKnown():
     @staticmethod
     def fourier(u,k):
         return diags(0.5*u._k**k,0).toarray()
-    
+
     def fourier_mass(self,u=None,**kwargs):
         ''' <Fi Fj> '''
         return self.fourier(u=u,k=0)
@@ -358,18 +355,18 @@ def inner_inv(u,D=0,**kwargs):
     '''
     Returns Pseudoinverse of inner product of <u,u^D>_w.
 
-    At the moment the inverse is only used to make 
+    At the moment the inverse is only used to make
     chebyshev system banded and efficient.
 
     NOTE:
         Only supports Chebyshev Bases "CH" and the
         derivatives D=(0,1) and (0,2)
-    
+
     Input
         u:  MetaBase
         D:  int
             Order of derivative
-        
+
     Output
         matrix
     '''
@@ -380,7 +377,7 @@ def inner_inv(u,D=0,**kwargs):
 
 class InnerInvKnown():
     '''
-    This class contains familiar inversese of inner products 
+    This class contains familiar inversese of inner products
 
     Use:
     InnerInvKnown().check(u,v,ku,kv)
@@ -397,7 +394,7 @@ class InnerInvKnown():
         }
 
     def check(self,u,ku):
-        ''' 
+        '''
         Input:
             u:  MetaBase
             ku: Integers (Order of derivative)
@@ -430,17 +427,17 @@ class InnerInvKnown():
 
     #@staticmethod
     def chebyshev_grad_inv(self,u=None,k=1,**kwargs):
-        '''  
+        '''
         Pseudoinverse
         <Ti Tj^1>^-1
         First row can be discarded
         '''
-        from .dmsuite import pseudoinverse_spectral as pis 
+        from .dmsuite import pseudoinverse_spectral as pis
         mass_inv = self.chebyshev_mass_inv(u)
         return tosparse( pis(u.N,k)@mass_inv ).toarray()
 
     def chebyshev_stiff_inv(self,u=None,**kwargs):
-        '''  
+        '''
         Pseudoinverse:
         <Ti Tj^2>^-1
         First two rows can be discarded
