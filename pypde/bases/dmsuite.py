@@ -54,7 +54,7 @@ def chebdif(ncheb, mder,L=2):
     The derivatives of functions is obtained by multiplying the vector of
     function values by the differentiation matrix.
     """
-    stretch=2.0/L 
+    stretch=2.0/L
     ncheb-=1
 
     if mder >= ncheb + 1:
@@ -141,7 +141,7 @@ def fourdif(nfou, mder,L=2*np.pi):
     S.C. Reddy, J.A.C. Weideman 1998.  Corrected for MATLAB R13
     by JACW, April 2003.
     """
-    stretch=2*np.pi/L 
+    stretch=2*np.pi/L
     # grid points
     xxt = 2*np.pi*np.arange(nfou)/nfou
     # grid spacing
@@ -205,13 +205,15 @@ def fourdif(nfou, mder,L=2*np.pi):
 def gauss_lobatto(n):
     ''' Return Chebyshev-Gauss-Lobatto grid points'''
     k = np.linspace(n, 0, n + 1)
-    return np.sin(np.pi*(n - 2 * k)/(2 * n))
+    if n>1:
+        return np.sin(np.pi*(n - 2 * k)/(2 * n))
+    return 0
 
 #@memoized
 def diff_mat_spectral(N,deriv):
-    '''Derivative matrix in spectral space of classical Chebyshev 
+    '''Derivative matrix in spectral space of classical Chebyshev
     polynomial on Gauss Lobattor points, see
-    Jan S. Hesthaven - Spectral Methods for Time-Dependent Problems (p. 256)  
+    Jan S. Hesthaven - Spectral Methods for Time-Dependent Problems (p. 256)
 
     Input:
         N: int
@@ -234,7 +236,7 @@ def diff_mat_spectral(N,deriv):
             for p in range(n+2,N):
                 if (p+n)%2==0:
                     D[n,p] = p*(p**2-n**2)
-    if deriv==3: 
+    if deriv==3:
         for n in range(N):
             for p in range(n+3,N):
                 if (p+n)%2!=0:
@@ -256,7 +258,7 @@ def diff_mat_spectral(N,deriv):
     return D
 
 def diff_recursion_spectral(c,deriv):
-    ''' Recursion formula for computing coefficients 
+    ''' Recursion formula for computing coefficients
     of deriv'th derivative of classical Chebyshev polynomial
     on Gauss Lobatto points
 
@@ -283,14 +285,14 @@ def diff_recursion_spectral(c,deriv):
 
 def pseudoinverse_spectral(N,deriv=2):
     '''Pseudoinverse Operator for chebyshev spectral
-    differentiation parameters 
+    differentiation parameters
     (pseudoinverse of diff_mat_spectral(), see above)
 
     Second order equations preconditioned with the
     pseudoinverse become banded.
 
     Literature:
-    Sahuck Oh - An Efficient Spectral Method to SolveMulti-Dimensional 
+    Sahuck Oh - An Efficient Spectral Method to SolveMulti-Dimensional
     Linear Partial Different EquationsUsing Chebyshev Polynomials
 
 
@@ -312,20 +314,20 @@ def pseudoinverse_spectral(N,deriv=2):
 
     if deriv==2:
         diag0 = np.zeros(N)
-        diag0[2:-2] = np.array([-1/(2*(i**2-1)) for i in range(2,N-2)]) 
+        diag0[2:-2] = np.array([-1/(2*(i**2-1)) for i in range(2,N-2)])
 
         diag1 = np.zeros(N-2)
-        diag1[2:-2] = np.array([1/(4*i*(i+1)) for i in range(2,N-4)]) 
+        diag1[2:-2] = np.array([1/(4*i*(i+1)) for i in range(2,N-4)])
 
         diag2 = np.zeros(N-2)
-        diag2[:] = np.array([1/(4*i*(i-1)) for i in range(2,N)]) 
+        diag2[:] = np.array([1/(4*i*(i-1)) for i in range(2,N)])
         diag2[0] *=2
         return diags([diag2, diag0, diag1], [-2, 0, 2]).toarray()
-    
+
     if deriv==1:
         diag0 = np.zeros(N-1)
-        diag0[:] = np.array([1/(2*i) for i in range(1,N)]) 
-        diag0[0] *=2 
+        diag0[:] = np.array([1/(2*i) for i in range(1,N)])
+        diag0[0] *=2
 
         diag1 = np.zeros(N-1)
         diag1[1:-1] = np.array([-1/(2*i) for i in range(1,N-2)])
@@ -347,10 +349,10 @@ def fourdifft(f,M,L=2*np.pi):
     M: Order of derivative required (non-negative integer)
     """
     N=len(f)
-    stretch=2*np.pi/L 
+    stretch=2*np.pi/L
 
     k=np.fft.fftfreq(N,d=(1.0 / N ))
-    k=(k*complex(0,1)*stretch)**M 
+    k=(k*complex(0,1)*stretch)**M
 
     fhat = np.fft.fft(f)
     dfhat = fhat*k
@@ -360,7 +362,7 @@ def fourdifft(f,M,L=2*np.pi):
 
 def chebdifft(f,M,L=2):
     """
-    Differentiation of f defined on chebyshev grid 
+    Differentiation of f defined on chebyshev grid
     via fft based on chebdifft.m (matlab)
     INPUT
     -----
@@ -368,8 +370,8 @@ def chebdifft(f,M,L=2):
     M: Order of derivative required (non-negative integer)
     """
     N=len(f)
-    stretch=2/L 
-    
+    stretch=2/L
+
     a = np.flipud(f[1:N-1])
     a = np.concatenate((f,a))
     a0 = np.fft.fft(a*stretch**M)
@@ -378,7 +380,7 @@ def chebdifft(f,M,L=2):
     a = np.concatenate(([0.5],ones,[0.5] ))
     a0 = a0[0:N]*a/(N-1)  #a0 contains Chebyshev coefficients of f
 
-    # Recursion formula for computing coefficients of ell'th derivative 
+    # Recursion formula for computing coefficients of ell'th derivative
     a = np.zeros((N,M+1),dtype="complex_")
     a[:,0] = a0
     for ell in np.arange(1,M+1):

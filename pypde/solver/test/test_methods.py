@@ -1,42 +1,42 @@
 import numpy as np
-from pypde.solver.solverplan import *
+from pypde.solver.plans import *
 import unittest
 
 N = 20     # Grid size
 M = 10
 RTOL = 1e-15 # np.allclose tolerance
 
-class TestInner(unittest.TestCase):
+class Test(unittest.TestCase):
     def setUp(self):
         pass
 
     @classmethod
     def setUpClass(cls):
         print("----------------------------------")
-        print(" Test: SolverPlan Methods         ")
+        print(" Test: Plan Methods         ")
         print("----------------------------------")
 
     def test_solve(self):
-        print("\n  *** SolverPlan: numpy ***  ")
+        print("\n  *** Plan: numpy ***  ")
 
         A = np.random.rand(N,N)
         b = np.random.rand(N,M)
 
         # Axis == 0
-        lhs = SolverPlanLHS(A,ndim=2,axis=0,method="numpy")
+        lhs = PlanLHS(A,ndim=2,axis=0,method="numpy")
         x = lhs.solve(b)
 
         assert np.allclose(x, np.linalg.solve(A,b),rtol=RTOL)
 
         # Axis == 1
-        lhs = SolverPlanLHS(A,ndim=2,axis=1,method="numpy")
+        lhs = PlanLHS(A,ndim=2,axis=1,method="numpy")
         x = lhs.solve(b.T)
 
         assert np.allclose(x, np.linalg.solve(A,b).T,rtol=RTOL)
         print("Success")
 
     def test_twodma(self):
-        print("\n  *** SolverPlan: twodma ***  ")
+        print("\n  *** Plan: twodma ***  ")
 
         d = np.random.rand(N)
         u = np.random.rand(N-2)
@@ -44,7 +44,7 @@ class TestInner(unittest.TestCase):
 
         # ndim == 1
         b = np.random.rand(N)
-        lhs = SolverPlanLHS(A,ndim=1,axis=0,method="twodma")
+        lhs = PlanLHS(A,ndim=1,axis=0,method="twodma")
         x = b.copy(order="F")
         x = lhs.solve(x)
 
@@ -53,14 +53,14 @@ class TestInner(unittest.TestCase):
         # ndim == 2
         b = np.random.rand(N,M)
         # Axis == 0
-        lhs = SolverPlanLHS(A,ndim=2,axis=0,method="twodma")
+        lhs = PlanLHS(A,ndim=2,axis=0,method="twodma")
         x = b.copy(order="F")
         x = lhs.solve(x)
 
         assert np.allclose(x, np.linalg.solve(A,b),rtol=RTOL)
 
         # Axis == 1
-        lhs = SolverPlanLHS(A,ndim=2,axis=1,method="twodma")
+        lhs = PlanLHS(A,ndim=2,axis=1,method="twodma")
         x = b.T.copy(order="F")
         x = lhs.solve(x)
 
@@ -68,7 +68,7 @@ class TestInner(unittest.TestCase):
         print("Success")
 
     def test_fdma(self):
-        print("\n  *** SolverPlan: fdma ***  ")
+        print("\n  *** Plan: fdma ***  ")
 
         l = np.random.rand(N-2)
         d = np.random.rand(N)
@@ -78,7 +78,7 @@ class TestInner(unittest.TestCase):
 
         # ndim == 1
         b = np.random.rand(N)
-        lhs = SolverPlanLHS(A,ndim=1,axis=0,method="fdma")
+        lhs = PlanLHS(A,ndim=1,axis=0,method="fdma")
         x = b.copy(order="F")
         x = lhs.solve(x)
 
@@ -87,14 +87,14 @@ class TestInner(unittest.TestCase):
         # ndim == 2
         b = np.random.rand(N,M)
         # Axis == 0
-        lhs = SolverPlanLHS(A,ndim=2,axis=0,method="fdma")
+        lhs = PlanLHS(A,ndim=2,axis=0,method="fdma")
         x = b.copy(order="F")
         x = lhs.solve(x)
 
         assert np.allclose(x, np.linalg.solve(A,b),rtol=RTOL)
 
         # Axis == 1
-        lhs = SolverPlanLHS(A,ndim=2,axis=1,method="fdma")
+        lhs = PlanLHS(A,ndim=2,axis=1,method="fdma")
         x = b.T.copy(order="F")
         x = lhs.solve(x)
 

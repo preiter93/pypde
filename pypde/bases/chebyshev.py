@@ -4,8 +4,8 @@ from scipy.sparse import diags
 from .dmsuite import (gauss_lobatto,diff_mat_spectral,
     diff_recursion_spectral,chebdif,pseudoinverse_spectral)
 from .memoize import memoized
-from .spectralbase import MetaBase 
-from .utils import * 
+from .spectralbase import MetaBase
+from .utils import *
 
 class Chebyshev(MetaBase):
     """
@@ -13,21 +13,21 @@ class Chebyshev(MetaBase):
     .. math::
         T_k = cos(k*arccos(x))
         x_k = cos(pi*k/N); k=0..N
-    
+
     Parameters:
         N: int
         Number of grid points
-        
-    Literature: 
+
+    Literature:
     https://www.math.purdue.edu/~shen7/pub/LegendreG.pdf
     https://github.com/spectralDNS/shenfun
     """
     def __init__(self,N):
         x = gauss_lobatto(N-1)
         MetaBase.__init__(self,N,x)
-        self.id = "CH" 
+        self.id = "CH"
         self.family_id = "CH"
-    
+
     def get_basis(self, i=0, x=None):
         if x is None: x = self.x
         w = np.arccos(x)
@@ -45,19 +45,19 @@ class Chebyshev(MetaBase):
         return basis(x)
 
     def forward_fft(self,f,mass=True):
-        '''  
-        Transform to spectral space via DCT, similar to project(), see
-        https://en.wikipedia.org/wiki/Discrete_Chebyshev_transform 
-        Scipys dctn is missing the (-1)^i part, which is handled here 
         '''
-        sign = np.array([(-1)**k for k in np.arange(self.N)]) 
+        Transform to spectral space via DCT, similar to project(), see
+        https://en.wikipedia.org/wiki/Discrete_Chebyshev_transform
+        Scipys dctn is missing the (-1)^i part, which is handled here
+        '''
+        sign = np.array([(-1)**k for k in np.arange(self.N)])
         c = 0.5*dctn(f,type=1,axes=0)/(self.N-1)
         c = product(sign,c) # mutliplication along first dimension
         return self.solve_mass(c) if mass else c
-    
+
     def backward_fft(self,c):
-        '''  Transform to physical space via DCT ''' 
-        sign = np.array([(-1)**k for k in np.arange(self.N)]) 
+        '''  Transform to physical space via DCT '''
+        sign = np.array([(-1)**k for k in np.arange(self.N)])
         f = product(sign,c) # mutliplication along first dimension
         f[[0,-1]] = product(np.array([2,2]),f[[0,-1]]) # first and last times 2
         return 0.5*dctn(f,type=1,axes=0)
@@ -69,9 +69,9 @@ class Chebyshev(MetaBase):
 
     @memoized
     def dms(self,deriv):
-        ''' 
+        '''
         Chebyshev differentation matrix, acts in spectral space.
-        Differentiation can be done more efficientrly via recursion, 
+        Differentiation can be done more efficientrly via recursion,
         see self.derivative
         '''
         return diff_mat_spectral(self.N,deriv)
@@ -96,8 +96,8 @@ class Chebyshev(MetaBase):
         return self.inner_inv(D = 2 )
 
     def solve_mass(self,f):
-        ''' 
-        Solve Mx = f, where m is mass matrix. 
+        '''
+        Solve Mx = f, where m is mass matrix.
         In this case M is purely diagonal.
         '''
         m_inv = diags([1.0, *[2.0]*(self.N-2), 1.0],0)
@@ -107,14 +107,14 @@ class Chebyshev(MetaBase):
 
     # @memoized
     # def pseudoinverse(self,deriv,discardrow=None):
-    #     ''' 
-    #     Pseudoinverse of differentiation matrix dms. 
+    #     '''
+    #     Pseudoinverse of differentiation matrix dms.
     #     Makes system banded and fast to solve.
     #     Returns pseudoidentity matrix if deriv is zero
     #     '''
     #     assert deriv==2 or deriv==1 or deriv==0, \
     #     "Only deriv==1,2 or 0 supported"
-    #     if discardrow is None: discardrow = deriv 
+    #     if discardrow is None: discardrow = deriv
 
     #     if deriv==0:
     #         rv = np.eye(self.N); rv[0,0] = rv[1,1] = 0
@@ -127,7 +127,7 @@ class GalerkinChebyshev(MetaBase):
     """
     Base class for composite Chebyshev spaces
     like ChebDirichlet used in the Galerkin method.
-    
+
     Define linear combination of Chebyhsev polynomials
     in stencil and set size by slice.
 
@@ -162,43 +162,43 @@ class GalerkinChebyshev(MetaBase):
                 .format(i))
 
     def slice(self):
-        ''' 
+        '''
         Galerkin space usually of size [0,N-3] (+ 2 BCs bases)
         Can be overwritten in child classes
         '''
         return slice(0, self.N-2)
 
     def _stencil(self):
-        ''' 
-        Must be implemented on child class! 
+        '''
+        Must be implemented on child class!
         All Transformations are derived from the stencil.
 
-        Stencil Matrix (NxM) to transform :  
+        Stencil Matrix (NxM) to transform :
             Galerkin (M) -> Chebyshev (N)
                     u = S v
-        
+
         Stencil:
             N x M Matrix
 
         Literature:
-            K. Julien: doi:10.1016/j.jcp.2008.10.043 
+            K. Julien: doi:10.1016/j.jcp.2008.10.043
         '''
         raise NotImplementedError
 
     def stencil(self,transpose=False):
         if transpose:
-            return self._stencil().T 
-        return self._stencil() 
+            return self._stencil().T
+        return self._stencil()
 
     # ---------------------------------------------
     #      Forward & Backward transform
     # ---------------------------------------------
 
     def _to_galerkin(self,cheby_c):
-        ''' 
-        Transform from T to phi basis 
+        '''
+        Transform from T to phi basis
 
-        cheby_c are the chebyshev coefficients 
+        cheby_c are the chebyshev coefficients
         before chebyshev.solve_mass(c), i.e. cheby_c = M@c
         '''
         c = self.stencil(True)@cheby_c
@@ -206,27 +206,41 @@ class GalerkinChebyshev(MetaBase):
         return self.solve_mass(c)
 
     def _to_chebyshev(self,galerkin_c):
-        ''' 
-        Transform from phi to T basis 
+        '''
+        Transform from phi to T basis
                   u = S v
         '''
         return self.stencil()@galerkin_c
 
     def forward_fft(self,f,bc=None):
-        '''  
-        Transform to spectral space via DCT 
+        '''
+        Transform to spectral space via DCT
+        Applied along zero axis of f
+
+        Input
+            f: N x M array
+                Array in real space
+            bc: 2 x M array (optional)
+                galerkin coefficients of BCs
         '''
         c = self.family.forward_fft(f,mass=False)
 
         if bc is not None:
             self._subtract_bc_before_to_galerkin(c,bc)
-        
+
         return self._to_galerkin(c)
 
     def backward_fft(self,c,bc=None):
-        '''  
-        Transform to physical space via DCT 
-        ''' 
+        '''
+        Transform to physical space via DCT
+        Applied along zero axis of c
+
+        Input
+            c: N x M array
+                galerkin coefficients
+            bc: 2 x M array (optional)
+                galerkin coefficients of BCs
+        '''
         c = self._to_chebyshev(c)
 
         # Add BCs along first dimension
@@ -243,8 +257,8 @@ class GalerkinChebyshev(MetaBase):
 
     def solve_mass(self,f):
         from .linalg.tdma import TDMA_offset as TDMA
-        ''' 
-        Solve Mx = f, where m is the mass matrix. 
+        '''
+        Solve Mx = f, where m is the mass matrix.
         M has entries on -2,0,2, which can be solved
         efficiently
 
@@ -264,42 +278,43 @@ class GalerkinChebyshev(MetaBase):
         '''  equivalent to S@inner(self,self.bc) '''
         return self.family.mass@self.bc.stencil()
 
-    def _add_bc_after_to_chebyshev(self,cheby_c, galerkin_bc):
+    def _add_bc_after_to_chebyshev(self,cheby_c, bc):
         '''
         Add bc coefficients to chebyshev coefficients
         '''
-        cheby_c += self.bc._to_chebyshev(galerkin_bc)
+        cheby_c += self.bc._to_chebyshev(bc)
 
-    def _subtract_bc_before_to_galerkin(self,cheby_c, galerkin_bc):
+    def _subtract_bc_before_to_galerkin(self,cheby_c, bc):
         '''
         When transforming from Chebyshev -> Galerkin coefficients
         the contributions of the bc_coefficients must be subtracted
-        from the chebyshev coefficients. 
+        from the chebyshev coefficients.
 
-            S^T @ ( cheby_c - M_bc @ galerkin_bc ) =  M @ galerkin_c
+            S^T @ ( cheby_c - M_bc @ bc ) =  M @ galerkin_c
 
         Apply before .solve_mass
         '''
-        assert galerkin_bc.shape[0] == self._bcmat().shape[1] 
-        cheby_c -= self._bcmat()@galerkin_bc 
+        assert bc.shape[0] == self._bcmat().shape[1], \
+        "First dimension of bc must be {:1d}".format(self._bcmat().shape[1])
+        cheby_c -= self._bcmat()@bc
 
 class ChebDirichlet(GalerkinChebyshev):
     """
     Function space for Dirichlet boundary conditions
     .. math::
         \phi_k = T_k - T_{k+2}
-    
+
     Parameters:
         N: int
-            Number of grid points    
+            Number of grid points
     """
     def __init__(self,N):
         GalerkinChebyshev.__init__(self,N)
-        self.id = "CD" 
+        self.id = "CD"
         self.bc = DirichletC(N)
 
     def _stencil(self):
-        '''  
+        '''
         Matrix representation of:
             phi_k = T_k - T_{k+2}
 
@@ -315,18 +330,18 @@ class ChebNeumann(GalerkinChebyshev):
     Function space for Neumann boundary conditions
     .. math::
         \phi_k = T_k - k^2/(k+2)^2 T_{k+2}
-    
+
     Parameters:
         N: int
-            Number of grid points    
+            Number of grid points
     """
     def __init__(self,N):
         GalerkinChebyshev.__init__(self,N)
-        self.id = "CN" 
+        self.id = "CN"
         self.bc = NeumannC(N)
 
     def _stencil(self):
-        '''  
+        '''
         Matrix representation of:
             phi_k = T_k - T_{k+2}
 
@@ -349,23 +364,27 @@ class DirichletC(GalerkinChebyshev):
     .. math::
         \phi_0 = 0.5*T_0 - 0.5*T_1
         \phi_1 = 0.5*T_0 + 0.5*T_1
-    
+
     Parameters:
         N: int
-            Number of grid points    
+            Number of grid points
     """
     def __init__(self,N):
         GalerkinChebyshev.__init__(self,N)
-        self.id = "DC" 
+        self.id = "DC"
+        self.is_bc = True
 
     def _stencil(self):
         S = np.zeros((self.N,self.M))
         S[0,0],S[1,0] =  0.5,-0.5
-        S[0,1],S[1,1] =  0.5, 0.5 
+        S[0,1],S[1,1] =  0.5, 0.5
         return S
 
     def slice(self):
         return slice(0,2)
+
+    def solve_mass(self,f):
+        return np.linalg.solve(self.mass,f)
 
 
 class NeumannC(GalerkinChebyshev):
@@ -374,27 +393,31 @@ class NeumannC(GalerkinChebyshev):
     .. math::
         \phi_N-2 = 0.5*T_0 - 1/8*T_1
         \phi_N-1 = 0.5*T_0 + 1/8*T_1
-    
+
     Parameters:
         N: int
-            Number of grid points    
+            Number of grid points
     """
     def __init__(self,N):
         GalerkinChebyshev.__init__(self,N)
-        self.id = "NC" 
+        self.id = "NC"
+        self.is_bc = True
 
     def _stencil(self):
         S = np.zeros((self.N,self.M))
         S[0,0],S[1,0] =  0.5,-1/8
-        S[0,1],S[1,1] =  0.5, 1/8 
+        S[0,1],S[1,1] =  0.5, 1/8
         return S
 
     def slice(self):
         return slice(0,2)
 
+    def solve_mass(self,f):
+        return np.linalg.solve(self.mass,f)
+
     # def _stencilbc(self):
     #     '''
-    #     Should be implemented on child class for 
+    #     Should be implemented on child class for
     #     inhomogenoeus BCs!
 
     #     Stencil transforms boundary coefficients (phi_N-1 & phi_N)
@@ -407,8 +430,8 @@ class NeumannC(GalerkinChebyshev):
 
     # def stencilbc(self,transpose=False):
     #     if transpose:
-    #         return self._stencilbc().T 
-    #     return self._stencilbc() 
+    #         return self._stencilbc().T
+    #     return self._stencilbc()
 
     # def stencilfull(self):
     #     return np.hstack( (self.stencil(),self.stencilbc()) )
@@ -421,7 +444,7 @@ class NeumannC(GalerkinChebyshev):
     #     '''
     #     S = np.zeros((self.N,2))
     #     S[0,0],S[0,1] =  0.5, 0.5
-    #     S[1,0],S[1,1] = -0.5, 0.5 
+    #     S[1,0],S[1,1] = -0.5, 0.5
     #     return S
 
     # def _stencilbc(self,inv=True):
@@ -431,7 +454,6 @@ class NeumannC(GalerkinChebyshev):
     #     '''
     #     S = np.zeros((2,self.N))
     #     S[0,0],S[0,1] =  0.5, 0.5
-    #     S[1,0],S[1,1] = -1/8, 1/8 
-    #     if inv: return S.T 
+    #     S[1,0],S[1,1] = -1/8, 1/8
+    #     if inv: return S.T
     #     return S
-
