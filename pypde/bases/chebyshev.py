@@ -216,6 +216,14 @@ class GalerkinChebyshev(MetaBase):
         '''
         Transform to spectral space via DCT
         Applied along zero axis of f
+ 
+             S^t T u = S^t@M@S vhat
+        -->  S^t T u = Mv vhat
+            
+            T u: Chebyshev transform without mass_inv applied 
+            M : Mass Chebyshev
+            Mv: Mass Galerkin (diag -2,0,2)
+            S : Transform Stencil
 
         Input
             f: N x M array
@@ -223,12 +231,20 @@ class GalerkinChebyshev(MetaBase):
             bc: 2 x M array (optional)
                 galerkin coefficients of BCs
         '''
+        #  Subtract inhomogeneous part
+        if bc is not None:
+            f = self.make_homogeneous(f,bc)
+
         c = self.family.forward_fft(f,mass=False)
 
-        if bc is not None:
-            self._subtract_bc_before_to_galerkin(c,bc)
-
         return self._to_galerkin(c)
+
+    def make_homogeneous(self,f,bchat):
+        '''
+            f = f_h + f_i
+        Subtracts inhomogeneous part of f
+        '''
+        return f - self.bc.backward_fft(bchat)
 
     def backward_fft(self,c,bc=None):
         '''
@@ -243,11 +259,19 @@ class GalerkinChebyshev(MetaBase):
         '''
         c = self._to_chebyshev(c)
 
-        # Add BCs along first dimension
+        # Add inhomogeneous part back
         if bc is not None:
-            self._add_bc_after_to_chebyshev(c,bc)
+            c += self.bc._to_chebyshev(bc)
 
         return self.family.backward_fft(c)
+
+        # f_i = self.bc.backward_fft(bc) if bc is not None else 0
+
+        # # Add BCs along first dimension
+        # #if bc is not None:
+        # #    self._add_bc_after_to_chebyshev(c,bc)
+        # c = self._to_chebyshev(c)
+        # return self.family.backward_fft(c)+f_i
 
     @memoized
     def _init_solve_mass(self):
@@ -267,36 +291,38 @@ class GalerkinChebyshev(MetaBase):
             keep in mind.
         '''
         l2,d,u2=self._init_solve_mass()
-        return TDMA(l2,d,u2,f,2)
-
+        try:
+            return TDMA(l2,d,u2,f,2)
+        except:
+            return np.linalg.solve(self.mass,f)
     # ---------------------------------------------
     #      Handle boundary conditions
     # ---------------------------------------------
 
-    @memoized
-    def _bcmat(self):
-        '''  equivalent to S@inner(self,self.bc) '''
-        return self.family.mass@self.bc.stencil()
+    # @memoized
+    # def _bcmat(self):
+    #     '''  equivalent to S@inner(self,self.bc) '''
+    #     return self.family.mass@self.bc.stencil()
 
-    def _add_bc_after_to_chebyshev(self,cheby_c, bc):
-        '''
-        Add bc coefficients to chebyshev coefficients
-        '''
-        cheby_c += self.bc._to_chebyshev(bc)
+    # def _add_bc_after_to_chebyshev(self,cheby_c, bc):
+    #     '''
+    #     Add bc coefficients to chebyshev coefficients
+    #     '''
+    #     cheby_c += self.bc._to_chebyshev(bc)
 
-    def _subtract_bc_before_to_galerkin(self,cheby_c, bc):
-        '''
-        When transforming from Chebyshev -> Galerkin coefficients
-        the contributions of the bc_coefficients must be subtracted
-        from the chebyshev coefficients.
+    # def _subtract_bc_before_to_galerkin(self,cheby_c, bc):
+    #     '''
+    #     When transforming from Chebyshev -> Galerkin coefficients
+    #     the contributions of the bc_coefficients must be subtracted
+    #     from the chebyshev coefficients.
 
-            S^T @ ( cheby_c - M_bc @ bc ) =  M @ galerkin_c
+    #         S^T @ ( cheby_c - M_bc @ bc ) =  M @ galerkin_c
 
-        Apply before .solve_mass
-        '''
-        assert bc.shape[0] == self._bcmat().shape[1], \
-        "First dimension of bc must be {:1d}".format(self._bcmat().shape[1])
-        cheby_c -= self._bcmat()@bc
+    #     Apply before .solve_mass
+    #     '''
+    #     assert bc.shape[0] == self._bcmat().shape[1], \
+    #     "First dimension of bc must be {:1d}".format(self._bcmat().shape[1])
+    #     cheby_c -= self._bcmat()@bc
 
 class ChebDirichlet(GalerkinChebyshev):
     """
