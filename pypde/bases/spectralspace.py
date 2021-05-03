@@ -5,8 +5,6 @@ class SpectralSpace():
     Class that handles all spectral bases and generalizes
     them to multidimensional spaces
 
-    Works only on homogeneous fields
-
     Input
         shape: int tuple (ndim)
             Shape of field in real space, can be 1d or 2d
@@ -60,12 +58,14 @@ class SpectralSpace():
 class SpectralSpaceBC(SpectralSpace):
     '''
     Handles a boundary conditions along 1 axis
-    This class is used internally.
+    This class is used internally in field.py
 
     Input
         shape: tuple
+            shape of field in physical space
         bases: tuple
-            See parent
+            ChebDirichlet (CD) or Chebneumann (CN)
+            support BCs
         axis: int
             Axis along which bc is applied
     '''
