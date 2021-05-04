@@ -17,8 +17,8 @@ def TDMA(a,b,c,d):
     '''
     n = len(d)
     w = np.zeros(n-1,float)
-    g = np.zeros(n, float)
-    p = np.zeros(n,float)
+    g = np.zeros(d.shape,float)
+    p = np.zeros(d.shape,float)
 
      # Forward sweep
     w[0] = c[0]/b[0]
@@ -61,19 +61,22 @@ def TDMA_offset(a,b,c,d,k):
     > assert np.allclose(x,np.linalg.solve(A,b))
     '''
     n = len(d)
-    w = np.zeros(d.shape,float)[:-2]
+    w = np.zeros(n-2,float)
     g = np.zeros(d.shape, float)
     p = np.zeros(d.shape,float)
 
     # Forward sweep
-    for i in range(k):
-        w[i] = c[i]/b[i]
-        g[i] = d[i]/b[i]
-    for i in range(k,n-k):
-        w[i] = c[i]/(b[i] - a[i-k]*w[i-k])
+    for i in range(n-k):
+        if i<k:
+            w[i] = c[i]/b[i]
+        else:
+            w[i] = c[i]/(b[i] - a[i-k]*w[i-k])
 
-    for i in range(k,n):
-        g[i] = (d[i] - a[i-k]*g[i-k])/(b[i] - a[i-k]*w[i-k])
+    for i in range(n):
+        if i<k:
+            g[i] = d[i]/b[i]
+        else:
+            g[i] = (d[i] - a[i-k]*g[i-k])/(b[i] - a[i-k]*w[i-k])
 
     # Back substitution
     p[n-k-1:n] = g[n-k-1:n]

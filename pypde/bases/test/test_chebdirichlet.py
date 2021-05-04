@@ -34,7 +34,7 @@ class TestChebyshev(unittest.TestCase):
         y    = self.CD.backward_fft(yhat)
 
         # Compate with numpy chebyshev
-        yhat = self.CD._to_chebyshev(yhat) 
+        yhat = self.CD.to_chebyshev(yhat) 
         cn = Chebnumpy(yhat)
         norm = np.linalg.norm( cn(self.x)-y )
         
