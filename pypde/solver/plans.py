@@ -26,7 +26,7 @@ class MetaPlan():
         self.A = A
         self.ndim = ndim
         self.axis = axis
-        self.N = A.shape[0]
+        self.N = A.shape[1]
         self._flags = Flags()
         self.flags.update({"axis": axis})
 

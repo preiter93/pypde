@@ -1,3 +1,3 @@
 from .inner import *
-from .spectralbase import SpectralBase
+from .spectralbase import *
 from .chebyshev import *

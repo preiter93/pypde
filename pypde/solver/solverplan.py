@@ -1,4 +1,3 @@
-import numpy as np
 from .plans import *
 
 class SolverPlan():
@@ -12,34 +11,35 @@ class SolverPlan():
     are stitched together and executed sequentially. Order matters here.
 
     Example:
-    > from pypde.solver.plans import *
-    > from pypde.solver.solverplan import *
-    > A = np.array([[1,1,2],[0,3,6],[0,0,9]])
-    > b = np.array([[0,1,2],[3,4,6])
-    >
-    > # Make Plans
-    > rhs = PlanRHS(A,ndim=2,axis=1)
-    > lhs = PlanLHS(A,ndim=2,axis=1,method="numpy")
-    >
-    > # Add them
-    > solver = SolverPlan()
-    > solver.add_lhs(lhs)
-    > solver.add_rhs(rhs)
-    >
-    > # Print them
-    > solver.show_plan()
-    >
-    > # Solve them
-    > rhs = solver.solve_rhs(b)
-    > x = solver.solve_lhs(rhs)
-    > print(x)
-    >
-    > # The above results should be the same as
-    > rhs = b@A.T
-    > np.linalg.solve(A,rhs.T).T
-    >
-    > array([[0., 1., 2.],
-    >        [3., 4., 6.]])
+    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    from pypde.solver.plans import *
+    from pypde.solver.solverplan import *
+    A = np.array([[1,1,2],[0,3,6],[0,0,9]])
+    b = np.array([[0,1,2],[3,4,6]])
+    
+    # Make Plans
+    rhs = PlanRHS(A,ndim=2,axis=1)
+    lhs = PlanLHS(A,ndim=2,axis=1,method="numpy")
+    
+    # Add them
+    solver = SolverPlan()
+    solver.add_lhs(lhs)
+    solver.add_rhs(rhs)
+    
+    # Print them
+    solver.show_plan()
+    
+    # Solve them
+    rhs = solver.solve_rhs(b)
+    x = solver.solve_lhs(rhs)
+    print(x)
+    
+    # The above results should be the same as
+    rhs = b@A.T
+    np.linalg.solve(A,rhs.T).T
+    >  array([[0., 1., 2.],
+            [3., 4., 6.]])
+    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     '''
     def __init__(self):
         self.plan_for_lhs = []

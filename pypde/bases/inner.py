@@ -4,6 +4,7 @@ from .utils import tosparse
 from itertools import tee
 import warnings
 
+
 def inner(u,v,w="GL",D=(0,0),**kwargs):
     import pypde.bases.spectralbase as sb
     '''
