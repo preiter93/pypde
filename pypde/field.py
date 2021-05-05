@@ -100,6 +100,14 @@ class Field(SpectralSpace):
     plot(xx,yy,field.inhomogeneous)
     plot(xx,yy,field.homogeneous)
     plot(xx,yy,field.total)
+
+    # Derivative along x
+    field_deriv = derivative_field(field,deriv=(1,0))
+    plot(xx,yy,field_deriv.v)
+
+    # Derivative along y (almost zero)
+    field_deriv = derivative_field(field,deriv=(0,1))
+    plot(xx,yy,field_deriv.v)
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     '''
     def __init__(self,shape,bases):
@@ -191,6 +199,7 @@ class FieldBC(SpectralSpaceBC):
 
     # Field BC
     field_bc = FieldBC(shape,("CD","CN"),axis=0)
+    xx,yy = np.meshgrid(field_bc.x,field_bc.y,indexing="ij")
 
     bc = np.zeros((2,M))
     bc[0,:] = -1+np.sin(4*field_bc.y)
@@ -199,6 +208,14 @@ class FieldBC(SpectralSpaceBC):
 
     from pypde.plot.wireframe import plot
     plot(xx,yy,field_bc.v)
+    
+    # Derivative along x
+    field_bc_deriv = derivative_field(field_bc,deriv=(1,0))
+    plot(xx,yy,field_bc_deriv.v)
+
+    # Derivative along y
+    field_bc_deriv = derivative_field(field_bc,deriv=(0,1))
+    plot(xx,yy,field_bc_deriv.v)
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     '''
     def __init__(self,shape,bases,axis):
