@@ -29,18 +29,35 @@ class Field(SpectralSpace):
                     Specify axis of boundary condition
 
     Example
-    > from pypde.field import *
-    > N,M = 20,10
-    > field = Field((N,M),("CD","CD"))
-    >
-    > # Spatial info
-    > xx,yy = np.meshgrid(field.x,field.y,indexing="ij")
-    >
-    > # Boundary conditions
-    > bcx = np.zeros((2,M))
-    > bcx[0] = field.y
-    > field.add_bc(bcx,axis=0)
-
+    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    from pypde.field import *
+    N,M = 20,10
+    field = Field((N,M),("CD","CN"))
+    
+    # Spatial info
+    xx,yy = np.meshgrid(field.x,field.y,indexing="ij")
+    f = np.sin(np.pi* xx)+xx+np.sin(4*yy)
+    field.v = f
+    
+    # Boundary conditions
+    bcx = np.zeros((2,M))
+    bcx[0,:] = -1+np.sin(4*field.y)
+    bcx[1,:] =  1+np.sin(4*field.y)
+    field.add_bc(bcx,axis=0)
+    
+    # Extract Homogeneous part of f
+    field.v = field.make_homogeneous(field.v)
+    
+    # Transform
+    field.vhat = field.forward()
+    field.v = field.backward()
+    
+    # Plot
+    from pypde.plot.wireframe import plot 
+    plot(xx,yy,field.inhomogeneous)
+    plot(xx,yy,field.homogeneous)
+    plot(xx,yy,field.total)
+    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     '''
     def __init__(self,shape,bases):
         SpectralSpace.__init__(self,shape,bases)

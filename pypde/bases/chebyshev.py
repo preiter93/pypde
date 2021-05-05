@@ -73,6 +73,8 @@ class Chebyshev(MetaBase):
         Chebyshev differentation matrix, acts in spectral space.
         Differentiation can be done more efficientrly via recursion,
         see self.derivative
+
+                self.stiff = self.mass @ self.dms(2)
         '''
         return diff_mat_spectral(self.N,deriv)
 
@@ -81,7 +83,7 @@ class Chebyshev(MetaBase):
         ''' Calculate derivative of input array f'''
         if method in ("fft", "spectral"):
             c = self.forward_fft(f)
-            dc = diff_recursion_spectral(c,deriv)
+            dc = self.diff_recursion(c,deriv)
             return self.backward_fft(dc)
         elif method in ("dm", "physical"):
             return self.dmp_collocation(deriv)@f
@@ -102,6 +104,9 @@ class Chebyshev(MetaBase):
         '''
         m_inv = diags([1.0, *[2.0]*(self.N-2), 1.0],0)
         return m_inv@f
+
+    def diff_recursion(self,fhat,deriv):
+        return diff_recursion_spectral(fhat,deriv)
 
 
 class GalerkinChebyshev(MetaBase):
