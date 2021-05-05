@@ -2,7 +2,7 @@ import numpy as np
 from scipy.fftpack import dctn
 from scipy.sparse import diags
 from .dmsuite import (gauss_lobatto,diff_mat_spectral,
-    diff_recursion_spectral,chebdif,pseudoinverse_spectral)
+    diff_recurrence_chebyshev,chebdif,pseudoinverse_spectral)
 from .memoize import memoized
 from .spectralbase import MetaBase
 from .utils import *
@@ -71,19 +71,24 @@ class Chebyshev(MetaBase):
     def dms(self,deriv):
         '''
         Chebyshev differentation matrix, acts in spectral space.
-        Differentiation can be done more efficientrly via recursion,
+        Differentiation can be done more efficientrly via recurrence,
         see self.derivative
 
                 self.stiff = self.mass @ self.dms(2)
         '''
         return diff_mat_spectral(self.N,deriv)
 
-    def derivative(self,f,deriv,method="fft"):
+    def derivative(self,fhat,deriv):
+        if deriv == 0:
+            return fhat
+        return diff_recurrence_chebyshev(fhat,deriv)
+
+    def derivative_physical(self,f,deriv,method="fft"):
         assert method in ["fft","spectral","dm","physical"]
         ''' Calculate derivative of input array f'''
         if method in ("fft", "spectral"):
             c = self.forward_fft(f)
-            dc = self.diff_recursion(c,deriv)
+            dc = self.derivative(c,deriv)
             return self.backward_fft(dc)
         elif method in ("dm", "physical"):
             return self.dmp_collocation(deriv)@f
@@ -104,9 +109,6 @@ class Chebyshev(MetaBase):
         '''
         m_inv = diags([1.0, *[2.0]*(self.N-2), 1.0],0)
         return m_inv@f
-
-    def diff_recursion(self,fhat,deriv):
-        return diff_recursion_spectral(fhat,deriv)
 
 
 class GalerkinChebyshev(MetaBase):
@@ -242,43 +244,45 @@ class GalerkinChebyshev(MetaBase):
 
         return self.family.backward_fft(c)
 
-    def to_chebyshev(self,c):
+    def to_chebyshev(self,vhat):
         '''
         Transform form galerkin to chebyshev
                     S v = u
         '''
-        assert c.shape[0] == self.M
-        return self.S_sp@c
+        assert vhat.shape[0] == self.M,"{} {}".format(vhat.shape[0],self.M)
+        return self.S_sp@vhat
 
-    def from_chebyshev(self,c):
+    def from_chebyshev(self,uhat):
         '''
         Transform form chebyshev to galerkin
                     S v = u
         '''
-        assert c.shape[0] == self.N
-        return self._solve_stencil_inv(c)
+        assert uhat.shape[0] == self.N
+        return self._solve_stencil_inv(uhat)
 
-    def _solve_stencil_inv(self,u):
+    def _solve_stencil_inv(self,uhat):
         '''
         This function works only if the stencil
         is of size N x N-2 and populated on
         the diagonals 0 and -2
-        
-        Solves 
+        Original system is overdetermine, hence
+        multiply with S^T
+
                S^T S v = S^T u 
-        galerkin coefficients v (N -2 x M)
+
+        Obtain galerkin coefficients v (N -2 x M)
         from chebyshev coefficients u (N x M)
 
         Note:
             For a generic stencil S, one possibility 
-            would is np.linalg.lstsq(S,u)
+            would is np.linalg.lstsq(S,uhat)
         '''
         from .linalg.tdma import TDMA_offset as TDMA
         l2,d,u2=self._init_stencil_inv()
         #try:
-        return TDMA(l2,d,u2,self.ST_sp@u,2)
+        return TDMA(l2,d,u2,self.ST_sp@uhat,2)
         #except:
-        #    return np.linalg.lstsq(self.S,u)[0]
+        #    return np.linalg.lstsq(self.S,uhat)[0]
 
     @memoized
     def _init_stencil_inv(self):
@@ -294,6 +298,24 @@ class GalerkinChebyshev(MetaBase):
         for given boundary coefficients
         '''
         return self.bc.backward_fft(bchat)
+
+    def derivative(self,vhat,deriv,out_cheby=True):
+        '''
+        Input
+            vhat ndarray
+                Galerkin coefficients
+            deriv int
+
+        Return
+            Coefficient array of derivative,
+            returns chebyshev coeff if out_cheby is True,, 
+            otherwise return galerkin coeff
+        '''
+        uhat = self.to_chebyshev(vhat)
+        duhat =  self.family.derivative(uhat,deriv)
+        if out_cheby:
+            return duhat
+        return self.from_chebyshev(duhat)
 
 
 class ChebDirichlet(GalerkinChebyshev):

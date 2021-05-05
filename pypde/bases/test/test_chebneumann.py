@@ -42,3 +42,17 @@ class TestChebyshev(unittest.TestCase):
             .format(norm))
 
         assert np.allclose(cn(self.x),y, rtol=RTOL)
+
+    @timeit
+    def test_derivative(self):
+        yhat = self.CD.forward_fft(self.y)
+        dyhat = self.CD.derivative(yhat,2,out_cheby=True)
+        dy2 = self.CD.family.backward_fft(dyhat)
+
+        # Compare with analytical solution
+        norm = np.linalg.norm( dy2-self.dy2 )
+
+        print("fft |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(dy2[1:-1],self.dy2[1:-1], rtol=RTOL)

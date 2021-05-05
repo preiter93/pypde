@@ -68,7 +68,7 @@ class TestChebyshev(unittest.TestCase):
         print("\n ** 2.Derivative via Collocation **  ")
         
         # Test projection
-        dy2 = self.CH.derivative(self.y,2,method="dm")
+        dy2 = self.CH.derivative_physical(self.y,2,method="dm")
 
         # Compare with analytical solution
         norm = np.linalg.norm( dy2-self.dy2 )
@@ -83,7 +83,7 @@ class TestChebyshev(unittest.TestCase):
         print("\n ** 2.Derivative via DCT **  ")
         
         # Test projection
-        dy2 = self.CH.derivative(self.y,2,method="fft")
+        dy2 = self.CH.derivative_physical(self.y,2,method="fft")
 
         # Compare with analytical solution
         norm = np.linalg.norm( dy2-self.dy2 )
@@ -104,6 +104,7 @@ class TestChebyshev2D(unittest.TestCase):
         # Function 
         arg = 2*np.pi/2
         self.f = np.sin(arg*self.xx)*np.cos(arg*self.yy)
+        self.df2 = - arg**2*np.sin(arg*self.xx)*np.cos(arg*self.yy)
 
     @classmethod
     def setUpClass(cls):
@@ -130,3 +131,26 @@ class TestChebyshev2D(unittest.TestCase):
             .format(norm))
 
         assert np.allclose(f,self.f, rtol=RTOL)
+
+
+    @timeit
+    def test_deriv2_fft(self):
+        print("\n ** 2.Derivative via DCT **  ")
+        
+        # Test projection
+        df2 = self.CH.derivative_physical(self.f,2,method="fft")
+
+        # Compare with analytical solution
+        norm = np.linalg.norm( df2-self.df2 )
+
+        print("fft |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        # import matplotlib.pyplot as plt
+        # levels = np.linspace(-10,10,10)
+        # plt.contourf(self.xx,self.yy,self.df2,levels=levels)
+        # plt.show()
+        # plt.contourf(self.xx,self.yy,df2,levels=levels)
+        # plt.show()
+
+        assert np.allclose(df2[1:-1],self.df2[1:-1], rtol=1e-2)

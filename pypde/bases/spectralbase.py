@@ -21,6 +21,7 @@ def SpectralBase(N,key):
 
 def _bases_from_key(key):
     from .chebyshev import Chebyshev,ChebDirichlet,ChebNeumann
+    from .chebyshev import DirichletC, NeumannC
     from .fourier import Fourier
     if key == "CH" or key == "Chebyshev":
         return Chebyshev
@@ -28,6 +29,10 @@ def _bases_from_key(key):
         return ChebDirichlet
     elif key == "CN" or key == "ChebNeumann":
         return ChebNeumann
+    elif key == "DC" or key == "DirichletC":
+        return DirichletC
+    elif key == "NC" or key == "NeumannC":
+        return NeumannC
     elif key == "FO" or key == "Fourier":
         return Fourier
     else:

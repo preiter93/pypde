@@ -55,6 +55,14 @@ class SpectralSpace():
             v = np.swapaxes(v,axis,0)
         return v
 
+    def derivative(self,vhat,deriv,axis,out_cheby=True):
+        if axis == 0:
+            return self.xs[axis].derivative(vhat,deriv,out_cheby)
+        else:
+            vhat = np.swapaxes(vhat,axis,0)
+            dvhat = self.xs[axis].derivative(vhat,deriv,out_cheby)
+            return np.swapaxes(dvhat,axis,0)
+
 class SpectralSpaceBC(SpectralSpace):
     '''
     Handles a boundary conditions along 1 axis
@@ -71,33 +79,55 @@ class SpectralSpaceBC(SpectralSpace):
     '''
     def __init__(self,shape,bases,axis):
         SpectralSpace.__init__(self,shape,bases)
-        for b in self.xs:
-            assert b.bc is not None
+        self.bases = bases
         self.axis = axis
+        self._check_axis_bases()
 
-    def forward_fft(self,v,axis):
+    def _check_axis_bases(self):
+        ''' 
+        Bases along self.axis should be should be DirichletC or NeumannC
+        and not implement self.bc
         '''
-        '''
-        assert isinstance(axis,int)
+        if hasattr(self.xs[self.axis],"bc"):
+            bases = list(self.bases)
+            bases[self.axis] = self.xs[self.axis].bc.id
+            bases = tuple(bases)
+            self.bases = bases
+            SpectralSpace.__init__(self,self.shape_physical,bases)
 
-        if axis == 0:
-            return self.xs[axis].bc.forward_fft(v)
-        else:
-            vhat = np.swapaxes(v,axis,0)
-            vhat = self.xs[axis].bc.forward_fft(vhat)
-            vhat = np.swapaxes(vhat,axis,0)
-            return vhat
+        
 
-    def backward_fft(self,vhat,axis):
-        '''
-        '''
-        assert isinstance(axis,int)
-        assert vhat.shape[self.axis] == 2
+    # def forward_fft(self,v,axis):
+    #     '''
+    #     '''
+    #     assert isinstance(axis,int)
 
-        if axis == 0:
-            return self.xs[axis].bc.backward_fft(vhat)
-        else:
-            v = np.swapaxes(vhat,axis,0)
-            v = self.xs[axis].bc.backward_fft(v)
-            v = np.swapaxes(v,axis,0)
-            return v
+    #     if axis == 0:
+    #         return self.xs[axis].bc.forward_fft(v)
+    #     else:
+    #         vhat = np.swapaxes(v,axis,0)
+    #         vhat = self.xs[axis].bc.forward_fft(vhat)
+    #         vhat = np.swapaxes(vhat,axis,0)
+    #         return vhat
+
+    # def backward_fft(self,vhat,axis):
+    #     '''
+    #     '''
+    #     assert isinstance(axis,int)
+    #     assert vhat.shape[self.axis] == 2
+
+    #     if axis == 0:
+    #         return self.xs[axis].bc.backward_fft(vhat)
+    #     else:
+    #         v = np.swapaxes(vhat,axis,0)
+    #         v = self.xs[axis].bc.backward_fft(v)
+    #         v = np.swapaxes(v,axis,0)
+    #         return v
+
+    # def derivative(self,vhat,deriv,axis,out_cheby=True):
+    #     if axis == 0:
+    #         return self.xs[axis].bc.derivative(vhat,deriv,out_cheby)
+    #     else:
+    #         vhat = np.swapaxes(vhat,axis,0)
+    #         dvhat = self.xs[axis].bc.derivative(vhat,deriv,out_cheby)
+    #         return np.swapaxes(dvhat,axis,0)

@@ -257,8 +257,36 @@ def diff_mat_spectral(N,deriv):
     D[0,:] *= 0.5
     return D
 
-def diff_recursion_spectral(c,deriv):
-    ''' Recursion formula for computing coefficients
+def diff_recurrence_chebyshev(c,deriv):
+    ''' Recurrence formula for computing coefficients
+    of deriv'th derivative of classical Chebyshev polynomial
+    on Gauss Lobatto points
+    Derivative is computed along first axis of c
+
+    Input:
+        c: ndarray
+            Chebyshev spectral coefficients
+        deriv: int
+            Order of derivative
+
+    Output:
+        ndarray (dim 1)
+            Chebyshev spectral ceofficients of derivative
+    '''
+    N = c.shape[0]
+    a = []
+    for i in range(deriv+1):
+        a.append(np.zeros((c.shape)))
+    a[0][:] = c
+    for ell in np.arange(1,deriv+1):
+        a[ell][N-ell-1]=2*(N-ell)*a[ell-1][N-ell]
+        for k in np.arange(N-ell-2,0,-1):
+            a[ell][k]=a[ell][k+2]+2*(k+1)*a[ell-1][k+1]
+        a[ell][0]=a[ell-1][1]+a[ell][2]/2
+    return a[deriv][:]
+
+def diff_recurrence_chebyshev2(c,deriv):
+    ''' Recurrence formula for computing coefficients
     of deriv'th derivative of classical Chebyshev polynomial
     on Gauss Lobatto points
 
