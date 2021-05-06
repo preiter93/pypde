@@ -1,45 +1,7 @@
 import numpy as np
 from .bases.spectralspace import *
 from .bases.memoize import memoized
-
-def derivative_field(field,deriv,out_array = None):
-    '''
-    Find derivative of field
-
-    Example: 
-
-    # Set field
-    shape = (30,20)
-    field = Field(shape,("CD","CN"))
-    xx,yy = np.meshgrid(field.x,field.y,indexing="ij")
-
-    f = np.sin(np.pi* xx)*np.sin(np.pi*yy)
-    field.v = f
-    field.forward()
-
-    # Get derivative
-    deriv_field = derivative_field(field,deriv=(1,0))
-    deriv_field.backward()
-
-    from pypde.plot.wireframe import plot
-    plot(xx,yy,field.v)
-    plot(xx,yy,deriv_field.v)
-    '''
-    assert isinstance(field,(Field,FieldBC))
-    assert field.ndim == len(deriv)
-    
-    dvhat = field.vhat
-    for axis in range(field.ndim):
-        dvhat = field.derivative(dvhat,deriv[axis],axis=axis)
-    
-    if out_array is None:
-        bases = [field.xs[0].family_id for i in range(field.ndim)]
-        field_deriv = Field(field.shape_physical,tuple(bases))
-        field_deriv.vhat = dvhat
-        field_deriv.backward()
-        return field_deriv
-    else:
-        out_array[:] = dvhat
+from .plot.anim import animate_line,animate_contour,animate_wireframe
 
 class Field(SpectralSpace):
     '''
@@ -113,13 +75,15 @@ class Field(SpectralSpace):
     def __init__(self,shape,bases):
         SpectralSpace.__init__(self,shape,bases)
         self.bases = bases
-        # Field in physical space
-        self.v = np.zeros(self.shape_physical)
-         # Field in spectral space
-        self.vhat = np.zeros(self.shape_spectral)
 
-        # Contains inhomogeneous field
-        self.field_bc = None
+        self.v = np.zeros(self.shape_physical)      # physical field
+        self.vhat = np.zeros(self.shape_spectral)   # spectral field
+
+        self.field_bc = None #inhomogeneous field
+
+        self.t = 0      # time
+        self.V = []     # Storage Field
+        self.T = []     # Storage Time
 
     @property
     def x(self):
@@ -170,6 +134,10 @@ class Field(SpectralSpace):
             "Shape mismatch in make_homogeneous"
         return self.v - self.inhomogeneous
 
+    #-----------------------------------------
+    #  total = homogeneous + inhomogeneous
+    #-----------------------------------------
+
     @property
     def total(self):
         return self.homogeneous + self.inhomogeneous
@@ -184,6 +152,41 @@ class Field(SpectralSpace):
         if self.field_bc is not None:
             return self.field_bc.v
         return 0
+
+    #-----------------------------------------
+    #           Save and animate
+    #-----------------------------------------
+
+    def save(self,transform = True):
+        if transform: self.backward()
+        self.V.append(self.v)
+        self.T.append(self.t)
+
+    def dstack(self):
+        ''' List to ndarray with order [time,space] '''
+        self.VS = np.rollaxis( np.dstack(self.V).squeeze(), -1)
+        self.TS = np.rollaxis( np.dstack(self.T).squeeze(), -1)
+
+    def animate(self,x=None,y=None,skip=1,**kwargs):
+        self.dstack()
+
+        if x is None:
+            if hasattr(self,"x"):
+                x = self.x
+            else:
+                raise ValueError("Can't animate. x not known.") 
+
+        if self.ndim==1:
+            return animate_line(x,self.VS[::skip],**kwargs)
+
+        if self.ndim==2:
+            if y is None:
+                if hasattr(self,"y"):
+                    y = self.y
+                else:
+                    raise ValueError("Can't animate. y not known.") 
+
+            return animate_wireframe(x,y,self.VS[::skip],**kwargs)
 
 
 class FieldBC(SpectralSpaceBC):
@@ -284,3 +287,45 @@ class FieldBC(SpectralSpaceBC):
     # def vhat(self,value):
     #     self._v = self.backward_fft(value,self.axis)
     #     self._vhat = value
+
+
+    
+def derivative_field(field,deriv,out_array = None):
+    '''
+    Find derivative of field
+
+    Example: 
+
+    # Set field
+    shape = (30,20)
+    field = Field(shape,("CD","CN"))
+    xx,yy = np.meshgrid(field.x,field.y,indexing="ij")
+
+    f = np.sin(np.pi* xx)*np.sin(np.pi*yy)
+    field.v = f
+    field.forward()
+
+    # Get derivative
+    deriv_field = derivative_field(field,deriv=(1,0))
+    deriv_field.backward()
+
+    from pypde.plot.wireframe import plot
+    plot(xx,yy,field.v)
+    plot(xx,yy,deriv_field.v)
+    '''
+    assert isinstance(field,(Field,FieldBC))
+    if isinstance(deriv,int): deriv = (deriv,) # to tuple
+    assert field.ndim == len(deriv)
+    
+    dvhat = field.vhat
+    for axis in range(field.ndim):
+        dvhat = field.derivative(dvhat,deriv[axis],axis=axis)
+    
+    if out_array is None:
+        bases = [field.xs[0].family_id for i in range(field.ndim)]
+        field_deriv = Field(field.shape_physical,tuple(bases))
+        field_deriv.vhat = dvhat
+        field_deriv.backward()
+        return field_deriv
+    else:
+        out_array[:] = dvhat

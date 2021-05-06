@@ -44,10 +44,15 @@ class SolverPlan():
     def __init__(self):
         self.plan_for_lhs = []
         self.plan_for_rhs = []
+        self.plan_for_old = []
 
     def add_rhs(self,plan):
         assert isinstance(plan, PlanRHS)
         self.plan_for_rhs.append(plan)
+
+    def add_old(self,plan):
+        assert isinstance(plan, PlanRHS)
+        self.plan_for_old.append(plan)
 
     def add_lhs(self,plan):
         assert isinstance(plan, MetaPlan)
@@ -55,6 +60,11 @@ class SolverPlan():
 
     def solve_rhs(self,b):
         for plan in self.plan_for_rhs:
+            b = plan.solve(b)
+        return b
+
+    def solve_old(self,b):
+        for plan in self.plan_for_old:
             b = plan.solve(b)
         return b
 
@@ -68,6 +78,11 @@ class SolverPlan():
         for i,p in enumerate(self.plan_for_rhs):
             print(i+1,")", self._str_plan(p) )
         print("")
+        if self.plan_for_old:
+            print("Plans RHS (Old field):")
+            for i,p in enumerate(self.plan_for_old):
+                print(i+1,")", self._str_plan(p) )
+            print("")
         print("Plans LHS:")
         for i,p in enumerate(self.plan_for_lhs):
             print(i+1,")", self._str_plan(p) )

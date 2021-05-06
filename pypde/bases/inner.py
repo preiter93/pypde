@@ -351,96 +351,99 @@ class InnerKnown():
         return self.fourier(u=u,k=4)
 
 
-def inner_inv(u,D=0,**kwargs):
-    import pypde.bases.spectralbase as sb
-    '''
-    Returns Pseudoinverse of inner product of <u,u^D>_w.
+# def inner_inv(u,D=0,**kwargs):
+#     import pypde.bases.spectralbase as sb
+#     '''
+#     Returns Pseudoinverse of inner product of <u,u^D>_w.
 
-    At the moment the inverse is only used to make
-    chebyshev system banded and efficient.
+#     At the moment the inverse is only used to make
+#     chebyshev system banded and efficient.
 
-    NOTE:
-        Only supports Chebyshev Bases "CH" and the
-        derivatives D=(0,1) and (0,2)
+#     NOTE:
+#         Only supports Chebyshev Bases "CH" and the
+#         derivatives D=(0,1) and (0,2)
 
-    Input
-        u:  MetaBase
-        D:  int
-            Order of derivative
+#     Input
+#         u:  MetaBase
+#         D:  int
+#             Order of derivative
 
-    Output
-        matrix
-    '''
-    assert isinstance(u,sb.MetaBase)
-    return InnerInvKnown().check(u,D)
+#     Output
+#         matrix
+#     '''
+#     assert isinstance(u,sb.MetaBase)
+#     return InnerInvKnown().check(u,D)
 
 
 
-class InnerInvKnown():
-    '''
-    This class contains familiar inversese of inner products
+# class InnerInvKnown():
+#     '''
+#     This class contains familiar inversese of inner products
 
-    Use:
-    InnerInvKnown().check(u,v,ku,kv)
+#     Use:
+#     InnerInvKnown().check(u,v,ku,kv)
 
-    '''
-    inverted = False
-    @property
-    def dict(self):
-        return{
-            # <Chebyshev Chebyshev>
-            "CH^0,CH^0": self.chebyshev_mass_inv,
-            "CH^0,CH^1": self.chebyshev_grad_inv,
-            "CH^0,CH^2": self.chebyshev_stiff_inv,
-        }
+#     '''
+#     inverted = False
+#     @property
+#     def dict(self):
+#         return{
+#             # <Chebyshev Chebyshev>
+#             "CH^0,CH^0": self.chebyshev_mass_inv,
+#             "CH^0,CH^1": self.chebyshev_grad_inv,
+#             "CH^0,CH^2": self.chebyshev_stiff_inv,
+#         }
 
-    def check(self,u,ku):
-        '''
-        Input:
-            u:  MetaBase
-            ku: Integers (Order of derivative)
-        '''
-        assert all(hasattr(i,"id") for i in [u])
-        assert u.id == "CH", "InnerInv supports only Chebyshev at the moment"
-        assert ku == 0 or ku == 1 or ku == 2
+#     def check(self,u,ku):
+#         '''
+#         Input:
+#             u:  MetaBase
+#             ku: Integers (Order of derivative)
+#         '''
+#         assert all(hasattr(i,"id") for i in [u])
+#         assert u.id == "CH", "InnerInv supports only Chebyshev at the moment"
+#         assert ku == 0 or ku == 1 or ku == 2
 
-        key = self.generate_key(u.id,u.id,0,ku)
+#         key = self.generate_key(u.id,u.id,0,ku)
 
-        # Lookup Key
-        if key in self.dict:
-            value = self.dict[key](u=u,ku=ku)
-            return value
-        else:
-            raise ValueError("Key not found in inner_inv.")
+#         # Lookup Key
+#         if key in self.dict:
+#             value = self.dict[key](u=u,ku=ku)
+#             return value
+#         else:
+#             raise ValueError("Key not found in inner_inv.")
 
-    def generate_key(self,idu,idv,ku,kv):
-        idv, ku = idu, 0
-        return "{:2s}^{:1d},{:2s}^{:1d}".format(idu,ku,idv,kv)
+#     def generate_key(self,idu,idv,ku,kv):
+#         idv, ku = idu, 0
+#         return "{:2s}^{:1d},{:2s}^{:1d}".format(idu,ku,idv,kv)
 
-    # ----- Collection of known inverses of inner products ------
-    @staticmethod
-    def chebyshev_mass_inv(u=None,**kwargs):
-        ''' <Ti Tj>^-1
-        Some literature gives it with a factor of pi
-        '''
-        #assert u.id=="CH"
-        return diags([1.0, *[2.0]*(u.N-2), 1.0],0).toarray()
+#     # ----- Collection of known inverses of inner products ------
+#     @staticmethod
+#     def chebyshev_mass_inv(u=None,**kwargs):
+#         ''' <Ti Tj>^-1
+#         Some literature gives it with a factor of pi
+#         '''
+#         #assert u.id=="CH"
+#         return diags([1.0, *[2.0]*(u.N-2), 1.0],0).toarray()
 
-    #@staticmethod
-    def chebyshev_grad_inv(self,u=None,k=1,**kwargs):
-        '''
-        Pseudoinverse
-        <Ti Tj^1>^-1
-        First row can be discarded
-        '''
-        from .dmsuite import pseudoinverse_spectral as pis
-        mass_inv = self.chebyshev_mass_inv(u)
-        return tosparse( pis(u.N,k)@mass_inv ).toarray()
+#     #@staticmethod
+#     def chebyshev_grad_inv(self,u=None,k=1,**kwargs):
+#         '''
+#         Pseudoinverse
+#         <Ti Tj^1>^-1
+#         First row can be discarded
+#         '''
+#         from .dmsuite import pseudoinverse_spectral as pis
+#         mass_inv = self.chebyshev_mass_inv(u)
+#         return tosparse( pis(u.N,k)@mass_inv ).toarray()
+#         #return tosparse( pis(u.N,k) ).toarray()
 
-    def chebyshev_stiff_inv(self,u=None,**kwargs):
-        '''
-        Pseudoinverse:
-        <Ti Tj^2>^-1
-        First two rows can be discarded
-         '''
-        return self.chebyshev_grad_inv(u,2)
+#     def chebyshev_stiff_inv(self,u=None,**kwargs):
+#         '''
+#         Pseudoinverse:
+#         <Ti Tj^2>^-1
+#         First two rows can be discarded
+#          '''
+#         return self.chebyshev_grad_inv(u,2)
+
+

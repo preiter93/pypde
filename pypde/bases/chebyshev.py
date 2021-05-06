@@ -93,15 +93,6 @@ class Chebyshev(MetaBase):
         elif method in ("dm", "physical"):
             return self.dmp_collocation(deriv)@f
 
-    def _mass_inv(self):
-        return self.inner_inv(D = 0 )
-
-    def _grad_inv(self):
-        return self.inner_inv(D = 1 )
-
-    def _stiff_inv(self):
-        return self.inner_inv(D = 2 )
-
     def solve_mass(self,f):
         '''
         Solve Mx = f, where m is mass matrix.
@@ -109,6 +100,21 @@ class Chebyshev(MetaBase):
         '''
         m_inv = diags([1.0, *[2.0]*(self.N-2), 1.0],0)
         return m_inv@f
+
+    # ---------------------------------------------
+    #    Pseudoinverse
+    # ---------------------------------------------
+
+    def B(self,deriv,discardrow=0):
+        ''' Pseudoinverse '''
+        from .pinv import pseudo_inv
+        if deriv>2:
+            raise ValueError("deriv>2 not supported")
+        return pseudo_inv(self,D = deriv)[discardrow:,:]#self.mass_inv
+        
+    def I(self,discardrow=0):
+        ''' (Discarded) Identitiy matrix '''
+        return np.eye(self.N)[discardrow:,:]
 
 
 class GalerkinChebyshev(MetaBase):
@@ -177,21 +183,6 @@ class GalerkinChebyshev(MetaBase):
         if transpose:
             return self._stencil().T
         return self._stencil()
-
-    @property
-    def S(self):
-        ''' Shortcut for stencil'''
-        return self.stencil()
-    
-    @property
-    def S_sp(self):
-        ''' Sparse version of stencil '''
-        return self._tosparse( self.stencil() )
-
-    @property
-    def ST_sp(self):
-        ''' Sparse version of stencil '''
-        return self._tosparse( self.stencil(transpose=True) )
 
     # ---------------------------------------------
     #      Forward & Backward transform
@@ -280,7 +271,7 @@ class GalerkinChebyshev(MetaBase):
         from .linalg.tdma import TDMA_offset as TDMA
         l2,d,u2=self._init_stencil_inv()
         #try:
-        return TDMA(l2,d,u2,self.ST_sp@uhat,2)
+        return TDMA(l2,d,u2,self.stencil(transpose=True)@uhat,2)
         #except:
         #    return np.linalg.lstsq(self.S,uhat)[0]
 
@@ -436,179 +427,3 @@ class NeumannC(GalerkinChebyshev):
     def from_chebyshev(self,c):
         ''' NeumannC only depends on first two modes '''
         return np.linalg.solve(self.S[:2,:2],c[:2])
-
-
-
-
-    # ---------------------------------------------
-    #           Old Stuff
-    # ---------------------------------------------
-
-
-    # def _stencilbc(self):
-    #     '''
-    #     Should be implemented on child class for
-    #     inhomogenoeus BCs!
-
-    #     Stencil transforms boundary coefficients (phi_N-1 & phi_N)
-    #     to chebyshev coefficients
-
-    #     Stencilbc:
-    #         N x 2 Matrix
-    #     '''
-    #     raise NotImplementedError
-
-    # def stencilbc(self,transpose=False):
-    #     if transpose:
-    #         return self._stencilbc().T
-    #     return self._stencilbc()
-
-    # def stencilfull(self):
-    #     return np.hstack( (self.stencil(),self.stencilbc()) )
-        #return inner(self,self.bc)
-
-    # def _stencilbc(self):
-    #     '''
-    #         phi_N-1 = 0.5*(T_0-T_1)
-    #         phi_N-2 = 0.5*(T_0+T_1)
-    #     '''
-    #     S = np.zeros((self.N,2))
-    #     S[0,0],S[0,1] =  0.5, 0.5
-    #     S[1,0],S[1,1] = -0.5, 0.5
-    #     return S
-
-    # def _stencilbc(self,inv=True):
-    #     '''
-    #         phi_N-1 = 1/2*T_1-1/8*T_2
-    #         phi_N-2 = 1/2*T_1+1/8*T_2
-    #     '''
-    #     S = np.zeros((2,self.N))
-    #     S[0,0],S[0,1] =  0.5, 0.5
-    #     S[1,0],S[1,1] = -1/8, 1/8
-    #     if inv: return S.T
-    #     return S
-
-
-
-
-
-    # def _to_galerkin(self,cheby_c):
-    #     '''
-    #     Transform from T to phi basis
-
-    #     cheby_c are the chebyshev coefficients
-    #     before chebyshev.solve_mass(c), i.e. cheby_c = M@c
-    #     '''
-    #     c = self.stencil(True)@cheby_c
-
-    #     return self.solve_mass(c)
-
-    # def _to_chebyshev(self,galerkin_c):
-    #     '''
-    #     Transform from phi to T basis
-    #               u = S v
-    #     '''
-    #     return self.stencil()@galerkin_c
-
-    # @memoized
-    # def _init_solve_mass(self):
-    #     from .utils import extract_diag
-    #     ''' Return diagonals -2,0,2 of mass matrix'''
-    #     return extract_diag(self.mass,k=(-2,0,2))
-
-    # def solve_mass(self,f):
-    #     from .linalg.tdma import TDMA_offset as TDMA
-    #     '''
-    #     Solve Mx = f, where m is the mass matrix.
-    #     M has entries on -2,0,2, which can be solved
-    #     efficiently
-
-    #     Note:
-    #         Not generic for all combined galerkin bases,
-    #         keep in mind.
-    #     '''
-    #     l2,d,u2=self._init_solve_mass()
-    #     try:
-    #         return TDMA(l2,d,u2,f,2)
-    #     except:
-    #         return np.linalg.solve(self.mass,f)
-
-    # ---------------------------------------------
-    #      Handle boundary conditions
-    # ---------------------------------------------
-
-    # @memoized
-    # def _bcmat(self):
-    #     '''  equivalent to S@inner(self,self.bc) '''
-    #     return self.family.mass@self.bc.stencil()
-
-    # def _add_bc_after_to_chebyshev(self,cheby_c, bc):
-    #     '''
-    #     Add bc coefficients to chebyshev coefficients
-    #     '''
-    #     cheby_c += self.bc._to_chebyshev(bc)
-
-    # def _subtract_bc_before_to_galerkin(self,cheby_c, bc):
-    #     '''
-    #     When transforming from Chebyshev -> Galerkin coefficients
-    #     the contributions of the bc_coefficients must be subtracted
-    #     from the chebyshev coefficients.
-
-    #         S^T @ ( cheby_c - M_bc @ bc ) =  M @ galerkin_c
-
-    #     Apply before .solve_mass
-    #     '''
-    #     assert bc.shape[0] == self._bcmat().shape[1], \
-    #     "First dimension of bc must be {:1d}".format(self._bcmat().shape[1])
-    #     cheby_c -= self._bcmat()@bc
-
-
-
-
-
-    # @memoized
-    # def pseudoinverse(self,deriv,discardrow=None):
-    #     '''
-    #     Pseudoinverse of differentiation matrix dms.
-    #     Makes system banded and fast to solve.
-    #     Returns pseudoidentity matrix if deriv is zero
-    #     '''
-    #     assert deriv==2 or deriv==1 or deriv==0, \
-    #     "Only deriv==1,2 or 0 supported"
-    #     if discardrow is None: discardrow = deriv
-
-    #     if deriv==0:
-    #         rv = np.eye(self.N); rv[0,0] = rv[1,1] = 0
-    #     elif deriv==1 or deriv==2:
-    #         rv = pseudoinverse_spectral(self.N,deriv)
-
-    #     return rv[discardrow:,:]
-
-
-# def twodma2(l,d,b):
-
-#     '''
-#     Solve
-#         Ax = b
-#     A (N x N-2) is banded with diagonals in offsets -2, 0
-    
-#     Input
-#         l,d: 1d arrays
-#             diagonals -2, 0
-#         b: nd array (N)
-
-#     Return
-#         array (N-2)
-#     '''
-#     n = b.shape[0]
-#     x = np.zeros(b.shape)[2:]
-#     x[0] = b[0]/d[0]
-#     x[1] = b[1]/d[1]
-#     for i in range(2,n-2):
-#         x[i] = (b[i] - x[i-2]*l[i-2])/d[i]
-#     print(b.shape)
-#     print(l.shape)
-#     x[n-4] = b[n-2]/l[n-5]
-#     x[n-3] = b[n-1]/l[n-5]
-
-#     return x

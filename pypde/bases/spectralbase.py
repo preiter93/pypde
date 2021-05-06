@@ -1,8 +1,8 @@
 import numpy as np 
-from .inner import inner,inner_inv
+from .inner import inner
 from .utils import tosparse
 from .memoize import memoized
-from scipy.sparse.linalg import inv as spinv
+#from scipy.sparse.linalg import inv as spinv
 from scipy.sparse import issparse
 
 SPARSE = True  
@@ -137,45 +137,6 @@ class MetaBase():
     def stiff_sp(self):
         return self._tosparse( self.stiff )
 
-    # ---------------------------------------------
-    #           Inverse Inner Products
-    # ---------------------------------------------
-
-    def inner_inv(self,D=0,**kwargs):
-        ''' 
-        Inverse if inner products. Not defined for many classes yet.
-
-        Those are good preconditioner which make matrices banded
-        (Pseudoinverse Method)
-        '''
-        return inner_inv(self,D,**kwargs)
-
-    def _mass_inv(self):
-        return spinv(self.mass).toarray()
-
-    def _grad_inv(self):
-        raise NotImplementedError
-
-    def _stiff_inv(self):
-        raise NotImplementedError
-
-    @property
-    @memoized
-    def mass_inv(self):
-        return self._mass_inv()
-
-    @property
-    @memoized
-    def grad_inv(self):
-        ''' Inverse of Gradient matrix <Ti'Tj> '''
-        return self._grad_inv()
-
-    @property
-    @memoized
-    def stiff_inv(self):
-        '''  Inverse of Stiffness matrix <Ti''Tj> '''
-        return self._stiff_inv()
-
     def _tosparse(self,A,tol=1e-12,format="csc"):
         if not issparse(A):
             return tosparse(A,tol,format)
@@ -227,6 +188,7 @@ class MetaBase():
     # ---------------------------------------------
 
     @property
+    @memoized
     def S(self):
         ''' 
         Transformation Galerkin <-> Chebyshev 
@@ -236,6 +198,12 @@ class MetaBase():
             return self.stencil()
         return np.eye(self.N)
 
+    @property
+    @memoized
+    def S_sp(self):
+        ''' Sparse version of stencil '''
+        return self._tosparse( self.S )
+
     def D(self,deriv):
         if deriv==0:
             return self.mass
@@ -244,70 +212,3 @@ class MetaBase():
         if deriv==2:
             return self.stiff
         raise ValueError("deriv>2 not supported")
-
-    def B(self,deriv,discardrow=0):
-        ''' Pseudoinverse '''
-        if deriv==0:
-            return self.mass_inv[discardrow:,:]
-        if deriv==1: 
-            return self.grad_inv[discardrow:,:] 
-        if deriv==2:
-            return self.stiff_inv[discardrow:,:]
-        raise ValueError("deriv>2 not supported")
-
-    def I(self,discardrow=0):
-        ''' (Discarded) Identitiy matrix '''
-        return np.eye(self.N)[discardrow:,:]
-
-    
-
-    # def D(self,deriv):
-    #     ''' Differentiation matrix '''
-    #     if hasattr(self,"dms"):
-    #         return self.dms(deriv)
-    #     else:
-    #         raise NotImplementedError
-
-    # -- For PseudoInverse Method ------
-
-    # def B2(self,deriv,discardrow=None):
-    #     ''' Pseudoinverse '''
-    #     if hasattr(self,"pseudoinverse"):
-    #         return self.pseudoinverse(deriv,discardrow)
-    #     else:
-    #         raise NotImplementedError
-    
-    # def I2(self,deriv,discard=2):
-    #     ''' Identitiy matrix corresponding to B: B@D = I
-    #     '''
-    #     if hasattr(self,"pseudoinverse"):
-    #         return self.pseudoinverse(0,discard)
-    #     else:
-    #         raise NotImplementedError
-
-    
-
-
-
-    # @property
-    # @memoized
-    # def _mass_inv_(self):
-    #     if SPARSE:
-    #         return spinv(self.mass).toarray()
-    #     else:
-    #         return np.linalg.inv(self.mass)
-
-    # def J(self,discard=True):
-    #     '''  Pseudo identity matrix where first two entries are zero'''
-    #     I = np.eye(self.N)
-    #     I[0,0] = I[1,1] = 0
-    #     if hasattr(self,"stencil"):
-    #         I = I@self.stencil(True)
-    #     if not discard:
-    #         return I
-    #     return self._discard(I)
-
-    # @staticmethod
-    # def _discard(A):
-    #     ''' Discard first two rows'''
-    #     return A[2:,:]

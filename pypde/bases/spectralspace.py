@@ -89,7 +89,10 @@ class SpectralSpaceBC(SpectralSpace):
         and not implement self.bc
         '''
         if hasattr(self.xs[self.axis],"bc"):
-            bases = list(self.bases)
+            if isinstance(self.bases,tuple):
+                bases = list(self.bases)
+            else:
+                bases = [self.bases]
             bases[self.axis] = self.xs[self.axis].bc.id
             bases = tuple(bases)
             self.bases = bases
