@@ -99,6 +99,8 @@ def PlanLHS(A,ndim,axis,method,**kwargs):
         "numpy": Plan_numpy,
         "twodma": Plan_twodma,
         "fdma": Plan_fdma,
+        "poisson": Plan_Poisson,
+        "multiply": PlanRHS
     }
     if not method in all_method.keys():
         raise ValueError("Method name {:} not found in: {:}".format(
@@ -231,11 +233,11 @@ class Plan_fdma(MetaPlan):
         for i in range(n - 5, -1, -1):
             x[i] = (x[i] - u1[i]*x[i+2] - u2[i]*x[i+4])/d[i]
 
-class Plan_PoissonChebyshev(MetaPlan):
+class Plan_Poisson(MetaPlan):
     '''
     Handles 2D Poisson problems (chebyshev) that has the form
 
-        (A + alpha*C) x = b
+        (A + alpha_i*C) x_i = b_i
 
     A: N x N
         banded with diagonals in offsets  0, 2
@@ -251,5 +253,39 @@ class Plan_PoissonChebyshev(MetaPlan):
 
     When solved, rhs b must be of size N x M
     '''
-    def __init__(self,A,alpha,C,ndim,axis,pure_neumann):
+    def __init__(self,A,alpha,C,ndim,axis,pure_neumann=False):
         assert ndim == 2
+        # assert alpha.size == m, \
+        # "Size of eigenvalue array does not match!"
+        MetaPlan.__init__(self,A=A,ndim=ndim,axis=axis)
+        self.flags.update({"method": "poisson"})
+        self.alpha = alpha 
+        self.C = C
+        # choose default solver
+        self.solve = self.solve_fortran
+        #self.solve = self.solve_numpy
+
+    def solve_numpy(self,b):
+        # Swap b
+        if self.axis!=1:
+            b = np.swapaxes(b,self.axis,0)
+        # Does eigenvalue size match with second dim of b
+        if self.alpha.size != b.shape[1]:
+            raise ValueError("Size of eigenvalue {:3} array does not match to b {:3}!"
+                .format(self.alpha.size, b.shape[1]))
+
+        x = np.zeros(b.shape)
+        for i in range(x.shape[1]):
+            A = self.A + self.alpha[i]*self.C
+            x[:,i] = np.linalg.solve(A,b[:,i])
+
+        return x
+
+    def solve_fortran(self,b):
+        from .linalg.fortran import fdma
+        fdma.solve_fdma_type2(self.A,self.C,self.alpha,b,self.axis)
+        return b 
+
+
+         
+

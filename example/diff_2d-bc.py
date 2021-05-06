@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 
 class Diffusion2d(Integrator):
     CONFIG={
-        "N": 50,
-        "M":  None,
+        "bases": ("CD","CN"),
+        "shape": (20,20),
         "kappa": 1.0,
         "tsave": 0.01,
         "dt": 0.2,
@@ -18,9 +18,6 @@ class Diffusion2d(Integrator):
         self.__dict__.update(**kwargs)
         self.time = 0.0
         # Field
-        if self.M is None: self.M = self.N
-        self.shape = (self.N,self.M)
-        self.bases = ("CD","CN")
         self.field = Field(self.shape,self.bases)
         # Boundary Conditions
         self.setup_fieldbc()
@@ -64,7 +61,7 @@ class Diffusion2d(Integrator):
     
     def setup_fieldbc(self):
         ''' Setup Inhomogeneous field'''
-        bc = np.zeros((2,self.M)) # boundary condition
+        bc = np.zeros((2,self.shape[1])) # boundary condition
         bc[0,:] = np.cos(np.pi*self.field.y)
         fieldbc = FieldBC(self.shape,self.bases,axis=0)
         fieldbc.add_bc(bc)
@@ -84,7 +81,7 @@ class Diffusion2d(Integrator):
         self.field.vhat[:] = self.solver.solve_lhs(rhs)
 
 
-D = Diffusion2d(N=50,dt=0.01,tsave=0.1,kappa=0.1)
+D = Diffusion2d(shape=(50,50),dt=0.01,tsave=0.1,kappa=0.1)
 D.iterate(1.0)
 
 #  Add inhomogeneous part

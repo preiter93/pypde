@@ -10,9 +10,10 @@ class Integrator():
             self.update()
             self.update_time()
 
-            if ( (self.time+1e-3*self.dt)%self.tsave<self.dt*0.5):
-                self.save()
-                print("Time: {:5.3f}".format(self.time))
+            if self.tsave is not None:
+                if ( (self.time+1e-3*self.dt)%self.tsave<self.dt*0.5):
+                    self.save()
+                    print("Time: {:5.3f}".format(self.time))
 
                 # if self.field.check(): 
                 #     print("\nNan or large value detected! STOP\n")

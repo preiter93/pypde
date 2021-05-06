@@ -141,3 +141,49 @@ do i=3,n
 enddo
 
 end subroutine
+
+
+subroutine solve_fdma_type2(A,C,lam,x,axis, n,m)
+! =====================================================
+! Solve (A + lam_i*C)x_i = b_i, where LHS is a 
+! 4-diagonal matrix with diagonals in offsets -2, 0, 2, 4
+! and b is two dimensional (n,m)
+! and lambda is a vecor which is multiplied along the
+! diagonal of A
+!
+! A,C: NxN
+!     Matrix
+! lam: M
+!     Array
+! x: array ndim==2
+!     rhs (in) / solution (out)
+! axis : int 
+!    Axis over which to solve
+! pure_neumann: bool
+!   Skip first element when lam==0
+! =====================================================
+    integer, intent(in)   :: axis,n,m
+    real(8), intent(in)  :: A(:,:),C(:,:),lam(:)
+    real(8), intent(inout) :: x(n,m)
+    !logical, intent(in) :: pure_neumann
+    real(8), dimension(:), allocatable :: d,u1,u2,l
+    integer :: i
+
+    ! ------- axis 0 ------------
+    if (axis==0) then
+        allocate(d(n),u1(n-2),u2(n-4),l(n-2))
+        do i=1,m
+            call init_fdma( (A + C*lam(i) ), d,u1,u2,l,n)
+            call solve_fdma_1d(l,d,u1,u2,x(:,i),n)
+        enddo
+        return
+    ! ------- axis 1 ------------
+    elseif (axis==1) then
+        allocate(d(m),u1(m-2),u2(m-4),l(m-2))
+        do i=1,n
+            call init_fdma( (A + C*lam(i) ), d,u1,u2,l,m)
+            call solve_fdma_1d(l,d,u1,u2,x(i,:),m)
+        enddo
+        return
+    endif
+end subroutine
