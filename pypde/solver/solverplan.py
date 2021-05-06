@@ -44,7 +44,7 @@ class SolverPlan():
     def __init__(self):
         self.plan_for_lhs = []
         self.plan_for_rhs = []
-        self.plan_for_old = []
+        self.plan_for_old = [] # kind of second rhs
 
     def add_rhs(self,plan):
         assert isinstance(plan, PlanRHS)
@@ -74,15 +74,18 @@ class SolverPlan():
         return b
 
     def show_plan(self):
+
         print("Plans RHS:")
         for i,p in enumerate(self.plan_for_rhs):
             print(i+1,")", self._str_plan(p) )
         print("")
+
         if self.plan_for_old:
-            print("Plans RHS (Old field):")
+            print("Plans RHS (#2):")
             for i,p in enumerate(self.plan_for_old):
                 print(i+1,")", self._str_plan(p) )
             print("")
+
         print("Plans LHS:")
         for i,p in enumerate(self.plan_for_lhs):
             print(i+1,")", self._str_plan(p) )
