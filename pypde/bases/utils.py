@@ -80,3 +80,27 @@ def extract_diag(M,k=(-2,0,2)):
         tuple of arrays
     '''
     return tuple( [np.diag(M,i) for i in k] )
+
+
+def zero_pad(array: np.ndarray, target_length: int, axis: int = 0):
+    '''
+    Example:
+    a = np.array([ [ 1.,  1.],
+                   [ 1.,  1.] ])
+
+    zero_pad(a,3,0)
+
+    > array([[1., 1.],
+       [1., 1.],
+       [0., 0.]])
+    '''
+
+    pad_size = target_length - array.shape[axis]
+
+    if pad_size <= 0:
+        return array
+
+    npad = [(0, 0)] * array.ndim
+    npad[axis] = (0, pad_size)
+
+    return np.pad(array, pad_width=npad, mode='constant', constant_values=0)

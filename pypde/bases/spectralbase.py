@@ -7,9 +7,9 @@ from scipy.sparse import issparse
 
 SPARSE = True  
 
-def SpectralBase(N,key):
+def Base(N,key,**kwargs):
     '''
-    Convenient way to initalize SpectralBase classes from key
+    Convenient way to initalize Base classes from key
     
     Parameters:
         N: int
@@ -17,7 +17,7 @@ def SpectralBase(N,key):
         key: str
             Key (ID) of respective class
     '''
-    return _bases_from_key(key)(N)
+    return _bases_from_key(key)(N,**kwargs)
 
 def _bases_from_key(key):
     from .chebyshev import Chebyshev,ChebDirichlet,ChebNeumann

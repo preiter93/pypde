@@ -18,7 +18,9 @@ class Poisson2d(Integrator):
         self.__dict__.update(**self.CONFIG)
         self.__dict__.update(**kwargs)
         # Field
-        self.field = Field(self.shape,self.bases)
+        xbase = Base(self.shape[0],self.bases[0])
+        ybase = Base(self.shape[1],self.bases[1])
+        self.field = Field([xbase,ybase])
         # Solver
         self.setup_solver()
 
@@ -58,7 +60,7 @@ class Poisson2d(Integrator):
 
     def solver_from_template(self):
         from pypde.templates.poisson import solverplan_poisson2d
-        self.solver = solverplan_poisson2d(self.shape,self.bases,
+        self.solver = solverplan_poisson2d(self.field.xs,
             singular=self.singular)
 
     def update(self,fhat):
@@ -87,7 +89,9 @@ class TestPoisson2D(unittest.TestCase):
         self.xx,self.yy = np.meshgrid(self.D.field.x,self.D.field.y,indexing="ij")
 
         # Forcing
-        f = Field(shape,("CH","CH"))
+        xbase = Base(shape[0],"CH")
+        ybase = Base(shape[1],"CH")
+        f = Field([xbase,ybase])
         f.v = self._f(self.xx,self.yy)
         f.forward()
         self.f = f.v
@@ -144,7 +148,9 @@ class TestPoisson2DMixed(unittest.TestCase):
         self.xx,self.yy = np.meshgrid(self.D.field.x,self.D.field.y,indexing="ij")
 
         # Forcing
-        f = Field(shape,("CH","CH"))
+        xbase = Base(shape[0],"CH")
+        ybase = Base(shape[1],"CH")
+        f = Field([xbase,ybase])
         f.v = self._f(self.xx,self.yy)
         f.forward()
         self.f = f.v
@@ -201,7 +207,9 @@ class TestPoisson2DNeumann(unittest.TestCase):
         self.xx,self.yy = np.meshgrid(self.D.field.x,self.D.field.y,indexing="ij")
 
         # Forcing
-        f = Field(shape,("CH","CH"))
+        xbase = Base(shape[0],"CH")
+        ybase = Base(shape[1],"CH")
+        f = Field([xbase,ybase])
         f.v = self._f(self.xx,self.yy)
         f.forward()
         self.f = f.v

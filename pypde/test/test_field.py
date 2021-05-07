@@ -9,7 +9,10 @@ class TestField(unittest.TestCase):
 
     def setUp(self):
         shape = (N,M)
-        self.S = Field(shape,("CD","CN"))
+        xbase = Base(shape[0],"CD")
+        ybase = Base(shape[1],"CN")
+
+        self.S = Field([xbase,ybase])
 
         # Space
         x,y = self.S.x, self.S.y
@@ -37,7 +40,10 @@ class TestField(unittest.TestCase):
         bc = np.zeros((2,M))
         bc[0,:] = -1
         bc[1,:] =  1
-        field_bc    = FieldBC((N,M),("CD","CN"),axis=0)
+
+        xbase = Base(N,"CD")
+        ybase = Base(M,"CN")
+        field_bc    = FieldBC([xbase,ybase],axis=0)
         field_bc.add_bc(bc)
 
         self.S.add_field_bc(field_bc)
@@ -46,7 +52,10 @@ class TestField(unittest.TestCase):
         assert np.allclose(self.S.v,f)
 
     def test_bc_axis1(self):
-        S = Field((N,M),("CD","CD"))
+        xbase = Base(N,"CD")
+        ybase = Base(M,"CD")
+
+        S = Field([xbase,ybase])
 
         f =  np.sin(np.pi* self.xx)*np.sin(np.pi*self.yy)
         fbc =  f + self.yy
@@ -56,7 +65,7 @@ class TestField(unittest.TestCase):
         bc = np.zeros((N,2))
         bc[:,0] = -1
         bc[:,1] =  1
-        field_bc    = FieldBC((N,M),("CD","CD"),axis=1)
+        field_bc    = FieldBC([xbase,ybase],axis=1)
         field_bc.add_bc(bc)
 
         S.add_field_bc(field_bc)
@@ -65,7 +74,10 @@ class TestField(unittest.TestCase):
         assert np.allclose(S.v,f)
 
     def test_derivative(self):
-        DS = Field((N,M),("CH","CH"))
+        xbase = Base(N,"CH")
+        ybase = Base(M,"CH")
+
+        DS = Field([xbase,ybase])
 
         f =  np.sin(np.pi* self.xx)*np.cos(np.pi*self.yy)
         self.df = -np.pi**2*f

@@ -1,6 +1,6 @@
 from pypde import *
 
-def solverplan_poisson1d(shape,base,singular=False):
+def solverplan_poisson1d(bases,singular=False):
     '''
     Poisson equation:
         D2 u = rhs
@@ -8,9 +8,7 @@ def solverplan_poisson1d(shape,base,singular=False):
         I S*v = B*rhs
 
     Input
-        shape: 1 tuple int
-            Shape of domain in physical space
-        base: 1 tuple str
+        base: list of MetaBases
             ChebDirichlet ("CD") or Chebneumann ("CN")
         singular: bool (default = False)
             For pure neumann cases, add a small value
@@ -21,7 +19,7 @@ def solverplan_poisson1d(shape,base,singular=False):
     Returns
         Solverplan
     '''
-    field = Field(shape,base)
+    field = Field(bases)
     assert field.ndim==1
     # --- Matrices ----
     Sx = field.xs[0].S_sp
@@ -40,7 +38,7 @@ def solverplan_poisson1d(shape,base,singular=False):
 
     return solver
 
-def solverplan_poisson2d(shape,base,singular=False):
+def solverplan_poisson2d(bases,singular=False):
     '''
     Poisson equation:
         D2 u = rhs
@@ -53,9 +51,7 @@ def solverplan_poisson2d(shape,base,singular=False):
     dimension to separate the dimensions
 
     Input
-        shape: 2 tuple int
-            Shape of domain in physical space
-        base: 2 tuple str
+        base: list of MetaBases
             ChebDirichlet ("CD") or Chebneumann ("CN")
         singular: bool (default = False)
             For pure neumann cases, add a small value
@@ -74,7 +70,7 @@ def solverplan_poisson2d(shape,base,singular=False):
     '''
     from pypde.solver.utils import eigdecomp
 
-    field = Field(shape,base)
+    field = Field(bases)
     assert field.ndim==2
     # --- Matrices ----
     Sx = field.xs[0].S_sp

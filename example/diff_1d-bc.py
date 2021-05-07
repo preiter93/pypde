@@ -17,8 +17,8 @@ class Diffusion1d(Integrator):
         self.__dict__.update(**kwargs)
         self.time = 0.0
         # Field
-        shape = (self.N)
-        self.field = Field(shape,("CD"))
+        xbase = Base(self.N,"CD")
+        self.field = Field([xbase])
         # Boundary Conditions
         self.setup_fieldbc()
         # Solver
@@ -69,8 +69,7 @@ class Diffusion1d(Integrator):
         # boundary conditions
         bc = np.zeros(2)
         bc[1] = 1
-        shape,bases = (self.N),("CD")
-        fieldbc = FieldBC(shape,bases,axis=0)
+        fieldbc = FieldBC(self.field.xs,axis=0)
         fieldbc.add_bc(bc)
         self.fieldbc = fieldbc
 

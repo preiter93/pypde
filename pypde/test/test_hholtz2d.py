@@ -18,7 +18,9 @@ class Diffusion2d(Integrator):
         self.__dict__.update(**self.CONFIG)
         self.__dict__.update(**kwargs)
         # Field
-        self.field = Field(self.shape,self.bases)
+        xbase = Base(self.shape[0],self.bases[0])
+        ybase = Base(self.shape[1],self.bases[1])
+        self.field = Field([xbase,ybase])
         # Solver
         self.setup_solver()
 
@@ -47,7 +49,7 @@ class Diffusion2d(Integrator):
 
     def solver_from_template(self):
         from pypde.templates.hholtz import solverplan_hholtz2d_adi
-        self.solver = solverplan_hholtz2d_adi(self.shape,self.bases,
+        self.solver = solverplan_hholtz2d_adi(self.field.xs,
             lam=self.lam)
 
     def update(self,fhat):
@@ -68,7 +70,9 @@ class TestHHoltz2D(unittest.TestCase):
         self.xx,self.yy = np.meshgrid(self.D.field.x,self.D.field.y,indexing="ij")
 
         # Forcing
-        f = Field(shape,("CH","CH"))
+        xbase = Base(shape[0],"CH")
+        ybase = Base(shape[1],"CH")
+        f = Field([xbase,ybase])
         f.v = self._f(self.xx,self.yy)
         f.forward()
         self.f = f.v

@@ -78,7 +78,7 @@ class Chebyshev(MetaBase):
         '''
         return diff_mat_spectral(self.N,deriv)
 
-    def derivative(self,fhat,deriv):
+    def derivative(self,fhat,deriv,out_cheby=True):
         if deriv == 0:
             return fhat
         return diff_recurrence_chebyshev(fhat,deriv)

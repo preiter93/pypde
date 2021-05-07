@@ -19,7 +19,8 @@ class Poisson1d(Integrator):
         self.__dict__.update(**kwargs)
         # Field
         self.shape = (self.N)
-        self.field = Field(self.shape,self.bases)
+        xbase = Base(self.N,self.bases)
+        self.field = Field([xbase])
         # Solver
         self.setup_solver()
 
@@ -44,7 +45,7 @@ class Poisson1d(Integrator):
     
     def solver_from_template(self):
         from pypde.templates.poisson import solverplan_poisson1d
-        self.solver = solverplan_poisson1d(self.shape,self.bases,
+        self.solver = solverplan_poisson1d(self.field.xs,
             singular=self.singular)
 
     def update(self,fhat):

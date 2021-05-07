@@ -20,7 +20,8 @@ class Diffusion1d(Integrator):
         self.__dict__.update(**kwargs)
         # Field
         self.shape = (self.N)
-        self.field = Field(self.shape,self.base)
+        xbase = Base(self.N,self.base)
+        self.field = Field([xbase])
         # Solver
         self.setup_solver()
 
@@ -42,7 +43,7 @@ class Diffusion1d(Integrator):
 
     def solver_from_template(self):
         from pypde.templates.hholtz import solverplan_hholtz1d
-        self.solver = solverplan_hholtz1d(self.shape,self.base,
+        self.solver = solverplan_hholtz1d(self.field.xs,
             lam=self.lam)
 
     # @property

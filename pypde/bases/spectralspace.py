@@ -1,24 +1,19 @@
 from .spectralbase import *
 
+
 class SpectralSpace():
     '''
     Class that handles all spectral bases and generalizes
     them to multidimensional spaces
 
     Input
-        shape: int tuple (ndim)
-            Shape of field in real space, can be 1d or 2d
-        bases: str tuple
-            Define the spectral bases with a key
-            ('CH','CD','CN','FO')
-            See bases.SpectralSpace
+        bases: list with class Metabase 
     '''
-    def __init__(self,shape,bases):
-        shape,bases = self._check_input(shape,bases)
-        assert len(shape) == len(bases), "Shape size must match number of bases"
-        self.shape_physical = shape
-        self.ndim = len(self.shape_physical)
+    def __init__(self,bases):
+        assert np.all(isinstance(i,MetaBase) for i in bases)
         self._set_bases(bases)
+        self.ndim = len(self.shape_physical)
+        self.shape = self.shape_physical
 
     def _check_input(self,shape,bases):
         if isinstance(shape, int): shape = (shape,)
@@ -27,11 +22,13 @@ class SpectralSpace():
 
     def _set_bases(self,bases):
         self.xs = []
+        shape_physical = []
         shape_spectral = []
-        for i,key in enumerate(bases):
-            N = self.shape_physical[i]
-            self.xs.append(SpectralBase(N,key))
+        for i,b in enumerate(bases):
+            self.xs.append(b)
+            shape_physical.append(self.xs[i].N)
             shape_spectral.append(self.xs[i].M)
+        self.shape_physical = tuple(shape_physical)
         self.shape_spectral = tuple(shape_spectral)
 
     def forward_fft(self,v,axis):
@@ -69,17 +66,13 @@ class SpectralSpaceBC(SpectralSpace):
     This class is used internally in field.py
 
     Input
-        shape: tuple
-            shape of field in physical space
-        bases: tuple
-            ChebDirichlet (CD) or Chebneumann (CN)
-            support BCs
+        bases: list with class Metabase
+
         axis: int
             Axis along which bc is applied
     '''
-    def __init__(self,shape,bases,axis):
-        SpectralSpace.__init__(self,shape,bases)
-        self.bases = bases
+    def __init__(self,bases,axis):
+        SpectralSpace.__init__(self,bases)
         self.axis = axis
         self._check_axis_bases()
 
@@ -89,48 +82,5 @@ class SpectralSpaceBC(SpectralSpace):
         and not implement self.bc
         '''
         if hasattr(self.xs[self.axis],"bc"):
-            if isinstance(self.bases,tuple):
-                bases = list(self.bases)
-            else:
-                bases = [self.bases]
-            bases[self.axis] = self.xs[self.axis].bc.id
-            bases = tuple(bases)
-            self.bases = bases
-            SpectralSpace.__init__(self,self.shape_physical,bases)
-
-        
-
-    # def forward_fft(self,v,axis):
-    #     '''
-    #     '''
-    #     assert isinstance(axis,int)
-
-    #     if axis == 0:
-    #         return self.xs[axis].bc.forward_fft(v)
-    #     else:
-    #         vhat = np.swapaxes(v,axis,0)
-    #         vhat = self.xs[axis].bc.forward_fft(vhat)
-    #         vhat = np.swapaxes(vhat,axis,0)
-    #         return vhat
-
-    # def backward_fft(self,vhat,axis):
-    #     '''
-    #     '''
-    #     assert isinstance(axis,int)
-    #     assert vhat.shape[self.axis] == 2
-
-    #     if axis == 0:
-    #         return self.xs[axis].bc.backward_fft(vhat)
-    #     else:
-    #         v = np.swapaxes(vhat,axis,0)
-    #         v = self.xs[axis].bc.backward_fft(v)
-    #         v = np.swapaxes(v,axis,0)
-    #         return v
-
-    # def derivative(self,vhat,deriv,axis,out_cheby=True):
-    #     if axis == 0:
-    #         return self.xs[axis].bc.derivative(vhat,deriv,out_cheby)
-    #     else:
-    #         vhat = np.swapaxes(vhat,axis,0)
-    #         dvhat = self.xs[axis].bc.derivative(vhat,deriv,out_cheby)
-    #         return np.swapaxes(dvhat,axis,0)
+            self.xs[self.axis] = self.xs[self.axis].bc
+            SpectralSpace.__init__(self,self.xs)

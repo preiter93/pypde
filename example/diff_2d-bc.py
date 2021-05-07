@@ -18,7 +18,9 @@ class Diffusion2d(Integrator):
         self.__dict__.update(**kwargs)
         self.time = 0.0
         # Field
-        self.field = Field(self.shape,self.bases)
+        xbase = Base(self.shape[0],self.bases[0])
+        ybase = Base(self.shape[1],self.bases[1])
+        self.field = Field([xbase,ybase])
         # Boundary Conditions
         self.setup_fieldbc()
         # Solver
@@ -62,14 +64,14 @@ class Diffusion2d(Integrator):
 
     def solver_from_template(self):
         from pypde.templates.hholtz import solverplan_hholtz2d_adi
-        self.solver = solverplan_hholtz2d_adi(self.shape,self.bases,
+        self.solver = solverplan_hholtz2d_adi(self.field.xs,
             lam=self.dt*self.kappa)
     
     def setup_fieldbc(self):
         ''' Setup Inhomogeneous field'''
         bc = np.zeros((2,self.shape[1])) # boundary condition
         bc[0,:] = np.cos(np.pi*self.field.y)
-        fieldbc = FieldBC(self.shape,self.bases,axis=0)
+        fieldbc = FieldBC(self.field.xs,axis=0)
         fieldbc.add_bc(bc)
         self.fieldbc = fieldbc
 
@@ -77,7 +79,7 @@ class Diffusion2d(Integrator):
     @memoized
     def _fhat(self):
         ''' rhs from inhomogeneous bcs'''
-        fieldbc_d2 = derivative_field(self.fieldbc,deriv=(0,2))
+        fieldbc_d2 = grad(self.fieldbc,deriv=(0,2),return_field=True)
         return self.dt*self.kappa*fieldbc_d2.vhat
 
     def update(self):
@@ -94,5 +96,5 @@ D.iterate(1.0)
 for i,v in enumerate(D.field.V):
    D.field.V[i] += D.fieldbc.v
 
-anim = D.field.animate(D.field.x,duration=4)
+anim = D.field.animate(D.field.x,duration=4,wireframe=True)
 plt.show()

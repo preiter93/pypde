@@ -18,7 +18,9 @@ class Poisson(Integrator):
         self.__dict__.update(**self.CONFIG)
         self.__dict__.update(**kwargs)
         # Field
-        self.field = Field(self.shape,self.bases)
+        xbase = Base(self.shape[0],self.bases[0])
+        ybase = Base(self.shape[1],self.bases[1])
+        self.field = Field([xbase,ybase])
         # Solver
         self.setup_solver()
 
@@ -80,7 +82,10 @@ class TestPoisson(unittest.TestCase):
         self.xx,self.yy = np.meshgrid(self.D.field.x,self.D.field.y,indexing="ij")
 
         # Forcing
-        f = Field(shape,("CH","CH"))
+        xbase = Base(shape[0],"CH")
+        ybase = Base(shape[1],"CH")
+
+        f = Field([xbase,ybase])
         f.v = self._f(self.xx,self.yy)
         f.forward()
         self.f = f.v

@@ -1,6 +1,6 @@
 from pypde import *
 
-def solverplan_hholtz1d(shape,base,lam):
+def solverplan_hholtz1d(bases,lam):
     '''
     Helmholtz equation:
         (1 - lam*D2) u = rhs + uold
@@ -8,9 +8,7 @@ def solverplan_hholtz1d(shape,base,lam):
         (B - lam*I) S*v = B*rhs + B*S*vold
 
     Input
-        shape: 1 tuple int
-            Shape of domain in physical space
-        base: 1 tuple str
+        base: list of class MetaBase
             ChebDirichlet ("CD") or Chebneumann ("CN")
         lam: float
             See equation above
@@ -23,7 +21,7 @@ def solverplan_hholtz1d(shape,base,lam):
     rhs += self.solver.solve_old(vold)
     vhat[:] = self.solver.solve_lhs(rhs)
     '''
-    field = Field(shape,base)
+    field = Field(bases)
     assert field.ndim==1
     # --- Matrices ----
     Sx = field.xs[0].S_sp
@@ -39,7 +37,7 @@ def solverplan_hholtz1d(shape,base,lam):
 
     return solver
 
-def solverplan_hholtz2d_adi(shape,base,lam):
+def solverplan_hholtz2d_adi(bases,lam):
     '''
     Helmholtz equation:
         (1 - lam*D2) u = rhs + uold
@@ -52,9 +50,7 @@ def solverplan_hholtz2d_adi(shape,base,lam):
     (ADI) to separate the dimensions
 
     Input
-        shape: 2 tuple int
-            Shape of domain in physical space
-        base: 2 tuple str
+        base: list of class MetaBase
             ChebDirichlet ("CD") or Chebneumann ("CN")
         lam: float
             See equation above
@@ -67,7 +63,7 @@ def solverplan_hholtz2d_adi(shape,base,lam):
     rhs += self.solver.solve_old(vold)
     vhat[:] = self.solver.solve_lhs(rhs)
     '''
-    field = Field(shape,base)
+    field = Field(bases)
     assert field.ndim==2
     # --- Matrices ----
     Sx = field.xs[0].S_sp
