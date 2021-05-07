@@ -1,13 +1,15 @@
 class Integrator():
-    
+    def __init__(self):
+        self.time = 0.0
+
     def update(self):
         raise NotImplementedError
         
-    def iterate(self,maxtime):
+    def iterate(self,maxtime,*args,**kwargs):
         ''' Iterate till max time'''
         while self.time<maxtime:
             
-            self.update()
+            self.update(*args,**kwargs)
             self.update_time()
 
             if self.tsave is not None:

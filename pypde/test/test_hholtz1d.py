@@ -9,6 +9,7 @@ RTOL = 1e-3 # np.allclose tolerance
 class Diffusion1d(Integrator):
     CONFIG={
         "N": 50,
+        "base": ("CD"),
         "lam": LAM,
         "tsave": 0.01,
         "ndim": 1,
@@ -18,8 +19,8 @@ class Diffusion1d(Integrator):
         self.__dict__.update(**self.CONFIG)
         self.__dict__.update(**kwargs)
         # Field
-        shape = (self.N)
-        self.field = Field(shape,("CD"))
+        self.shape = (self.N)
+        self.field = Field(self.shape,self.base)
         # Solver
         self.setup_solver()
 
@@ -38,6 +39,11 @@ class Diffusion1d(Integrator):
 
         self.solver = solver
         self.Sx = Sx
+
+    def solver_from_template(self):
+        from pypde.templates.hholtz import solverplan_hholtz1d
+        self.solver = solverplan_hholtz1d(self.shape,self.base,
+            lam=self.lam)
 
     # @property
     # def _f(self):
@@ -77,6 +83,19 @@ class TestHHoltz1D(unittest.TestCase):
         print("------------------------")
 
     def test(self):
+        self.D.update(self.fhat)
+        self.D.field.backward()
+        f = self.D.field.v 
+
+        norm = np.linalg.norm( f-self._fsol(self.D.field.x) )
+
+        print(" |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(f,self._fsol(self.D.field.x), rtol=RTOL)
+
+    def test_solver_from_template(self):
+        self.D.solver_from_template()
         self.D.update(self.fhat)
         self.D.field.backward()
         f = self.D.field.v 

@@ -18,8 +18,8 @@ class Poisson1d(Integrator):
         self.__dict__.update(**self.CONFIG)
         self.__dict__.update(**kwargs)
         # Field
-        shape = (self.N)
-        self.field = Field(shape,self.bases)
+        self.shape = (self.N)
+        self.field = Field(self.shape,self.bases)
         # Solver
         self.setup_solver()
 
@@ -41,7 +41,11 @@ class Poisson1d(Integrator):
         #solver.show_plan()
 
         self.solver = solver
-        self.Sx = Sx
+    
+    def solver_from_template(self):
+        from pypde.templates.poisson import solverplan_poisson1d
+        self.solver = solverplan_poisson1d(self.shape,self.bases,
+            singular=self.singular)
 
     def update(self,fhat):
         # Solve
@@ -75,6 +79,19 @@ class TestPoisson1D(unittest.TestCase):
         print("-----------------------------")
 
     def test(self):
+        self.D.update(self.fhat)
+        self.D.field.backward()
+        f = self.D.field.v 
+
+        norm = np.linalg.norm( f-self.sol )
+
+        print(" |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(f,self.sol, rtol=RTOL)
+
+    def test_solver_from_template(self):
+        self.D.solver_from_template()
         self.D.update(self.fhat)
         self.D.field.backward()
         f = self.D.field.v 
@@ -127,3 +144,16 @@ class TestPoisson1DNeumann(unittest.TestCase):
         # plt.plot(self.D.field.x, self._fsol(self.D.field.x))
         # plt.plot(self.D.field.x, f,"r--")
         # plt.show()
+
+    def test_solver_from_template(self):
+        self.D.solver_from_template()
+        self.D.update(self.fhat)
+        self.D.field.backward()
+        f = self.D.field.v 
+
+        norm = np.linalg.norm( f-self.sol )
+
+        print(" |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(f,self.sol, rtol=RTOL)

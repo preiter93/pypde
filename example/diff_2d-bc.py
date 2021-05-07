@@ -22,7 +22,8 @@ class Diffusion2d(Integrator):
         # Boundary Conditions
         self.setup_fieldbc()
         # Solver
-        self.setup_solver()
+        #self.setup_solver()
+        self.solver_from_template()
 
         self.init_field()
         self.field.save()
@@ -58,6 +59,11 @@ class Diffusion2d(Integrator):
         solver.show_plan()
 
         self.solver = solver
+
+    def solver_from_template(self):
+        from pypde.templates.hholtz import solverplan_hholtz2d_adi
+        self.solver = solverplan_hholtz2d_adi(self.shape,self.bases,
+            lam=self.dt*self.kappa)
     
     def setup_fieldbc(self):
         ''' Setup Inhomogeneous field'''

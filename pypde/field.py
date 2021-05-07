@@ -185,8 +185,8 @@ class Field(SpectralSpace):
                     y = self.y
                 else:
                     raise ValueError("Can't animate. y not known.") 
-
-            return animate_wireframe(x,y,self.VS[::skip],**kwargs)
+            return animate_contour(x,y,self.VS[::skip],**kwargs)
+            #return animate_wireframe(x,y,self.VS[::skip],**kwargs)
 
 
 class FieldBC(SpectralSpaceBC):
@@ -329,3 +329,6 @@ def derivative_field(field,deriv,out_array = None):
         return field_deriv
     else:
         out_array[:] = dvhat
+
+def grad(field,deriv,out_array = None):
+    return derivative_field(field,deriv,out_array = out_array)

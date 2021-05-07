@@ -45,6 +45,11 @@ class Diffusion2d(Integrator):
 
         self.solver = solver
 
+    def solver_from_template(self):
+        from pypde.templates.hholtz import solverplan_hholtz2d_adi
+        self.solver = solverplan_hholtz2d_adi(self.shape,self.bases,
+            lam=self.lam)
+
     def update(self,fhat):
         # Solve
         rhs  = self.solver.solve_rhs(self.dt*fhat)
@@ -79,6 +84,19 @@ class TestHHoltz2D(unittest.TestCase):
         print("------------------------")
 
     def test(self):
+        self.D.update(self.fhat)
+        self.D.field.backward()
+        f = self.D.field.v 
+
+        norm = np.linalg.norm( f-self.sol )
+
+        print(" |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(f,self.sol, rtol=RTOL)
+
+    def test_solver_from_template(self):
+        self.D.solver_from_template()
         self.D.update(self.fhat)
         self.D.field.backward()
         f = self.D.field.v 

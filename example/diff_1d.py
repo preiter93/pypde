@@ -39,6 +39,7 @@ class Diffusion1d(Integrator):
         "tsave": 0.01,
         "dt": 0.2,
         "ndim": 1,
+        "base": "CD",
     }
     def __init__(self,**kwargs):
         Integrator.__init__(self)
@@ -47,11 +48,13 @@ class Diffusion1d(Integrator):
         self.time = 0.0
         # Field
         shape = (self.N)
-        self.field = Field(shape,("CD"))
+        self.field = Field(shape,(self.base))
         # Solver
-        self.setup_solver()
+        #self.setup_solver()
+        self.solver_from_template()
 
     def setup_solver(self):
+        ''' The same as solverplan_hholtz1d below'''
         # --- Matrices ----
         Sx = self.field.xs[0].S_sp
         Bx = self.field.xs[0].family.B(2,2)
@@ -68,6 +71,11 @@ class Diffusion1d(Integrator):
 
         self.solver = solver
         self.Sx = Sx
+
+    def solver_from_template(self):
+        from pypde.templates.hholtz import solverplan_hholtz1d
+        self.solver = solverplan_hholtz1d(self.N,self.base,
+            lam=self.dt*self.kappa)
 
     @property
     def _f(self):

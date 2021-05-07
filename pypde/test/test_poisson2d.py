@@ -56,6 +56,11 @@ class Poisson2d(Integrator):
 
         self.solver = solver
 
+    def solver_from_template(self):
+        from pypde.templates.poisson import solverplan_poisson2d
+        self.solver = solverplan_poisson2d(self.shape,self.bases,
+            singular=self.singular)
+
     def update(self,fhat):
         rhs  = self.solver.solve_rhs(fhat)
         self.field.vhat[:] = self.solver.solve_lhs(rhs)
@@ -97,6 +102,19 @@ class TestPoisson2D(unittest.TestCase):
         print("-----------------------------------------")
 
     def test(self):
+        self.D.update(self.fhat)
+        self.D.field.backward()
+        f = self.D.field.v 
+
+        norm = np.linalg.norm( f-self.sol )
+
+        print(" |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(f,self.sol, rtol=RTOL)
+
+    def test_solver_from_template(self):
+        self.D.solver_from_template()
         self.D.update(self.fhat)
         self.D.field.backward()
         f = self.D.field.v 
@@ -152,6 +170,18 @@ class TestPoisson2DMixed(unittest.TestCase):
 
         assert np.allclose(f,self.sol, rtol=RTOL)
 
+    def test_solver_from_template(self):
+        self.D.solver_from_template()
+        self.D.update(self.fhat)
+        self.D.field.backward()
+        f = self.D.field.v 
+
+        norm = np.linalg.norm( f-self.sol )
+
+        print(" |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(f,self.sol, rtol=RTOL)
 
 # ---------------------------------------------------------
 #              Neumann + Neumann
@@ -186,6 +216,19 @@ class TestPoisson2DNeumann(unittest.TestCase):
         print("-----------------------------------------")
 
     def test(self):
+        self.D.update(self.fhat)
+        self.D.field.backward()
+        f = self.D.field.v 
+
+        norm = np.linalg.norm( f-self.sol )
+
+        print(" |pypde - analytical|: {:5.2e}"
+            .format(norm))
+
+        assert np.allclose(f,self.sol, rtol=RTOL)
+
+    def test_solver_from_template(self):
+        self.D.solver_from_template()
         self.D.update(self.fhat)
         self.D.field.backward()
         f = self.D.field.v 
