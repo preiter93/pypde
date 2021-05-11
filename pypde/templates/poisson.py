@@ -27,7 +27,7 @@ def solverplan_poisson1d(bases,singular=False):
     Ix = field.xs[0].family.I(2)
     Ax = Ix@Sx
     if singular:
-        assert  Ax[0,0] == 0, "Matrix does not seem to be singular"
+        assert  Ax[0,0] == 0, "Matrix does not look singular"
         # Add very small term to make system non-singular
         Ax[0,0] += 1e-20 
 
@@ -62,7 +62,7 @@ def solverplan_poisson2d(bases,singular=False):
     Returns
         Solverplan
 
-    How to use solverplan
+    "How to" use solverplan
     rhs  = self.solver.solve_rhs(rhs)
     vhat[:] = self.solver.solve_lhs(rhs)
     # if singular, set constant part to zero

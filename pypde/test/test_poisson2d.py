@@ -67,7 +67,7 @@ class Poisson2d(Integrator):
         rhs  = self.solver.solve_rhs(fhat)
         self.field.vhat[:] = self.solver.solve_lhs(rhs)
         if self.singular:
-            self.field.vhat[0] = 0
+            self.field.vhat[0,0] = 0
 
 
 

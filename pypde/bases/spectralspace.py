@@ -10,15 +10,12 @@ class SpectralSpace():
         bases: list with class Metabase 
     '''
     def __init__(self,bases):
+        if isinstance(bases, MetaBase): bases = [bases]
         assert np.all(isinstance(i,MetaBase) for i in bases)
         self._set_bases(bases)
         self.ndim = len(self.shape_physical)
         self.shape = self.shape_physical
-
-    def _check_input(self,shape,bases):
-        if isinstance(shape, int): shape = (shape,)
-        if isinstance(bases, str): bases = (bases,)
-        return shape, bases
+        #self.create_dealiased_space(bases)
 
     def _set_bases(self,bases):
         self.xs = []
@@ -59,6 +56,12 @@ class SpectralSpace():
             vhat = np.swapaxes(vhat,axis,0)
             dvhat = self.xs[axis].derivative(vhat,deriv,out_cheby)
             return np.swapaxes(dvhat,axis,0)
+
+    # def create_dealiased_space(self,bases):
+    #     if np.all([hasattr(i,"dealias") for i in bases]):
+    #         print("yes")
+    #         dealiased_bases = [i.dealias for i in bases]
+    #         self.dealias = SpectralSpace(dealiased_bases)
 
 class SpectralSpaceBC(SpectralSpace):
     '''

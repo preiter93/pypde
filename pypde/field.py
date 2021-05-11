@@ -1,6 +1,7 @@
 import numpy as np
 from .bases.spectralspace import *
 from .bases.memoize import memoized
+from .bases.utils import zero_pad,zero_unpad
 from .plot.anim import animate_line,animate_contour,animate_wireframe
 
 
@@ -9,7 +10,7 @@ class FieldBase():
     Functions that are shared by Field and FieldBC
     '''
 
-    def forward(self,v=None):
+    def forward(self,v=None, undealias_after=None):
         '''
         Full forward transform to homogeneous field v
         '''
@@ -18,15 +19,21 @@ class FieldBase():
         else:
             vhat = v
         
+        if undealias_after is None:
+            undealias_after = self.dealiased_space
+
         for axis in range(self.ndim):
             vhat = self.forward_fft(vhat,axis=axis)
+            if undealias_after:
+                vhat = zero_unpad(vhat,self.size_undealiased[axis],axis=axis)
+
         
         if v is None:
             self.vhat = vhat
         else:
             return vhat
 
-    def backward(self,vhat=None):
+    def backward(self,vhat=None, dealias_before=None):
         '''
         Full backward transform to homogeneous field v
         '''
@@ -35,7 +42,12 @@ class FieldBase():
         else:
             v = vhat
 
+        if dealias_before is None:
+            dealias_before = self.dealiased_space
+
         for axis in range(self.ndim):
+            if dealias_before:
+                v = zero_pad(v,self.xs[axis].M,axis=axis)
             v = self.backward_fft(v,axis=axis)
 
         if vhat is None:
@@ -124,6 +136,7 @@ class Field(SpectralSpace,FieldBase):
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     '''
     def __init__(self,bases):
+        if isinstance(bases, MetaBase): bases = [bases]
         SpectralSpace.__init__(self,bases)
         FieldBase.__init__(self)
         self.bases = bases
@@ -137,6 +150,17 @@ class Field(SpectralSpace,FieldBase):
         self.V = []     # Storage Field
         self.T = []     # Storage Time
 
+        # create deliased field
+        self.dealiased_space = False
+        self.create_dealiased_field(bases)
+
+    def create_dealiased_field(self,bases):
+        if np.all([hasattr(i,"dealias") for i in bases]):
+            dealiased_field = [i.dealias for i in bases]
+            self.dealias = Field(dealiased_field)
+            self.dealias.size_undealiased = [self.xs[i].M for i in 
+            range(self.ndim)]
+            self.dealias.dealiased_space = True
     # ---------------------------------------------------------
     #     Split field in homogeneous and inhomogeneous part
     # ---------------------------------------------------------
@@ -255,6 +279,8 @@ class FieldBC(SpectralSpaceBC,FieldBase):
         self.v = np.zeros(self.shape_physical)
         self.vhat = np.zeros(self.shape_spectral)
 
+        self.dealiased_space = False
+
     def add_bc(self,bc):
         '''
         Input bc must be forward transformed only along self.axis.
@@ -267,8 +293,10 @@ class FieldBC(SpectralSpaceBC,FieldBase):
         bc = self.backward_fft(bc,axis=self.axis)
         self.v = bc 
         self.forward()
-
     
+#-------------------------------------------------------
+#          Some useful operations
+#-------------------------------------------------------
 def grad(field,deriv, return_field=False):
     '''
     Find derivative of field
@@ -287,7 +315,7 @@ def grad(field,deriv, return_field=False):
     field.forward()
 
     # Get derivative
-    deriv_field = grad(field,deriv=(1,0))
+    deriv_field = grad(field,deriv=(1,0),return_field=True)
     deriv_field.backward()
 
     from pypde.plot.wireframe import plot
@@ -305,12 +333,70 @@ def grad(field,deriv, return_field=False):
 
     if return_field:
         #bases = [field.xs[0].family_id for i in range(field.ndim)]
-        field_deriv = Field( [field.xs[i].family for i in range(field.ndim)] )
+        field_deriv = Field( [field.xs[i].family 
+            for i in range(field.ndim)] )
         field_deriv.vhat = dvhat
-        field_deriv.backward()
+        #field_deriv.backward()
         return field_deriv
     else:
         return dvhat
 
+
+def cheby_to_galerkin(uhat,galerkin_field):
+    for axis in range(uhat.ndim):
+        if axis==0:
+            uhat = galerkin_field.xs[axis].from_chebyshev(uhat)
+        else:
+            uhat = np.swapaxes(uhat,0,axis)
+            uhat = galerkin_field.xs[axis].from_chebyshev(uhat)
+            uhat = np.swapaxes(uhat,0,axis)
+    return uhat
+
+def galerkin_to_cheby(vhat,galerkin_field):
+    for axis in range(vhat.ndim):
+        if axis==0:
+            vhat = galerkin_field.xs[axis].to_chebyshev(vhat)
+        else:
+            vhat = np.swapaxes(vhat,0,axis)
+            vhat = galerkin_field.xs[axis].to_chebyshev(vhat)
+            vhat = np.swapaxes(vhat,0,axis)
+    return vhat
+
+def convective_term(v_field, ux, uz, deriv_field=None, add_bc=None):
+    '''
+    Calculate
+        ux*dvdx + uz*dvdz
+    
+    Input
+        v_field: class Field
+            Contains field variable vhat in spectral space
+        ux,uz:  ndarray
+            (Dealiased) velocity fields in physical space
+        deriv_field: field (optional)
+            Field (space) where derivatives life
+        add_bc: ndarray (optional)
+            Additional term (physical space), which is added
+            before forward transform.
+    
+    Return
+        Field of (dealiased) convective term in physical space
+        Transform to spectral space via conv_field.forward()
+    '''
+    if deriv_field is None:
+        xbase = Base(v_field.shape[0],"CH")
+        ybase = Base(v_field.shape[1],"CH")
+        deriv_field = Field( [xbase,ybase] )
+    
+    # -- Calculate derivatives of v
+    vhat = grad(v_field,(1,0),return_field=False)
+    dvdx = deriv_field.backward(vhat)
+    vhat = grad(v_field,(0,1),return_field=False)
+    dvdz = deriv_field.backward(vhat)
+    
+    conv = dvdx*ux + dvdz*uz
+    
+    if add_bc is not None:
+        conv += add_bc
+    return deriv_field.forward(conv)
 # def grad(field,deriv, return_field=False):
 #     return derivative_field(field,deriv, return_field=return_field)

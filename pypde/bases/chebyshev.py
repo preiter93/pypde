@@ -22,9 +22,9 @@ class Chebyshev(MetaBase):
     https://www.math.purdue.edu/~shen7/pub/LegendreG.pdf
     https://github.com/spectralDNS/shenfun
     """
-    def __init__(self,N):
+    def __init__(self,N,dealias=None):
         x = gauss_lobatto(N-1)
-        MetaBase.__init__(self,N,x)
+        MetaBase.__init__(self,N,x,dealias)
         self.id = "CH"
         self.family_id = "CH"
 
@@ -126,9 +126,9 @@ class GalerkinChebyshev(MetaBase):
     in stencil and set size by slice.
 
     """
-    def __init__(self,N):
+    def __init__(self,N,dealias=None):
         x = gauss_lobatto(N-1)
-        MetaBase.__init__(self,N,x)
+        MetaBase.__init__(self,N,x,dealias)
 
         # Boundary conditions
         self._bc = None
@@ -248,7 +248,8 @@ class GalerkinChebyshev(MetaBase):
         Transform form chebyshev to galerkin
                     S v = u
         '''
-        assert uhat.shape[0] == self.N
+        assert uhat.shape[0] == self.N,\
+        "Shape mismatch ({:3}) ({:3})".format(uhat.shape[0],self.N)
         return self._solve_stencil_inv(uhat)
 
     def _solve_stencil_inv(self,uhat):
@@ -319,8 +320,8 @@ class ChebDirichlet(GalerkinChebyshev):
         N: int
             Number of grid points
     """
-    def __init__(self,N):
-        GalerkinChebyshev.__init__(self,N)
+    def __init__(self,N,dealias=None):
+        GalerkinChebyshev.__init__(self,N,dealias)
         self.id = "CD"
         self.bc = DirichletC(N)
 
@@ -346,8 +347,8 @@ class ChebNeumann(GalerkinChebyshev):
         N: int
             Number of grid points
     """
-    def __init__(self,N):
-        GalerkinChebyshev.__init__(self,N)
+    def __init__(self,N,dealias=None):
+        GalerkinChebyshev.__init__(self,N,dealias)
         self.id = "CN"
         self.bc = NeumannC(N)
 
@@ -380,8 +381,8 @@ class DirichletC(GalerkinChebyshev):
         N: int
             Number of grid points
     """
-    def __init__(self,N):
-        GalerkinChebyshev.__init__(self,N)
+    def __init__(self,N,dealias=None):
+        GalerkinChebyshev.__init__(self,N,dealias)
         self.id = "DC"
         self.is_bc = True
 
@@ -410,8 +411,8 @@ class NeumannC(GalerkinChebyshev):
         N: int
             Number of grid points
     """
-    def __init__(self,N):
-        GalerkinChebyshev.__init__(self,N)
+    def __init__(self,N,dealias=None):
+        GalerkinChebyshev.__init__(self,N,dealias)
         self.id = "NC"
         self.is_bc = True
 

@@ -104,3 +104,8 @@ def zero_pad(array: np.ndarray, target_length: int, axis: int = 0):
     npad[axis] = (0, pad_size)
 
     return np.pad(array, pad_width=npad, mode='constant', constant_values=0)
+
+def zero_unpad(array: np.ndarray, target_length: int, axis: int = 0):
+    slc = [slice(None)] * array.ndim 
+    slc[axis] = slice(0,target_length)
+    return array[tuple(slc)]

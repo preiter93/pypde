@@ -91,6 +91,7 @@ def animate_contour(x,y,Z,**kwargs):
 	fig, ax = plt.subplots()
 	ax.set_xlim((np.amin(x),np.amax(x)))
 	ax.set_ylim((np.amin(y),np.amax(y)))
+	ax.set_aspect(1)
 	cvals = np.linspace(np.amin(Z),np.amax(Z),50)      # set contour value
 	x,y = np.meshgrid(x,y,indexing="ij")
 	cont  = ax.contourf(x, y, Z[0,:,:], cvals,

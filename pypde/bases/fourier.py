@@ -16,10 +16,10 @@ class Fourier(MetaBase):
         Number of grid points
         
     """
-    def __init__(self,N):
+    def __init__(self,N,dealias=None):
         assert N%2==0, "Fourier dim should be even"
         x = 2*pi*np.arange(N)/N
-        MetaBase.__init__(self,N,x)
+        MetaBase.__init__(self,N,x,dealias)
         self.id = "FO" 
         self.family_id = "FO"
 

@@ -7,7 +7,7 @@ from scipy.sparse import issparse
 
 SPARSE = True  
 
-def Base(N,key,**kwargs):
+def Base(N,key,*args,**kwargs):
     '''
     Convenient way to initalize Base classes from key
     
@@ -17,7 +17,7 @@ def Base(N,key,**kwargs):
         key: str
             Key (ID) of respective class
     '''
-    return _bases_from_key(key)(N,**kwargs)
+    return _bases_from_key(key)(N,*args,**kwargs)
 
 def _bases_from_key(key):
     from .chebyshev import Chebyshev,ChebDirichlet,ChebNeumann
@@ -52,16 +52,23 @@ class MetaBase():
             Number of grid points
         x: array of floats
             Coordinates of grid points
-        key: str (optional)
-            Initialize subclass if key is supplied
+        dealias: float (optional)
+            If dealias is not None, a new additional
+            space is initialized under self.dealias, which is of 
+            size N*dealias. 
+            Use dealias=3/2 to dealias the products in the navier
+            stokes equations.
     '''
-    def __init__(self,N,x,key=None):
+    def __init__(self,N,x,dealias=None):
         self._N = N
         self._x = x
         self.name = self.__class__.__name__
 
         # ID for class, each Space should have its own
         self.id = None
+
+        if dealias is not None:
+            self.create_dealiased_base(self.N*dealias)
 
     @property
     def x(self):
@@ -77,6 +84,10 @@ class MetaBase():
         ''' Number of coefficients without BC'''
         return len(range(*self.slice().indices(self.N)))
     
+    def create_dealiased_base(self,size):
+        ''' Initialize new space for dealiased transforms '''
+        self.dealias = self.__class__(int(size),dealias=None)
+
     # ---------------------------------------------
     #               Inner Products
     # ---------------------------------------------
