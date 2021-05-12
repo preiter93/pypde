@@ -351,18 +351,18 @@ class NavierStokes(Integrator):
 shape = (64,64)
 
 Pr = 1
-Ra = 1e4
+Ra = 5e3
 nu = np.sqrt(Pr/Ra)
 kappa = np.sqrt(1/Pr/Ra)
 
-NS = NavierStokes(shape=shape,dt=0.05,tsave=1.0,nu=nu,kappa=kappa)
+NS = NavierStokes(shape=shape,dt=0.05,tsave=2.0,nu=nu,kappa=kappa)
 
-NS.iterate(50.0)
+NS.iterate(100.0)
 
-#  Add inhomogeneous part
-for i,v in enumerate(NS.T.field.V):
-        if NS.T.field.V[i][0,0] < 0.1:
-            NS.T.field.V[i] += NS.T.fieldbc.v
+# #  Add inhomogeneous part
+# for i,v in enumerate(NS.T.field.V):
+#         if NS.T.field.V[i][0,0] < 0.1:
+#             NS.T.field.V[i] += NS.T.fieldbc.v
 
-anim = NS.T.field.animate(duration=4,wireframe=False)
+anim = NS.T.field.animate(duration=6,wireframe=True)
 plt.show()
