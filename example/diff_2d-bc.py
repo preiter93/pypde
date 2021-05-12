@@ -1,3 +1,5 @@
+import sys
+sys.path.append("./")
 from pypde import *
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,6 +13,7 @@ class Diffusion2d(Integrator):
         "tsave": 0.01,
         "dt": 0.2,
         "ndim": 2,
+        "beta": 0.5,
     }
     def __init__(self,**kwargs):
         Integrator.__init__(self)
@@ -31,12 +34,12 @@ class Diffusion2d(Integrator):
         self.field.save()
 
     def init_field(self):
-        self.field.v = -self.fieldbc.v
+        self.field.v[:] = 0#-self.fieldbc.v
         self.field.forward()
         self.field.backward()
 
     def setup_solver(self):
-        lam = self.dt*self.kappa
+        lam = self.dt*self.kappa*self.beta
         # --- Matrices ----
         Sx = self.field.xs[0].S_sp
         Bx = self.field.xs[0].family.B(2,2)
@@ -49,13 +52,13 @@ class Diffusion2d(Integrator):
         Iy = self.field.xs[1].family.I(2)
         Ay =  By@Sy-lam*Iy@Sy
         self.Sy = Sy
-        
+
         # --- Solver Plans ---
         solver = SolverPlan()
-        solver.add_rhs(PlanRHS(Bx,ndim=2,axis=0)) 
-        solver.add_rhs(PlanRHS(By,ndim=2,axis=1)) 
-        solver.add_old(PlanRHS(Bx@Sx,ndim=2,axis=0)) 
-        solver.add_old(PlanRHS(By@Sy,ndim=2,axis=1)) 
+        solver.add_rhs(PlanRHS(Bx,ndim=2,axis=0))
+        solver.add_rhs(PlanRHS(By,ndim=2,axis=1))
+        solver.add_old(PlanRHS(Bx@Sx,ndim=2,axis=0))
+        solver.add_old(PlanRHS(By@Sy,ndim=2,axis=1))
         solver.add_lhs(PlanLHS(Ax,ndim=2,axis=0,method="fdma") ) #lhs
         solver.add_lhs(PlanLHS(Ay,ndim=2,axis=1,method="fdma") ) #lhs
         solver.show_plan()
@@ -66,7 +69,7 @@ class Diffusion2d(Integrator):
         from pypde.templates.hholtz import solverplan_hholtz2d_adi
         self.solver = solverplan_hholtz2d_adi(self.field.xs,
             lam=self.dt*self.kappa)
-    
+
     def setup_fieldbc(self):
         ''' Setup Inhomogeneous field'''
         bc = np.zeros((2,self.shape[1])) # boundary condition
@@ -84,13 +87,20 @@ class Diffusion2d(Integrator):
 
     def update(self):
         # Solve
-        rhs  = self.solver.solve_rhs(self._fhat)
+        rhs = self._fhat
+        # Add diffusive term
+        rhs += (self.dt*(1-self.beta)*self.kappa*
+        grad(self.field,deriv=(0,2),return_field=False) )
+        rhs += (self.dt*(1-self.beta)*self.kappa*
+        grad(self.field,deriv=(2,0),return_field=False) )
+
+        rhs  = self.solver.solve_rhs(rhs)
         rhs += self.solver.solve_old(self.field.vhat)
         self.field.vhat[:] = self.solver.solve_lhs(rhs)
 
 
-D = Diffusion2d(shape=(50,50),dt=0.01,tsave=0.1,kappa=0.1)
-D.iterate(1.0)
+D = Diffusion2d(shape=(50,50),dt=0.01,tsave=0.1,kappa=0.1,beta=0.5)
+D.iterate(10.0)
 
 #  Add inhomogeneous part
 for i,v in enumerate(D.field.V):

@@ -15,10 +15,10 @@ class FieldBase():
         Full forward transform to homogeneous field v
         '''
         if v is None:
-            vhat = self.v 
+            vhat = self.v
         else:
             vhat = v
-        
+
         if undealias_after is None:
             undealias_after = self.dealiased_space
 
@@ -27,7 +27,7 @@ class FieldBase():
             if undealias_after:
                 vhat = zero_unpad(vhat,self.size_undealiased[axis],axis=axis)
 
-        
+
         if v is None:
             self.vhat = vhat
         else:
@@ -120,7 +120,7 @@ class Field(SpectralSpace,FieldBase):
     field.backward()
 
     # Plot
-    from pypde.plot.wireframe import plot 
+    from pypde.plot.wireframe import plot
     plot(xx,yy,f)
     plot(xx,yy,field.inhomogeneous)
     plot(xx,yy,field.homogeneous)
@@ -158,7 +158,7 @@ class Field(SpectralSpace,FieldBase):
         if np.all([hasattr(i,"dealias") for i in bases]):
             dealiased_field = [i.dealias for i in bases]
             self.dealias = Field(dealiased_field)
-            self.dealias.size_undealiased = [self.xs[i].M for i in 
+            self.dealias.size_undealiased = [self.xs[i].M for i in
             range(self.ndim)]
             self.dealias.dealiased_space = True
     # ---------------------------------------------------------
@@ -171,11 +171,11 @@ class Field(SpectralSpace,FieldBase):
 
     def make_homogeneous(self):
         '''
-        Subtract inhomogeneous field  (in self.field_bc) from v 
+        Subtract inhomogeneous field  (in self.field_bc) from v
         '''
         import warnings
         if self.field_bc is None:
-            warnings.warn("""No inhomogeneous field found. 
+            warnings.warn("""No inhomogeneous field found.
                 Call add_bc(bchat,axis) first!""")
         else:
             assert self.v.shape == self.inhomogeneous.shape, \
@@ -190,7 +190,7 @@ class Field(SpectralSpace,FieldBase):
     def total(self):
         return self.homogeneous + self.inhomogeneous
 
-    
+
     @property
     def homogeneous(self):
         return self.v
@@ -222,7 +222,7 @@ class Field(SpectralSpace,FieldBase):
             if hasattr(self,"x"):
                 x = self.x
             else:
-                raise ValueError("Can't animate. x not known.") 
+                raise ValueError("Can't animate. x not known.")
 
         if self.ndim==1:
             return animate_line(x,self.VS[::skip],**kwargs)
@@ -232,7 +232,7 @@ class Field(SpectralSpace,FieldBase):
                 if hasattr(self,"y"):
                     y = self.y
                 else:
-                    raise ValueError("Can't animate. y not known.") 
+                    raise ValueError("Can't animate. y not known.")
             if wireframe:
                 return animate_wireframe(x,y,self.VS[::skip],**kwargs)
             return animate_contour(x,y,self.VS[::skip],**kwargs)
@@ -241,8 +241,8 @@ class Field(SpectralSpace,FieldBase):
 class FieldBC(SpectralSpaceBC,FieldBase):
     '''
     Handle inhomogeneous field from inhomogeneous boundary
-    conditions. 
-    
+    conditions.
+
     Example
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     from pypde.field import *
@@ -262,7 +262,7 @@ class FieldBC(SpectralSpaceBC,FieldBase):
 
     from pypde.plot.wireframe import plot
     plot(xx,yy,field_bc.v)
-    
+
     # Derivative along x
     field_bc_deriv = grad(field_bc,deriv=(1,0),return_field=True)
     plot(xx,yy,field_bc_deriv.v)
@@ -291,9 +291,9 @@ class FieldBC(SpectralSpaceBC,FieldBase):
         assert bc.shape == tuple(expected_shape)
         # Transform to real space
         bc = self.backward_fft(bc,axis=self.axis)
-        self.v = bc 
+        self.v = bc
         self.forward()
-    
+
 #-------------------------------------------------------
 #          Some useful operations
 #-------------------------------------------------------
@@ -301,7 +301,7 @@ def grad(field,deriv, return_field=False):
     '''
     Find derivative of field
 
-    Example: 
+    Example:
 
     # Set field
     N,M = 40,30
@@ -325,7 +325,7 @@ def grad(field,deriv, return_field=False):
     assert isinstance(field,(Field,FieldBC))
     if isinstance(deriv,int): deriv = (deriv,) # to tuple
     assert field.ndim == len(deriv)
-    
+
     dvhat = field.vhat
 
     for axis in range(field.ndim):
@@ -333,7 +333,7 @@ def grad(field,deriv, return_field=False):
 
     if return_field:
         #bases = [field.xs[0].family_id for i in range(field.ndim)]
-        field_deriv = Field( [field.xs[i].family 
+        field_deriv = Field( [field.xs[i].family
             for i in range(field.ndim)] )
         field_deriv.vhat = dvhat
         #field_deriv.backward()
@@ -362,11 +362,12 @@ def galerkin_to_cheby(vhat,galerkin_field):
             vhat = np.swapaxes(vhat,0,axis)
     return vhat
 
-def convective_term(v_field, ux, uz, deriv_field=None, add_bc=None):
+def convective_term(v_field, ux, uz,
+deriv_field=None, add_bc=None, dealias=False):
     '''
     Calculate
         ux*dvdx + uz*dvdz
-    
+
     Input
         v_field: class Field
             Contains field variable vhat in spectral space
@@ -377,26 +378,48 @@ def convective_term(v_field, ux, uz, deriv_field=None, add_bc=None):
         add_bc: ndarray (optional)
             Additional term (physical space), which is added
             before forward transform.
-    
+        dealias: bool (optional)
+            Dealias convective term. In this case, input ux and
+            uz must already be dealiased and deriv_field must
+            be initialized with ,dealias=3/2
+
     Return
         Field of (dealiased) convective term in physical space
         Transform to spectral space via conv_field.forward()
     '''
     if deriv_field is None:
-        xbase = Base(v_field.shape[0],"CH")
-        ybase = Base(v_field.shape[1],"CH")
-        deriv_field = Field( [xbase,ybase] )
-    
-    # -- Calculate derivatives of v
+        if dealias:
+            deriv_field = Field( [
+            Base(v_field.shape[0],"CH",dealias=3/2),
+            Base(v_field.shape[1],"CH",dealias=3/2)] )
+        else:
+            deriv_field = Field( [
+            Base(v_field.shape[0],"CH"),
+            Base(v_field.shape[1],"CH")] )
+
+    # -- Calculate derivatives of ux and uz
+
+    # dudx
     vhat = grad(v_field,(1,0),return_field=False)
-    dvdx = deriv_field.backward(vhat)
+    if dealias:
+        dudx = deriv_field.dealias.backward(vhat)
+    else:
+        dudx = deriv_field.backward(vhat)
+
+    # dvdz
     vhat = grad(v_field,(0,1),return_field=False)
-    dvdz = deriv_field.backward(vhat)
-    
-    conv = dvdx*ux + dvdz*uz
-    
+    if dealias:
+        dvdz = deriv_field.dealias.backward(vhat)
+    else:
+        dvdz = deriv_field.backward(vhat)
+
+    conv = dudx*ux + dvdz*uz
+
     if add_bc is not None:
         conv += add_bc
+
+    if dealias:
+        return deriv_field.dealias.forward(conv)
     return deriv_field.forward(conv)
 # def grad(field,deriv, return_field=False):
 #     return derivative_field(field,deriv, return_field=return_field)

@@ -1,3 +1,5 @@
+import sys
+sys.path.append("./")
 from pypde import *
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +12,7 @@ class Diffusion1d(Integrator):
         "tsave": 0.01,
         "dt": 0.2,
         "ndim": 1,
+        "beta": 0.5,
     }
     def __init__(self,**kwargs):
         Integrator.__init__(self)
@@ -37,12 +40,13 @@ class Diffusion1d(Integrator):
         Sx = self.field.xs[0].S_sp
         Bx = self.field.xs[0].family.B(2,2)
         Ix = self.field.xs[0].family.I(2)
-        lam = self.dt*self.kappa
+        lam = self.dt*self.kappa*self.beta
         Ax =  Bx@Sx-lam*Ix@Sx
-        
+
         # --- Solver Plans ---
         solver = SolverPlan()
-        solver.add_rhs(PlanRHS(Bx@Sx,ndim=1,axis=0)) # rhs old velocity
+        solver.add_rhs(PlanRHS(Bx   ,ndim=1,axis=0)) # rhs old velocity
+        solver.add_old(PlanRHS(Bx@Sx,ndim=1,axis=0)) # rhs old velocity
         solver.add_lhs(PlanLHS(Ax,ndim=1,axis=0,method="fdma") ) #lhs
         solver.show_plan()
 
@@ -63,7 +67,7 @@ class Diffusion1d(Integrator):
 
         self.solver = solver
 
-    
+
     def setup_fieldbc(self):
         ''' Setup Inhomogeneous field'''
         # boundary conditions
@@ -83,13 +87,20 @@ class Diffusion1d(Integrator):
 
     def update(self):
         # Solve
+        # Add diffusive term
+        rhs = (self.dt*(1-self.beta)*self.kappa*
+        grad(self.field,deriv=(2),return_field=False) )
+
         #rhs = self.solver.solve_rhs(self._fhat)
-        rhs = self.solver.solve_rhs(self.field.vhat)
+        rhs  = self.solver.solve_rhs(rhs)
+        rhs += self.solver.solve_old(self.field.vhat)
+
+
         self.field.vhat[:] = self.solver.solve_lhs(rhs)
 
 
-D = Diffusion1d(N=250,dt=0.01,tsave=0.1,kappa=0.1)
-D.iterate(5.0)
+D = Diffusion1d(N=50,dt=0.001,tsave=0.1,kappa=0.1,beta=0.5)
+D.iterate(25.0)
 
 #  Add inhomogeneous part
 for i,v in enumerate(D.field.V):

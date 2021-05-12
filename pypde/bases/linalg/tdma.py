@@ -45,6 +45,8 @@ def TDMA_offset(a,b,c,d,k):
             diagonals -k, 0, k
         d: nd array
             rhs (solved along axis 0)
+        k: int
+            Offset of sub-diagonal
 
     Return
         array
@@ -80,6 +82,16 @@ def TDMA_offset(a,b,c,d,k):
 
     # Back substitution
     p[n-k-1:n] = g[n-k-1:n]
-    for i in range(n-2,0,-1):
+    for i in range(n-k,0,-1):
         p[i-1] = g[i-1] - w[i-1]*p[i+k-1]
     return p
+
+
+def TDMA_Fortran(a,b,c,d,k):
+    from .fortran import tdma
+    if d.ndim==1:
+        return tdma.solve_tdma_1d(a,b,c,d,int(k))
+    elif d.ndim==2:
+        return tdma.solve_tdma_2d(a,b,c,d,int(k))
+    else:
+        raise ValueError("TDMA Fortran supports only ndim<3 at the moment!")

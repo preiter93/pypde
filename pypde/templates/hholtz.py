@@ -5,7 +5,7 @@ def solverplan_hholtz1d(bases,lam):
     Helmholtz equation:
         (1 - lam*D2) u = rhs + uold
     Premultiplied with pseudoinverse of D2:
-        (B - lam*I) S*v = B*rhs + B*S*vold
+        (B - lam*I) S*v = B*rhs + B*S*uold
 
     Input
         base: list of class MetaBase
@@ -18,7 +18,7 @@ def solverplan_hholtz1d(bases,lam):
 
     How to use solverplan
     rhs  = self.solver.solve_rhs(rhs)
-    rhs += self.solver.solve_old(vold)
+    rhs += self.solver.solve_old(uold)
     vhat[:] = self.solver.solve_lhs(rhs)
     '''
     field = Field(bases)
@@ -42,7 +42,7 @@ def solverplan_hholtz2d_adi(bases,lam):
     Helmholtz equation:
         (1 - lam*D2) u = rhs + uold
     Premultiplied with pseudoinverse of D2:
-        (B - lam*I) S*v = B*rhs + B*S*vold
+        (B - lam*I) S*v = B*rhs + B*S*uold
 
     Bases must be pure chebyshev
 
@@ -60,7 +60,7 @@ def solverplan_hholtz2d_adi(bases,lam):
 
     How to use solverplan
     rhs  = self.solver.solve_rhs(rhs)
-    rhs += self.solver.solve_old(vold)
+    rhs += self.solver.solve_old(uold)
     vhat[:] = self.solver.solve_lhs(rhs)
     '''
     field = Field(bases)

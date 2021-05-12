@@ -111,7 +111,7 @@ class Chebyshev(MetaBase):
         if deriv>2:
             raise ValueError("deriv>2 not supported")
         return pseudo_inv(self,D = deriv)[discardrow:,:]#self.mass_inv
-        
+
     def I(self,discardrow=0):
         ''' (Discarded) Identitiy matrix '''
         return np.eye(self.N)[discardrow:,:]
@@ -192,11 +192,11 @@ class GalerkinChebyshev(MetaBase):
         '''
         Transform to spectral space via DCT
         Applied along zero axis of f
- 
+
              S^t T u = S^t@M@S vhat
         -->  S^t T u = Mv vhat
-            
-            T u: Chebyshev transform without mass_inv applied 
+
+            T u: Chebyshev transform without mass_inv applied
             M : Mass Chebyshev
             Mv: Mass Galerkin (diag -2,0,2)
             S : Transform Stencil
@@ -260,19 +260,20 @@ class GalerkinChebyshev(MetaBase):
         Original system is overdetermine, hence
         multiply with S^T
 
-               S^T S v = S^T u 
+               S^T S v = S^T u
 
         Obtain galerkin coefficients v (N -2 x M)
         from chebyshev coefficients u (N x M)
 
         Note:
-            For a generic stencil S, one possibility 
+            For a generic stencil S, one possibility
             would is np.linalg.lstsq(S,uhat)
         '''
-        from .linalg.tdma import TDMA_offset as TDMA
+        #from .linalg.tdma import TDMA_offset as TDMA
+        from .linalg.tdma import TDMA_Fortran as TDMA
         l2,d,u2=self._init_stencil_inv()
         #try:
-        return TDMA(l2,d,u2,self.stencil(transpose=True)@uhat,2)
+        return TDMA(l2,d,u2,self.ST_sp@uhat,2)
         #except:
         #    return np.linalg.lstsq(self.S,uhat)[0]
 
@@ -300,7 +301,7 @@ class GalerkinChebyshev(MetaBase):
 
         Return
             Coefficient array of derivative,
-            returns chebyshev coeff if out_cheby is True,, 
+            returns chebyshev coeff if out_cheby is True,,
             otherwise return galerkin coeff
         '''
         uhat = self.to_chebyshev(vhat)

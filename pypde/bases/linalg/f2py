@@ -1,4 +1,0 @@
-f2py -c linalg.f90 -m linalg
-
-python3 -m numpy.f2py  -DF2PY_REPORT_ON_ARRAY_COPY=1 --fcompiler=gnu95 --opt='-O3' -c linalg.f90 -m linalg
-
