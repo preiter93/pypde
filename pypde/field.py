@@ -65,6 +65,20 @@ class FieldBase():
             raise ValueError("Dimension y not defined for ndim<2.")
         return self.xs[1].x
 
+    @property
+    def dx(self):
+        xm = np.zeros(self.x.size+1)
+        xm[0],xm[-1] = self.x[0],self.x[-1]
+        xm[1:-1] = (self.x[1:] + self.x[:-1])/2.0
+        return np.diff(xm)
+
+    @property
+    def dy(self):
+        ym = np.zeros(self.y.size+1)
+        ym[0],ym[-1] = self.y[0],self.y[-1]
+        ym[1:-1] = (self.y[1:] + self.y[:-1])/2.0
+        return np.diff(ym)
+
 class Field(SpectralSpace,FieldBase):
     '''
     Class for (multidimensional) Fields in
