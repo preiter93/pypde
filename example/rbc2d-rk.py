@@ -14,6 +14,9 @@ TIME_T = 0
 TIME_Update = 0
 TIME_Divergence = 0
 
+TIME_FFT = 0
+TIME_Conv = 0
+
 class NavierStokes(Integrator):
     CONFIG={
         "shape": (50,50),
@@ -175,10 +178,14 @@ class NavierStokes(Integrator):
         return dudx + dudz
 
     def conv_term(self,field,ux,uz,add_bc=None):
+        tic = time.perf_counter()
         conv = convective_term(field,ux,uz,
                               deriv_field = self.deriv_field,
                               add_bc = add_bc,
                               dealias= self.dealias )
+        global TIME_Conv
+        TIME_Conv += time.perf_counter() - tic
+
         return conv
 
     def update_U(self,ux,uz,ux_old,uz_old,p,stage):
@@ -194,11 +201,12 @@ class NavierStokes(Integrator):
             rhs -= self.dt*self.c[stage]*self.conv_term(
             self.U,ux_old,uz_old)
 
-        # Add diffusive term
-        rhs += (self.dt*self.a[stage]*(1-self.beta)*self.nu*
-        grad(self.U,deriv=(2,0),return_field=False) )
-        rhs += (self.dt*self.a[stage]*(1-self.beta)*self.nu*
-        grad(self.U,deriv=(0,2),return_field=False) )
+        # Add explicit diffusive term
+        if self.beta != 1.0:
+            rhs += (self.dt*self.a[stage]*(1-self.beta)*self.nu*
+            grad(self.U,deriv=(2,0),return_field=False) )
+            rhs += (self.dt*self.a[stage]*(1-self.beta)*self.nu*
+            grad(self.U,deriv=(0,2),return_field=False) )
 
         rhs  = self.solver_U[stage].solve_rhs( rhs )
         rhs += self.solver_U[stage].solve_old( self.U.vhat )
@@ -223,11 +231,12 @@ class NavierStokes(Integrator):
         # Buoyancy
         rhs +=  self.dt*self.a[stage]*That
 
-        # Add diffusive term
-        rhs += (self.dt*self.a[stage]*(1-self.beta)*self.nu*
-        grad(self.V,deriv=(2,0),return_field=False) )
-        rhs += (self.dt*self.a[stage]*(1-self.beta)*self.nu*
-        grad(self.V,deriv=(0,2),return_field=False) )
+        # Add explicit diffusive term
+        if self.beta != 1.0:
+            rhs += (self.dt*self.a[stage]*(1-self.beta)*self.nu*
+            grad(self.V,deriv=(2,0),return_field=False) )
+            rhs += (self.dt*self.a[stage]*(1-self.beta)*self.nu*
+            grad(self.V,deriv=(0,2),return_field=False) )
 
         rhs  = self.solver_V[stage].solve_rhs( rhs )
         rhs += self.solver_V[stage].solve_old( self.V.vhat )
@@ -247,11 +256,12 @@ class NavierStokes(Integrator):
             rhs -= self.dt*self.c[stage]*self.conv_term(
             self.T,ux_old,uz_old,add_bc = uz_old*self.bc_dTdz)
 
-        # Add diffusive term
-        rhs += (self.dt*self.a[stage]*(1-self.beta)*self.kappa*
-        grad(self.T,deriv=(2,0),return_field=False) )
-        rhs += (self.dt*self.a[stage]*(1-self.beta)*self.kappa*
-        grad(self.T,deriv=(0,2),return_field=False) )
+        # Add explicit diffusive term
+        if self.beta != 1.0:
+            rhs += (self.dt*self.a[stage]*(1-self.beta)*self.kappa*
+            grad(self.T,deriv=(2,0),return_field=False) )
+            rhs += (self.dt*self.a[stage]*(1-self.beta)*self.kappa*
+            grad(self.T,deriv=(0,2),return_field=False) )
 
         rhs  = self.solver_T[stage].solve_rhs( rhs )
         rhs += self.solver_T[stage].solve_old(self.T.vhat)
@@ -283,12 +293,16 @@ class NavierStokes(Integrator):
             That += self.bc_That_cheby
 
             # Convection velocity
+            tic = time.perf_counter()
             if self.dealias:
                 ux = self.U.dealias.backward(self.U.vhat)
                 uz = self.V.dealias.backward(self.V.vhat)
             else:
                 ux = self.U.backward(self.U.vhat)
                 uz = self.V.backward(self.V.vhat)
+
+            global TIME_FFT
+            TIME_FFT += time.perf_counter() - tic
 
             # Add pressure term
             #self.update_velocity(self.pres,self.U,self.V,
@@ -321,21 +335,23 @@ class NavierStokes(Integrator):
 
 
 
-shape = (196,196)
+shape = (96,96)
 
 Pr = 1
-Ra = 1e5
+Ra = 5e3
 nu = np.sqrt(Pr/Ra)
 kappa = np.sqrt(1/Pr/Ra)
 
 NS = NavierStokes(shape=shape,dt=0.02,tsave=1.0,nu=nu,kappa=kappa,
-dealias=True,integrator="rk3",beta=1.0)
+dealias=False,integrator="rk3",beta=1.0)
 
 st = time.perf_counter()
 NS.iterate(10.0)
 TIME += time.perf_counter() - st
 
 print("-----------------------")
+print(" Time Convective: {:5.2f} s".format(TIME_Conv))
+print(" Time FFT Conv  : {:5.2f} s".format(TIME_FFT))
 print(" Time Update V  : {:5.2f} s".format(TIME_Update))
 print(" Time Divergence: {:5.2f} s".format(TIME_Divergence))
 print("")

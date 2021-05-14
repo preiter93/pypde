@@ -99,7 +99,7 @@ class Diffusion2d(Integrator):
         self.field.vhat[:] = self.solver.solve_lhs(rhs)
 
 
-D = Diffusion2d(shape=(50,50),dt=0.01,tsave=0.1,kappa=0.1,beta=0.5)
+D = Diffusion2d(shape=(50,50),dt=0.01,tsave=0.1,kappa=0.1,beta=1.0)
 D.iterate(10.0)
 
 #  Add inhomogeneous part

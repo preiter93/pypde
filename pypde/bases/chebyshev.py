@@ -1,11 +1,17 @@
 import numpy as np
-from scipy.fftpack import dctn
+
 from scipy.sparse import diags
 from .dmsuite import (gauss_lobatto,diff_mat_spectral,
     diff_recurrence_chebyshev,chebdif,pseudoinverse_spectral)
+from .fortran import differentiate_cheby
 from .memoize import memoized
 from .spectralbase import MetaBase
 from .utils import *
+
+from scipy.fftpack import dctn as dctn_scipy
+import pyfftw
+
+USE_PYFFTW = True
 
 class Chebyshev(MetaBase):
     """
@@ -27,6 +33,10 @@ class Chebyshev(MetaBase):
         MetaBase.__init__(self,N,x,dealias)
         self.id = "CH"
         self.family_id = "CH"
+
+        if USE_PYFFTW:
+            self.plan_dctn = None # Create on the fly
+            self.plan_dctn_shape = None
 
     def get_basis(self, i=0, x=None):
         if x is None: x = self.x
@@ -51,7 +61,7 @@ class Chebyshev(MetaBase):
         Scipys dctn is missing the (-1)^i part, which is handled here
         '''
         sign = np.array([(-1)**k for k in np.arange(self.N)])
-        c = 0.5*dctn(f,type=1,axes=0)/(self.N-1)
+        c = 0.5*self.dctn(f)/(self.N-1)
         c = product(sign,c) # mutliplication along first dimension
         return self.solve_mass(c) if mass else c
 
@@ -60,7 +70,23 @@ class Chebyshev(MetaBase):
         sign = np.array([(-1)**k for k in np.arange(self.N)])
         f = product(sign,c) # mutliplication along first dimension
         f[[0,-1]] = product(np.array([2,2]),f[[0,-1]]) # first and last times 2
-        return 0.5*dctn(f,type=1,axes=0)
+        return 0.5*self.dctn(f)
+
+    def dctn(self,f,axes=(0,),use_pyfftw=USE_PYFFTW):
+        ''' '''
+        if use_pyfftw:
+            if self.plan_dctn is None or f.shape != self.plan_dctn_shape:
+                self.plan_dctn = self.create_plan_dctn(f.shape,axes)
+                self.plan_dctn_shape = f.shape
+            return self.plan_dctn(f)
+        else:
+            return dctn_scipy(f,type=1,axes=axes)
+
+    #@memoized
+    def create_plan_dctn(self,shape,axes=(0,)):
+        a = pyfftw.empty_aligned(shape, dtype='float64')
+        b = pyfftw.empty_aligned(shape, dtype='float64')
+        return pyfftw.FFTW(a, b, axes=axes, direction='FFTW_REDFT00')
 
     @memoized
     def dmp_collocation(self,deriv):
@@ -81,7 +107,19 @@ class Chebyshev(MetaBase):
     def derivative(self,fhat,deriv,out_cheby=True):
         if deriv == 0:
             return fhat
-        return diff_recurrence_chebyshev(fhat,deriv)
+        #return diff_recurrence_chebyshev(fhat,deriv)
+        df = fhat
+        if fhat.ndim == 1:
+            for i in range(deriv):
+                df = differentiate_cheby.diff_1d(df)
+            return df
+        elif fhat.ndim == 2:
+            for i in range(deriv):
+                df = differentiate_cheby.diff_2d(df)
+            return df
+        else:
+            raise NotImplementedError("ndim must be less than 3")
+
 
     def derivative_physical(self,f,deriv,method="fft"):
         assert method in ["fft","spectral","dm","physical"]
