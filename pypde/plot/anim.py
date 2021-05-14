@@ -16,7 +16,7 @@ def create_output_folder(full_path):
 	import pathlib
 	import os
 	dirname = os.path.dirname(full_path)
-	pathlib.Path(dirname).mkdir(parents=True, exist_ok=True) 
+	pathlib.Path(dirname).mkdir(parents=True, exist_ok=True)
 
 def set_fps_from_duration(dict,nframes):
 	dict["fps"] = nframes/dict["duration"]
@@ -56,17 +56,17 @@ def animate_line(x,Y,**kwargs):
 	    return line,
 
 	# call the animator.  blit=True means only re-draw the parts that have changed.
-	anim = animation.FuncAnimation(fig, animate, init_func=init, frames=Y.shape[0], 
+	anim = animation.FuncAnimation(fig, animate, init_func=init, frames=Y.shape[0],
 		interval=1/settings["fps"]*1000, blit=True)
 
-	# write animation 
+	# write animation
 	create_output_folder(settings["filename"])
 	anim.save(settings["filename"], fps=settings["fps"], extra_args=FFMPEG)
 	print("Save animation to {:s}".format(settings["filename"]))
 	return anim
 
 def animate_contour(x,y,Z,**kwargs):
-	
+
 	'''
 	Animate collection of contours (Z)
 	Input:
@@ -87,7 +87,7 @@ def animate_contour(x,y,Z,**kwargs):
 	assert len(x.shape)==1
 	assert len(y.shape)==1
 	assert len(Z.shape)==3
-	
+
 	fig, ax = plt.subplots()
 	ax.set_xlim((np.amin(x),np.amax(x)))
 	ax.set_ylim((np.amin(y),np.amax(y)))
@@ -109,10 +109,10 @@ def animate_contour(x,y,Z,**kwargs):
 	    return cont
 
 	# call the animator.  blit=True means only re-draw the parts that have changed.
-	anim = animation.FuncAnimation(fig, animate,frames=Z.shape[0], 
+	anim = animation.FuncAnimation(fig, animate,frames=Z.shape[0],
 		interval=1/settings["fps"]*1000, blit=False)
-	
-	# write animation 
+
+	# write animation
 	create_output_folder(settings["filename"])
 	anim.save(settings["filename"], fps=settings["fps"], extra_args=FFMPEG)
 	print("Save animation to {:s}".format(settings["filename"]))
@@ -159,14 +159,14 @@ def animate_wireframe(x,y,Z,**kwargs):
 	    z = Z[i,:,:]
 	    if wframe:
 	    	ax.collections.remove(wframe)
-	    wframe = ax.plot_surface(xx, yy, z, rstride=1, cstride=1, 
-	    	cmap=settings["cmap"], edgecolor=settings["edgecolor"])
+	    wframe = ax.plot_surface(xx, yy, z, rstride=1, cstride=1,
+	    cmap=settings["cmap"], edgecolor=settings["edgecolor"])
 
 	# call the animator.  blit=True means only re-draw the parts that have changed.
-	anim = animation.FuncAnimation(fig, animate,frames=Z.shape[0], 
+	anim = animation.FuncAnimation(fig, animate,frames=Z.shape[0],
 		interval=1/settings["fps"]*1000, blit=False)
-	
-	# write animation 
+
+	# write animation
 	create_output_folder(settings["filename"])
 	anim.save(settings["filename"], fps=settings["fps"], extra_args=FFMPEG)
 	print("Save animation to {:s}".format(settings["filename"]))

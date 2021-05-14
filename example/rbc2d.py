@@ -55,6 +55,9 @@ class NavierStokes(Integrator):
         self.set_temperature()
         self.set_temp_fieldbc()
 
+        # Array for rhs
+        self.rhs = np.zeros(self.shape)
+
     def set_temperature(self):
         self.T.v = np.sin(0.5*np.pi*self.xx)*np.cos(0.5*np.pi*self.yy)
         #self.T.v[:] = 0
@@ -247,7 +250,6 @@ class NavierStokes(Integrator):
 
     def update_T(self,ux,uz,ux_old,uz_old,stage):
         tic = time.perf_counter()
-
 
         # Non-Linear Convection
         rhs = -self.dt*self.b[stage]*self.conv_term(self.T,ux,uz,

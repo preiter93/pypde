@@ -143,9 +143,9 @@ enddo
 end subroutine
 
 
-subroutine solve_fdma_type2(A,C,lam,x,axis, n,m)
+subroutine solve_fdma_type2(A,C,lam,x,axis,singular, n,m)
 ! =====================================================
-! Solve (A + lam_i*C)x_i = b_i, where LHS is a 
+! Solve (A + lam_i*C)x_i = b_i, where LHS is a
 ! 4-diagonal matrix with diagonals in offsets -2, 0, 2, 4
 ! and b is two dimensional (n,m)
 ! and lambda is a vecor which is multiplied along the
@@ -157,15 +157,15 @@ subroutine solve_fdma_type2(A,C,lam,x,axis, n,m)
 !     Array
 ! x: array ndim==2
 !     rhs (in) / solution (out)
-! axis : int 
+! axis : int
 !    Axis over which to solve
-! pure_neumann: bool
-!   Skip first element when lam==0
+! singular: bool
+!   Skip constant part x[0,0]
 ! =====================================================
     integer, intent(in)   :: axis,n,m
     real(8), intent(in)  :: A(:,:),C(:,:),lam(:)
     real(8), intent(inout) :: x(n,m)
-    !logical, intent(in) :: pure_neumann
+    logical, intent(in) :: singular
     real(8), dimension(:), allocatable :: d,u1,u2,l
     integer :: i
 
@@ -173,8 +173,14 @@ subroutine solve_fdma_type2(A,C,lam,x,axis, n,m)
     if (axis==0) then
         allocate(d(n),u1(n-2),u2(n-4),l(n-2))
         do i=1,m
+            if (singular .and. abs(lam(i))<1e-10) then
+              call init_fdma( (A(2:,2:) + C(2:,2:)*lam(i) ), d(2:),u1(2:),u2(2:),l(2:),n-1)
+              call solve_fdma_1d(l(2:),d(2:),u1(2:),u2(2:),x(2:,i),n-1)
+              x(1,i) = 0.0
+            else
             call init_fdma( (A + C*lam(i) ), d,u1,u2,l,n)
             call solve_fdma_1d(l,d,u1,u2,x(:,i),n)
+            endif
         enddo
         return
     ! ------- axis 1 ------------

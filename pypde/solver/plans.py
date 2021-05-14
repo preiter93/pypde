@@ -247,29 +247,31 @@ class Plan_Poisson(MetaPlan):
         banded with diagonals in offsets -2, 0, 2, 4
 
     Additional arguments can be supplied:
-    pure_neumann: bool
+    singular: bool
         if True the first equation
         when alpha==0 is skipped (pure neumann is singular)
 
     When solved, rhs b must be of size N x M
     '''
-    def __init__(self,A,alpha,C,ndim,axis,pure_neumann=False):
+    def __init__(self,A,alpha,C,ndim,axis,singular=False):
         assert ndim == 2
         # assert alpha.size == m, \
         # "Size of eigenvalue array does not match!"
         MetaPlan.__init__(self,A=A,ndim=ndim,axis=axis)
         self.flags.update({"method": "poisson"})
-        self.alpha = alpha 
+        self.alpha = alpha
         self.C = C
+        self.singular = singular
         # choose default solver
-        self.solve = self.solve_fortran
+        #self.solve = self.solve_fortran
         #self.solve = self.solve_numpy
+        self.solve = self.solve_pdma
 
     def solve_numpy(self,b):
         # Swap b
-        if self.axis!=1:
+        if self.axis!=0:
             b = np.swapaxes(b,self.axis,0)
-        # Does eigenvalue size match with second dim of b
+        # Egenvalue size must match with second dim of b
         if self.alpha.size != b.shape[1]:
             raise ValueError("Size of eigenvalue {:3} array does not match to b {:3}!"
                 .format(self.alpha.size, b.shape[1]))
@@ -279,13 +281,126 @@ class Plan_Poisson(MetaPlan):
             A = self.A + self.alpha[i]*self.C
             x[:,i] = np.linalg.solve(A,b[:,i])
 
+        if self.axis!=0:
+            return np.swapaxes(x,self.axis,0)
         return x
 
     def solve_fortran(self,b):
         from .linalg.fortran import fdma
-        fdma.solve_fdma_type2(self.A,self.C,self.alpha,b,self.axis)
-        return b 
+        fdma.solve_fdma_type2(self.A,self.C,self.alpha,b,
+        self.axis,self.singular)
+        return b
+
+    def solve_pdma(self,b):
+        # Swap b
+        if self.axis!=0:
+            b = np.swapaxes(b,self.axis,0)
+        # Egenvalue size must match with second dim of b
+        if self.alpha.size != b.shape[1]:
+            raise ValueError("Size of eigenvalue {:3} array does not match to b {:3}!"
+                .format(self.alpha.size, b.shape[1]))
+
+        x = np.zeros(b.shape)
+        for i in range(x.shape[1]):
+            A = self.A + self.alpha[i]*self.C
+            P = PDMA(A)
+            P.init()
+            xc = b[:,i].copy()
+            P.solve(xc)
+            x[:,i] = xc
+            
+        if self.axis!=0:
+            return np.swapaxes(x,self.axis,0)
+        return x
+
+import numpy as np
+
+class PDMA:
+    """Pentadiagonal matrix solver
+    Parameters
+    ----------
+        mat : SparseMatrix
+            Pentadiagonal matrix with diagonals in offsets
+            -4, -2, 0, 2, 4
+        neumann : bool, optional
+            Whether matrix represents a Neumann problem, where
+            the first index is known as the mean value and we
+            solve for slice(1, N-3).
+            If `mat` is a :class:`.SpectralMatrix`, then the
+            `neumann` keyword is ignored and the information
+            extracted from the matrix.
+    """
+
+    def __init__(self, mat, neumann=False):
+        self.mat = mat
+        self.N = 0
+        self.d0 = np.zeros(0)
+        self.d1 = None
+        self.d2 = None
+        self.A = None
+        self.L = None
+        self.neumann = neumann
+
+    def init(self):
+        """Initialize and allocate solver"""
+        B = self.mat
+        shape = self.mat.shape[1]
+        # Broadcast in case diagonal is simply a constant.
+        self.d0 = np.broadcast_to(np.diag(B,0), shape).copy()#*B.scale
+        self.d1 = np.broadcast_to(np.diag(B,2), shape-2).copy()#*B.scale
+        self.d2 = np.broadcast_to(np.diag(B,4), shape-4).copy()#*B.scale
+        if self.neumann:
+            self.d0[0] = 1
+            self.d1[0] = 0
+            self.d2[0] = 0
+        self.l1 = np.broadcast_to(np.diag(B,-2), shape-2).copy()#*B.scale
+        self.l2 = np.broadcast_to(np.diag(B,-4), shape-4).copy()#*B.scale
+        self.PDMA_LU(self.l2, self.l1, self.d0, self.d1, self.d2)
+
+    @staticmethod
+    def PDMA_LU(a, b, d, e, f): # pragma: no cover
+        """LU decomposition"""
+        n = d.shape[0]
+        m = e.shape[0]
+        k = n - m
+
+        for i in range(n-2*k):
+            lam = b[i]/d[i]
+            d[i+k] -= lam*e[i]
+            e[i+k] -= lam*f[i]
+            b[i] = lam
+            lam = a[i]/d[i]
+            b[i+k] -= lam*e[i]
+            d[i+2*k] -= lam*f[i]
+            a[i] = lam
+
+        i = n-4
+        lam = b[i]/d[i]
+        d[i+k] -= lam*e[i]
+        b[i] = lam
+        i = n-3
+        lam = b[i]/d[i]
+        d[i+k] -= lam*e[i]
+        b[i] = lam
 
 
-         
+    @staticmethod
+    def PDMA_Solve(a, b, d, e, f, h, axis=0): # pragma: no cover
+        """Symmetric solve (for testing only)"""
+        n = d.shape[0]
+        bc = h
 
+        bc[2] -= b[0]*bc[0]
+        bc[3] -= b[1]*bc[1]
+        for k in range(4, n):
+            bc[k] -= (b[k-2]*bc[k-2] + a[k-4]*bc[k-4])
+
+        bc[n-1] /= d[n-1]
+        bc[n-2] /= d[n-2]
+        bc[n-3] = (bc[n-3]-e[n-3]*bc[n-1])/d[n-3]
+        bc[n-4] = (bc[n-4]-e[n-4]*bc[n-2])/d[n-4]
+        for k in range(n-5, -1, -1):
+            bc[k] = (bc[k]-e[k]*bc[k+2]-f[k]*bc[k+4])/d[k]
+
+    def solve(self,x):
+        self.PDMA_Solve(self.l2, self.l1, self.d0, self.d1, self.d2, x, axis=0)

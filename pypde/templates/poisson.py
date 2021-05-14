@@ -13,7 +13,7 @@ def solverplan_poisson1d(bases,singular=False):
         singular: bool (default = False)
             For pure neumann cases, add a small value
             to the zero eigenvalue
-            Set constant part after calculation to 
+            Set constant part after calculation to
             zero by hand. See "How to" in solverplan_poisson2d
 
     Returns
@@ -29,7 +29,7 @@ def solverplan_poisson1d(bases,singular=False):
     if singular:
         assert  Ax[0,0] == 0, "Matrix does not look singular"
         # Add very small term to make system non-singular
-        Ax[0,0] += 1e-20 
+        Ax[0,0] += 1e-20
 
     # --- Solver Plans ---
     solver = SolverPlan()
@@ -56,7 +56,7 @@ def solverplan_poisson2d(bases,singular=False):
         singular: bool (default = False)
             For pure neumann cases, add a small value
             to the zero eigenvalue
-            Set constant part after calculation to 
+            Set constant part after calculation to
             zero by hand. See "How to"
 
     Returns
@@ -98,7 +98,8 @@ def solverplan_poisson2d(bases,singular=False):
     solver.add_rhs(PlanRHS(Bx,ndim=2,axis=0))
     solver.add_rhs(PlanRHS(Hy,ndim=2,axis=1))
 
-    solver.add_lhs( PlanLHS(Ax,alpha=wy,C=Cx,ndim=2,axis=0,method="poisson") ) 
-    solver.add_lhs( PlanLHS(Qy,ndim=2,axis=1,method="multiply") ) 
+    solver.add_lhs( PlanLHS(Ax,alpha=wy,C=Cx,ndim=2,axis=0,
+    method="poisson",singular=True) )
+    solver.add_lhs( PlanLHS(Qy,ndim=2,axis=1,method="multiply") )
 
     return solver

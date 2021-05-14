@@ -33,6 +33,8 @@ class Diffusion2d(Integrator):
         self.init_field()
         self.field.save()
 
+        self.rhs = np.zeros(self.shape)
+
     def init_field(self):
         self.field.v[:] = 0#-self.fieldbc.v
         self.field.forward()
@@ -68,7 +70,7 @@ class Diffusion2d(Integrator):
     def solver_from_template(self):
         from pypde.templates.hholtz import solverplan_hholtz2d_adi
         self.solver = solverplan_hholtz2d_adi(self.field.xs,
-            lam=self.dt*self.kappa)
+            lam=self.dt*self.kappa*self.beta)
 
     def setup_fieldbc(self):
         ''' Setup Inhomogeneous field'''
@@ -83,28 +85,54 @@ class Diffusion2d(Integrator):
     def _fhat(self):
         ''' rhs from inhomogeneous bcs'''
         fieldbc_d2 = grad(self.fieldbc,deriv=(0,2),return_field=True)
-        return self.dt*self.kappa*fieldbc_d2.vhat
+        return self.dt*self.kappa*fieldbc_d2.vhat#*self.beta
 
     def update(self):
         # Solve
-        rhs = self._fhat
+        self.rhs[:] = self._fhat
         # Add diffusive term
-        rhs += (self.dt*(1-self.beta)*self.kappa*
-        grad(self.field,deriv=(0,2),return_field=False) )
-        rhs += (self.dt*(1-self.beta)*self.kappa*
-        grad(self.field,deriv=(2,0),return_field=False) )
+        gradT = grad(self.field,deriv=(0,2),return_field=True)
+        self.rhs += self.dt*self.kappa*(1.0-self.beta)*gradT.vhat
+        gradT = grad(self.field,deriv=(2,0),return_field=True)
+        self.rhs += self.dt*self.kappa*(1.0-self.beta)*gradT.vhat
 
-        rhs  = self.solver.solve_rhs(rhs)
+        rhs  = self.solver.solve_rhs(self.rhs)
         rhs += self.solver.solve_old(self.field.vhat)
         self.field.vhat[:] = self.solver.solve_lhs(rhs)
 
 
-D = Diffusion2d(shape=(50,50),dt=0.01,tsave=0.1,kappa=0.1,beta=1.0)
+D = Diffusion2d(shape=(50,50),dt=0.01,tsave=0.1,kappa=0.1,beta=0.5)
 D.iterate(10.0)
+
+# from mpl_toolkits import mplot3d
+#
+# xx,yy = np.meshgrid(D.field.x,D.field.y,indexing="ij")
+#
+# fig = plt.figure()
+# ax = plt.axes(projection='3d')
+# ax.plot_surface(xx, yy, D.field.V[-1], rstride=1, cstride=1,cmap="viridis")
+# plt.show()
+#
+# gradT = grad(D.field,deriv=(0,2),return_field=True)
+# gradT.backward()
+# fig = plt.figure()
+# ax = plt.axes(projection='3d')
+# ax.plot_surface(xx, yy, gradT.v, rstride=1, cstride=1,cmap="viridis")
+# plt.show()
+#
+# gradT = grad(D.field,deriv=(2,0),return_field=True)
+# gradT.backward()
+# fig = plt.figure()
+# ax = plt.axes(projection='3d')
+# ax.plot_surface(xx, yy, gradT.v, rstride=1, cstride=1,cmap="viridis")
+# plt.show()
 
 #  Add inhomogeneous part
 for i,v in enumerate(D.field.V):
    D.field.V[i] += D.fieldbc.v
+
+# plt.plot(D.field.x, D.field.V[-1][:,20])
+# plt.show()
 
 anim = D.field.animate(D.field.x,duration=4,wireframe=True)
 plt.show()
