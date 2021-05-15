@@ -128,14 +128,14 @@ l = 0
 do i=1,n
     d(i) = A(i,i)
     if (i>2) l(i-2) = A(i,i-2)
-    if (i<n-2) u1(i) = A(i,i+2)
-    if (i<n-4) u2(i) = A(i,i+4)
+    if (i<n-1) u1(i) = A(i,i+2)
+    if (i<n-3) u2(i) = A(i,i+4)
 enddo
 
 do i=3,n
     l(i-2) = l(i-2)/d(i-2)
     d(i) = d(i) - l(i-2)*u1(i-2)
-    if (i<n-2) then
+    if (i<n-1) then
         u1(i) = u1(i) - l(i-2)*u2(i-2)
     endif
 enddo
