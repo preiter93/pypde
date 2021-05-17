@@ -335,18 +335,18 @@ class NavierStokes(Integrator):
 
 
 
-shape = (96,96)
+shape = (256,256)
 
 Pr = 1
-Ra = 5e3
+Ra = 1e7
 nu = np.sqrt(Pr/Ra)
 kappa = np.sqrt(1/Pr/Ra)
 
-NS = NavierStokes(shape=shape,dt=0.02,tsave=1.0,nu=nu,kappa=kappa,
-dealias=False,integrator="rk3",beta=1.0)
+NS = NavierStokes(shape=shape,dt=0.01,tsave=0.1,nu=nu,kappa=kappa,
+dealias=True,integrator="rk3",beta=1.0)
 
 st = time.perf_counter()
-NS.iterate(10.0)
+NS.iterate(100.0)
 TIME += time.perf_counter() - st
 
 print("-----------------------")

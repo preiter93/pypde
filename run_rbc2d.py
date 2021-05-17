@@ -22,7 +22,7 @@ for R in Ra:
     NS = rbc2d.NavierStokes(shape=shape,dt=0.009,tsave=0.01,nu=nu,kappa=kappa,
     dealias=True,integrator="rk3",beta=1.0)
 
-    NS.iterate(0.1)
+    NS.iterate(1.0)
 
     # -- Get Geometry
     x,y = NS.T.x,NS.T.y
