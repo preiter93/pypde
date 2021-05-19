@@ -45,7 +45,7 @@ class InitPlot:
         print("update rc params to default ...")
         update_rc(self.default_config())
 
-    def default_config(self,size=16.5):
+    def default_config(self,size=18.5):
         """ Define default plot settings 
 
         Args:

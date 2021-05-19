@@ -59,8 +59,7 @@ class NavierStokes(Integrator):
         self.rhs = np.zeros(self.shape)
 
     def set_temperature(self):
-        self.T.v = np.sin(0.5*np.pi*self.xx)*np.cos(0.5*np.pi*self.yy)
-        #self.T.v[:] = 0
+        self.T.v = np.sin(0.5*np.pi*self.xx)*np.cos(0.5*np.pi*self.yy)*0.5
         self.T.forward()
 
     def set_temp_fieldbc(self):
@@ -331,43 +330,196 @@ class NavierStokes(Integrator):
 
             ux_old,uz_old = ux,uz
 
+
+    # --- Post processing ----
+
     def callback(self):
         print("Divergence: {:4.2e}".format(
         np.linalg.norm(self.divergence_velocity(self.U,self.V))))
 
+    def plot(self,skip=None,return_fig=False):
+         #-- Plot 
+        self.T.backward(); self.U.backward(); self.V.backward()
 
-#
-# shape = (96,96)
-#
-# Pr = 1
-# Ra = 5e3
-# nu = np.sqrt(Pr/Ra)
-# kappa = np.sqrt(1/Pr/Ra)
-#
-# NS = NavierStokes(shape=shape,dt=0.02,tsave=1.0,nu=nu,kappa=kappa,
-# dealias=False,integrator="rk3",beta=1.0)
-#
-# st = time.perf_counter()
-# NS.iterate(10.0)
-# TIME += time.perf_counter() - st
-#
-# print("-----------------------")
-# print(" Time Convective: {:5.2f} s".format(TIME_Conv))
-# print(" Time FFT Conv  : {:5.2f} s".format(TIME_FFT))
-# print(" Time Update V  : {:5.2f} s".format(TIME_Update))
-# print(" Time Divergence: {:5.2f} s".format(TIME_Divergence))
-# print("")
-# print(" Time U: {:5.2f} s".format(TIME_U))
-# print(" Time V: {:5.2f} s".format(TIME_V))
-# print(" Time T: {:5.2f} s".format(TIME_T))
-# print(" Time P: {:5.2f} s".format(TIME_P))
-# print("")
-# print(" Time Total: {:5.2f} s".format(TIME))
-# print("-----------------------")
-#
-# #  Add inhomogeneous part
-# for i,v in enumerate(NS.T.V):
-#         if NS.T.V[i][0,0] < 0.1: NS.T.V[i] += NS.Tbc.v
-#
-# anim = NS.T.animate(duration=4,wireframe=False)
-# plt.show()
+        fig,ax = plt.subplots()
+        ax.contourf(self.xx,self.yy,self.T.v+self.Tbc.v, 
+            levels=np.linspace(-0.5,0.5,40))
+        ax.set_aspect(1)
+
+        # Quiver
+        speed = np.max(np.sqrt(self.U.v**2+self.V.v**2))
+        if skip is None:
+            skip = self.shape[0]//16
+        ax.quiver(self.xx[::skip,::skip],self.yy[::skip,::skip],
+                self.U.v[::skip,::skip]/speed,self.V.v[::skip,::skip]/speed,
+                scale=7.9,width=0.007,alpha=0.5,headwidth=4)
+        if return_fig:
+            return plt,ax
+        plt.show()
+
+    def eval_Nu(self):
+        from pypde.field_operations import eval_Nu,eval_Nuvol
+        Nuz = eval_Nu(self.T,self.deriv_field)
+        Nuv = eval_Nuvol(self.T,self.V,self.kappa,self.deriv_field,Tbc=self.Tbc)
+        return Nuz,Nuv
+
+    def interpolate(self,NS_old,spectral=True):
+        from pypde.field_operations import interpolate
+        interpolate(NS_old.T,self.T,spectral)
+        interpolate(NS_old.U,self.U,spectral)
+        interpolate(NS_old.V,self.V,spectral) 
+
+    # --- For steady state calculations ----
+    def flatten(self):
+        return (self.T.vhat.flatten().copy(), 
+            self.U.vhat.flatten().copy(), 
+            self.V.vhat.flatten().copy())
+
+    def reshape(self,X):
+        T_mask,U_mask,V_mask = self.get_masks()
+        That = X[T_mask].copy().reshape(self.T.vhat.shape)
+        Uhat = X[U_mask].copy().reshape(self.U.vhat.shape)
+        Vhat = X[V_mask].copy().reshape(self.V.vhat.shape)
+        return That,Uhat,Vhat 
+
+    def vectorify(self):
+        return np.concatenate((self.flatten()))
+
+    def get_masks(self):
+        t,u,v = self.flatten()
+        T_mask = slice(0,t.size)
+        U_mask = slice(t.size,t.size+u.size)
+        V_mask = slice(t.size+u.size,t.size+u.size+v.size)
+        return T_mask, U_mask, V_mask
+
+    def steady_fun(X, NS):
+        '''
+        Input:
+            X: ndarray (1D)
+                Flow field vector [T,u,v]
+                
+        Output
+            ndarry (1D)
+                Residual vector [Tr,ur,v]
+        '''
+        NS.T.vhat[:],NS.U.vhat[:],NS.V.vhat[:] = NS.reshape(X)
+        NS.update()
+        Y = NS.vectorify()
+        return (Y-X)/NS.dt
+
+    def solve_steady_state(self,X0=None,maxiter=300,disp=True,tol=1e-4):
+        '''
+        Solve steady state using scipy's GMRES algorithm
+        '''
+        from scipy import optimize
+        ''' Solve steady state '''
+        options={"maxiter": maxiter, "disp": disp, "fatol": tol}
+        if X0 is None:
+            X0 = self.vectorify()
+        sol = optimize.root(steady_fun, X0, args=(self,), method="krylov",options=options)
+        return sol
+
+
+
+    
+
+
+'''
+Example for steady state calculations 
+
+import numpy as np 
+import matplotlib.pyplot as plt
+from pypde import *
+from example.rbc2d import NavierStokes,nu,kappa,steady_fun
+from pypde.field_operations import eval_Nu, eval_Nuvol
+from scipy import optimize
+
+# -- Initialize Navier Stokes Solver
+shape = (128,128)
+Ra = 5e3
+Pr = 1
+NS = NavierStokes(shape=shape,dt=0.1,tsave=20.,
+                  nu=nu(Ra/2.**3,Pr),kappa=kappa(Ra/2.**3,Pr),
+                  dealias=True,integrator="eu",beta=1.0)
+NS.iterate(40) # iterate first to find good initial guess
+NS.plot()
+
+# -- Solve Steady State
+# Initial guess
+X0 = NS.vectorify()
+
+options={"maxiter": 300, "disp": True, "fatol": 1e-4}
+sol = optimize.root(steady_fun, X0, args=(NS,), method="krylov",options=options)
+X0 = sol.x
+'''
+def steady_fun(X, NS):
+    '''
+    Input:
+        X: ndarray (1D)
+            Flow field vector [T,u,v]
+            
+    Output
+        ndarry (1D)
+            Residual vector [Tr,ur,v]
+    # '''
+    NS.T.vhat[:],NS.U.vhat[:],NS.V.vhat[:] = NS.reshape(X)
+    NS.update()
+    Y = NS.vectorify()
+    return (Y-X)/NS.dt
+
+
+def fun(X):
+    '''
+    Input:
+        X: ndarray (1D)
+            Flow field vector [T,u,v]
+            
+    Output
+        ndarry (1D)
+            Residual vector [Tr,ur,v]
+    # '''
+    # T = X[T_mask].copy()
+    # U = X[U_mask].copy()
+    # V = X[V_mask].copy()
+    # NS.T.vhat = T.reshape(NS.T.vhat.shape).copy()
+    # NS.U.vhat = U.reshape(NS.U.vhat.shape).copy()
+    # NS.V.vhat = V.reshape(NS.V.vhat.shape).copy()
+    NS.T.vhat[:],NS.U.vhat[:],NS.V.vhat[:] = reshape(X,NS)
+    
+    NS.update()
+    
+    # t,u,v = NS.T.vhat.flatten().copy(), NS.U.vhat.flatten().copy(), NS.V.vhat.flatten().copy()
+    # Y = np.concatenate( (t,u,v) )
+    Y = vectorify(NS)
+    return (Y-X)
+
+
+def flatten(NS):
+    return (NS.T.vhat.flatten().copy(), 
+        NS.U.vhat.flatten().copy(), 
+        NS.V.vhat.flatten().copy()
+        )
+
+def reshape(X,NS):
+    T_mask,U_mask,V_mask = get_masks(NS)
+    That = X[T_mask].copy().reshape(NS.T.vhat.shape)
+    Uhat = X[U_mask].copy().reshape(NS.U.vhat.shape)
+    Vhat = X[V_mask].copy().reshape(NS.V.vhat.shape)
+    return That,Uhat,Vhat 
+
+def vectorify(NS):
+    return np.concatenate((flatten(NS)))
+
+def get_masks(NS):
+    t,u,v = flatten(NS.T.vhat,NS.U.vhat,NS.V.vhat)
+    T_mask = slice(0,t.size)
+    U_mask = slice(t.size,t.size+u.size)
+    V_mask = slice(t.size+u.size,t.size+u.size+v.size)
+    return T_mask, U_mask, V_mask
+
+
+def nu(Ra,Pr):
+    return np.sqrt(Pr/Ra)
+
+def kappa(Ra,Pr):
+    return  np.sqrt(1/Pr/Ra)
