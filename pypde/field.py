@@ -3,7 +3,7 @@ from .bases.spectralspace import *
 from .bases.memoize import memoized
 from .bases.utils import zero_pad,zero_unpad
 from .plot.anim import animate_line,animate_contour,animate_wireframe
-
+import h5py
 
 class FieldBase():
     '''
@@ -78,6 +78,58 @@ class FieldBase():
         ym[0],ym[-1] = self.y[0],self.y[-1]
         ym[1:-1] = (self.y[1:] + self.y[:-1])/2.0
         return np.diff(ym)
+
+    # -- Read Write
+    def write(self,filename="file_0.h5",dict=None,leading_str="flow",add_time=True):
+        # -- Filename
+        if filename is None:
+            filename = leading_str
+            if add_time:
+                filename = filename + "_{:07.2f}".format(self.t)
+            filename = filename + ".h5"
+
+        # -- Write
+        print("Write {:s} ...".format(filename) )
+        hf = h5py.File(filename, 'w')
+        hf.create_dataset('v', data=self.v)
+        hf.create_dataset('vhat', data=self.vhat)
+        hf.create_dataset('time', data=self.t)
+        if self.x is not None: hf.create_dataset('x', data=self.x)
+        if self.y is not None: hf.create_dataset('y', data=self.x)
+        if dict is not None:
+            for key in dict:
+                hf.create_dataset(key, data=dict[key])
+        # -- Close
+        hf.close()
+
+    def read(self,filename="file_0.h5",dict=None,leading_str="flow",add_time=True):
+        # -- Filename
+        if filename is None:
+            filename = leading_str
+            if add_time:
+                filename = filename + "_{:07.2f}".format(self.t)
+            filename = filename + ".h5"
+
+        # -- Read
+        print("Read {:s} ...".format(filename) )
+        try:
+            hf = h5py.File(filename, 'r')
+            self.v    = np.array( hf.get('v') )
+            self.vhat = np.array( hf.get('vhat') )
+            self.t    = np.array( hf.get('time') )
+        except:
+            print('Cannot read values from ' + filename + '...')
+        
+        if dict is not None:
+            for key in dict:
+                val = hf.get(key) 
+                if val is None:
+                    print('Warning: Key ' + key + 
+                          ' not found in file ' + filename)
+                else:
+                    dict[key] = np.array(val)
+        # -- Close
+        hf.close()
 
 class Field(SpectralSpace,FieldBase):
     '''

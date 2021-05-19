@@ -369,6 +369,27 @@ class NavierStokes(Integrator):
         interpolate(NS_old.U,self.U,spectral)
         interpolate(NS_old.V,self.V,spectral) 
 
+    def write(self,leading_str="",add_time=True):
+        Tname = leading_str + "T"
+        Uname = leading_str + "U"
+        Vname = leading_str + "V"
+        self.T.backward()
+        self.U.backward()
+        self.V.backward()
+        dict = {"nu": self.nu,"kappa": self.kappa}
+        self.T.write(filename=None,leading_str=Tname,add_time=add_time,dict=dict)
+        self.U.write(filename=None,leading_str=Uname,add_time=add_time,dict=dict)
+        self.V.write(filename=None,leading_str=Vname,add_time=add_time,dict=dict)
+
+    def read(self,leading_str="",add_time=True):
+        Tname = leading_str + "T"
+        Uname = leading_str + "U"
+        Vname = leading_str + "V"
+        dict = {"nu": self.nu,"kappa": self.kappa}
+        self.T.read(filename=None,leading_str=Tname,add_time=add_time,dict=dict)
+        self.U.read(filename=None,leading_str=Uname,add_time=add_time,dict=dict)
+        self.V.read(filename=None,leading_str=Vname,add_time=add_time,dict=dict)
+
     # --- For steady state calculations ----
     def flatten(self):
         return (self.T.vhat.flatten().copy(), 
@@ -523,3 +544,4 @@ def nu(Ra,Pr):
 
 def kappa(Ra,Pr):
     return  np.sqrt(1/Pr/Ra)
+

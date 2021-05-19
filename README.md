@@ -5,6 +5,12 @@ using a Chebyshev or Fourier spectral method
 
 In progress ...
 
+## Dependencies
+
+pyFFTW
+
+h5py
+
 ## Installation of pyFFTW
 
 The pyFFTW version 0.12.0 does not support dct's, it is necessary to install

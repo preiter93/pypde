@@ -9,7 +9,10 @@ def avg_vol(f,dx,dy):
     return np.sum(favgx*dy)/np.sum(dy)
 
 def eval_Nu(T,field):
-     # -- Evaluate Nu
+    '''
+    Heat Flux at the plates
+    '''
+    T.backward() 
     T = T.v.copy()
 
     That = field.forward(T)
@@ -25,6 +28,12 @@ def eval_Nu(T,field):
 
 
 def eval_Nuvol(T,V,kappa,field,Tbc=None):
+    '''
+    Heat Flux through the box (volume)
+    '''
+    T.backward() 
+    V.backward()
+
     T = T.v.copy() 
     if Tbc is not None:
         T += Tbc.v.copy()
