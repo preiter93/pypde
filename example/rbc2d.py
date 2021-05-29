@@ -35,13 +35,13 @@ class NavierStokes(Integrator):
         self.__dict__.update(**kwargs)
 
         # Space for Fields
-        self.T = Field( [Base(self.shape[0],"CN"),Base(self.shape[1],"CD")] )
+        self.T = Field( [Base(self.shape[0],"CN",dealias=3/2),Base(self.shape[1],"CD",dealias=3/2)] )
         self.U = Field( [Base(self.shape[0],"CD",dealias=3/2),Base(self.shape[1],"CD",dealias=3/2)] )
         self.V = Field( [Base(self.shape[0],"CD",dealias=3/2),Base(self.shape[1],"CD",dealias=3/2)] )
         self.P = Field( [Base(self.shape[0],"CN"),Base(self.shape[1],"CN")] )
         # Space for derivatives
         self.deriv_field = Field( [Base(self.shape[0],"CH",dealias=3/2),Base(self.shape[1],"CH",dealias=3/2)] )
-        # Additional pressure
+        # Additional pressure field
         self.pres = Field( [Base(self.shape[0],"CH"),Base(self.shape[1],"CH")] )
 
         # Setup Solver solverplans
@@ -52,14 +52,14 @@ class NavierStokes(Integrator):
         self.xx,self.yy = np.meshgrid(self.x,self.y,indexing="ij")
 
         # Setup Temperature field and bcs
-        self.set_temperature()
+        #self.set_temperature()
         self.set_temp_fieldbc()
 
         # Array for rhs
         self.rhs = np.zeros(self.shape)
 
-    def set_temperature(self):
-        self.T.v = np.sin(0.5*np.pi*self.xx)*np.cos(0.5*np.pi*self.yy)*0.5
+    def set_temperature(self,amplitude=0.5):
+        self.T.v = amplitude*np.sin(0.5*np.pi*self.xx)*np.cos(0.5*np.pi*self.yy)
         self.T.forward()
 
     def set_temp_fieldbc(self):
@@ -338,11 +338,11 @@ class NavierStokes(Integrator):
         np.linalg.norm(self.divergence_velocity(self.U,self.V))))
 
     def plot(self,skip=None,return_fig=False):
-         #-- Plot 
+         #-- Plot
         self.T.backward(); self.U.backward(); self.V.backward()
 
         fig,ax = plt.subplots()
-        ax.contourf(self.xx,self.yy,self.T.v+self.Tbc.v, 
+        ax.contourf(self.xx,self.yy,self.T.v+self.Tbc.v,
             levels=np.linspace(-0.5,0.5,40))
         ax.set_aspect(1)
 
@@ -367,7 +367,7 @@ class NavierStokes(Integrator):
         from pypde.field_operations import interpolate
         interpolate(NS_old.T,self.T,spectral)
         interpolate(NS_old.U,self.U,spectral)
-        interpolate(NS_old.V,self.V,spectral) 
+        interpolate(NS_old.V,self.V,spectral)
 
     def write(self,leading_str="",add_time=True):
         Tname = leading_str + "T"
@@ -392,8 +392,8 @@ class NavierStokes(Integrator):
 
     # --- For steady state calculations ----
     def flatten(self):
-        return (self.T.vhat.flatten().copy(), 
-            self.U.vhat.flatten().copy(), 
+        return (self.T.vhat.flatten().copy(),
+            self.U.vhat.flatten().copy(),
             self.V.vhat.flatten().copy())
 
     def reshape(self,X):
@@ -401,7 +401,7 @@ class NavierStokes(Integrator):
         That = X[T_mask].copy().reshape(self.T.vhat.shape)
         Uhat = X[U_mask].copy().reshape(self.U.vhat.shape)
         Vhat = X[V_mask].copy().reshape(self.V.vhat.shape)
-        return That,Uhat,Vhat 
+        return That,Uhat,Vhat
 
     def vectorify(self):
         return np.concatenate((self.flatten()))
@@ -418,7 +418,7 @@ class NavierStokes(Integrator):
         Input:
             X: ndarray (1D)
                 Flow field vector [T,u,v]
-                
+
         Output
             ndarry (1D)
                 Residual vector [Tr,ur,v]
@@ -442,13 +442,13 @@ class NavierStokes(Integrator):
 
 
 
-    
+
 
 
 '''
-Example for steady state calculations 
+Example for steady state calculations
 
-import numpy as np 
+import numpy as np
 import matplotlib.pyplot as plt
 from pypde import *
 from example.rbc2d import NavierStokes,nu,kappa,steady_fun
@@ -478,7 +478,7 @@ def steady_fun(X, NS):
     Input:
         X: ndarray (1D)
             Flow field vector [T,u,v]
-            
+
     Output
         ndarry (1D)
             Residual vector [Tr,ur,v]
@@ -494,7 +494,7 @@ def fun(X):
     Input:
         X: ndarray (1D)
             Flow field vector [T,u,v]
-            
+
     Output
         ndarry (1D)
             Residual vector [Tr,ur,v]
@@ -506,9 +506,9 @@ def fun(X):
     # NS.U.vhat = U.reshape(NS.U.vhat.shape).copy()
     # NS.V.vhat = V.reshape(NS.V.vhat.shape).copy()
     NS.T.vhat[:],NS.U.vhat[:],NS.V.vhat[:] = reshape(X,NS)
-    
+
     NS.update()
-    
+
     # t,u,v = NS.T.vhat.flatten().copy(), NS.U.vhat.flatten().copy(), NS.V.vhat.flatten().copy()
     # Y = np.concatenate( (t,u,v) )
     Y = vectorify(NS)
@@ -516,8 +516,8 @@ def fun(X):
 
 
 def flatten(NS):
-    return (NS.T.vhat.flatten().copy(), 
-        NS.U.vhat.flatten().copy(), 
+    return (NS.T.vhat.flatten().copy(),
+        NS.U.vhat.flatten().copy(),
         NS.V.vhat.flatten().copy()
         )
 
@@ -526,7 +526,7 @@ def reshape(X,NS):
     That = X[T_mask].copy().reshape(NS.T.vhat.shape)
     Uhat = X[U_mask].copy().reshape(NS.U.vhat.shape)
     Vhat = X[V_mask].copy().reshape(NS.V.vhat.shape)
-    return That,Uhat,Vhat 
+    return That,Uhat,Vhat
 
 def vectorify(NS):
     return np.concatenate((flatten(NS)))
@@ -544,4 +544,3 @@ def nu(Ra,Pr):
 
 def kappa(Ra,Pr):
     return  np.sqrt(1/Pr/Ra)
-
