@@ -37,7 +37,7 @@ def solverplan_hholtz1d(bases,lam):
 
     return solver
 
-def solverplan_hholtz2d_adi(bases,lam):
+def solverplan_hholtz2d_adi(bases,lam,Lx=1,Lz=1):
     '''
     Helmholtz equation:
         (1 - lam*D2) u = rhs + uold
@@ -54,6 +54,8 @@ def solverplan_hholtz2d_adi(bases,lam):
             ChebDirichlet ("CD") or Chebneumann ("CN")
         lam: float
             See equation above
+        Lx,Lz: float
+            Physical Domain size
 
     Returns
         Solverplan
@@ -69,12 +71,12 @@ def solverplan_hholtz2d_adi(bases,lam):
     Sx = field.xs[0].S_sp
     Bx = field.xs[0].family.B(2,2)
     Ix = field.xs[0].family.I(2)
-    Ax = Bx@Sx-lam*Ix@Sx
+    Ax = Bx@Sx-lam*(1./Lx**2.)*Ix@Sx
 
     Sy = field.xs[1].S_sp
     By = field.xs[1].family.B(2,2)
     Iy = field.xs[1].family.I(2)
-    Ay = By@Sy-lam*Iy@Sy
+    Ay = By@Sy-lam*(1./Lz**2.)*Iy@Sy
 
     # --- Solver Plans ---
     solver = SolverPlan()

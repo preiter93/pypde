@@ -2,58 +2,13 @@ import sys
 sys.path.append("./")
 from pypde import *
 from pypde.plot import *
-import matplotlib.pyplot as plt
-import time
-from rbc2d import NavierStokes,nu,kappa
+#import matplotlib.pyplot as plt
+#import time
+from rbc2d import NavierStokesBase,NavierStokes,nu,kappa
 
-def conv_term(v_field, u, deriv, deriv_field=None, dealias=False):
+
+class NavierStokesAdjoint(NavierStokesBase,Integrator):
     '''
-    Calculate
-        u*dvdx
-
-    Input
-        v_field: class Field
-            Contains field variable vhat in spectral space
-        ux,uz:  ndarray
-            (Dealiased) velocity fields in physical space
-        deriv: tuple
-            (1,0) for partial_x, (0,1) for partial_z
-        deriv_field: field (optional)
-            Field (space) where derivatives life
-        dealias: bool (optional)
-            Dealias convective term. In this case, input ux and
-            uz must already be dealiased and deriv_field must
-            be initialized with ,dealias=3/2
-
-    Return
-        Field of (dealiased) convective term in physical space
-        Transform to spectral space via conv_field.forward()
-    '''
-    assert isinstance(v_field, Field), "v_field must be instance Field"
-
-    if deriv_field is None:
-        if dealias:
-            deriv_field = Field( [
-            Base(vx_field.shape[0],"CH",dealias=3/2),
-            Base(vx_field.shape[1],"CH",dealias=3/2)] )
-        else:
-            deriv_field = Field( [
-            Base(vx_field.shape[0],"CH"),
-            Base(vx_field.shape[1],"CH")] )
-
-    # dvdx
-    vhat = grad(v_field,deriv,return_field=False)
-    if dealias:
-        dvdx = deriv_field.dealias.backward(vhat)
-    else:
-        dvdx = deriv_field.backward(vhat)
-    conv = dvdx*u
-
-    if dealias:
-        return deriv_field.dealias.forward(conv)
-    return deriv_field.forward(conv)
-
-class NavierStokesAdjoint(Integrator):
     CONFIG={
         "shape": (50,50),
         "kappa": 1.0,
@@ -64,11 +19,15 @@ class NavierStokesAdjoint(Integrator):
         "dealias": True,
         "integrator": "eu",
         "beta": 1.0,
+        "Lx": 1.0,
     }
+    '''
     def __init__(self,**kwargs):
         Integrator.__init__(self)
-        self.__dict__.update(**self.CONFIG)
-        self.__dict__.update(**kwargs)
+        NavierStokesBase.__init__(self,**kwargs)
+        
+        # self.__dict__.update(**self.CONFIG)
+        # self.__dict__.update(**kwargs)
 
         # Initialize underlying NavierStokes
         self.NS = NavierStokes(**self.__dict__)
@@ -78,6 +37,9 @@ class NavierStokesAdjoint(Integrator):
         self.U = Field( [Base(self.shape[0],"CD",dealias=3/2),Base(self.shape[1],"CD",dealias=3/2)] )
         self.V = Field( [Base(self.shape[0],"CD",dealias=3/2),Base(self.shape[1],"CD",dealias=3/2)] )
         self.P = Field( [Base(self.shape[0],"CN"),Base(self.shape[1],"CN")] )
+
+        # Store list of fields for collective saving and time update 
+        self.field = MultiField([self.T,self.U,self.V,self.P],["T","U","V","P"])
 
         # Space for Adjoint Fields
         self.TA = Field( [Base(self.shape[0],"CN",dealias=3/2),Base(self.shape[1],"CD",dealias=3/2)] )
@@ -94,11 +56,13 @@ class NavierStokesAdjoint(Integrator):
         self.setup_solver()
 
         # Coordinates
-        self.x,self.y = self.T.x, self.T.y
+        self.x,self.y = self.T.x*self.Lx, self.T.y*self.Lz
         self.xx,self.yy = np.meshgrid(self.x,self.y,indexing="ij")
 
         # Setup Temperature field and bcs
         #self.set_temperature()
+        self.Tbc = self.NS.Tbc
+        self.Tbc.backward()
 
         # Array for rhs's
         self.rhs = np.zeros(self.shape)
@@ -127,80 +91,68 @@ class NavierStokesAdjoint(Integrator):
         self.solver_P = self.NS.solver_P
 
         # Plans to smooth fields
-        self.nabla_U = solverplan_poisson2d(self.U.xs,singular=False)
-        self.nabla_V = solverplan_poisson2d(self.V.xs,singular=False)
-        self.nabla_T = solverplan_poisson2d(self.T.xs,singular=False)
+        self.nabla_U = solverplan_poisson2d(self.U.xs,singular=False,Lx=self.Lx)
+        self.nabla_V = solverplan_poisson2d(self.V.xs,singular=False,Lx=self.Lx)
+        self.nabla_T = solverplan_poisson2d(self.T.xs,singular=False,Lx=self.Lx)
 
-    def update_time(self):
-        self.T.t += self.dt
-        self.P.t += self.dt
-        self.U.t += self.dt
-        self.V.t += self.dt
-        self.time += self.dt
 
     def save(self):
         self.T.save()
         self.P.save()
         self.U.save()
         self.V.save()
+        print("hello")
 
-    def plot(self,skip=None,return_fig=False):
-         #-- Plot
-        self.T.backward(); self.U.backward(); self.V.backward()
-
-        fig,ax = plt.subplots()
-        ax.contourf(self.xx,self.yy,self.T.v+self.NS.Tbc.v,
-            levels=np.linspace(-0.5,0.5,40))
-        ax.set_aspect(1)
-
-        # Quiver
-        speed = np.max(np.sqrt(self.U.v**2+self.V.v**2))
-        if skip is None:
-            skip = self.shape[0]//16
-        ax.quiver(self.xx[::skip,::skip],self.yy[::skip,::skip],
-                self.U.v[::skip,::skip]/speed,self.V.v[::skip,::skip]/speed,
-                scale=7.9,width=0.007,alpha=0.5,headwidth=4)
-        if return_fig:
-            return plt,ax
-        plt.show()
 
     def conv_term_adj_ux(self,fieldx,fieldz,fieldT,ux,uz,temp,add_bc=None):
         conv  = conv_term(fieldx,ux,deriv=(1,0),
                               deriv_field = self.deriv_field,
-                              dealias= self.dealias )
+                              dealias= self.dealias,
+                              L=[self.Lx,self.Lz] )
 
         conv += conv_term(fieldz,uz,deriv=(1,0),
                               deriv_field = self.deriv_field,
-                              dealias= self.dealias )
+                              dealias= self.dealias,
+                              L=[self.Lx,self.Lz] )
 
         conv += conv_term(fieldT,temp,deriv=(1,0),
                               deriv_field = self.deriv_field,
-                              dealias= self.dealias )
+                              dealias= self.dealias,
+                              L=[self.Lx,self.Lz] )
 
         conv += conv_term(fieldT,self.temp_bc,deriv=(1,0),
                               deriv_field = self.deriv_field,
-                              dealias= self.dealias )
+                              dealias= self.dealias,
+                              L=[self.Lx,self.Lz] )
 
-        return conv
+        if self.dealias:
+            return self.deriv_field.dealias.forward(conv)
+        return self.deriv_field.forward(conv)
 
     def conv_term_adj_uz(self,fieldx,fieldz,fieldT,ux,uz,temp,add_bc=None):
         conv  = conv_term(fieldx,ux,deriv=(0,1),
                               deriv_field = self.deriv_field,
-                              dealias= self.dealias )
+                              dealias= self.dealias,
+                              L=[self.Lx,self.Lz] )
 
         conv += conv_term(fieldz,uz,deriv=(0,1),
                               deriv_field = self.deriv_field,
-                              dealias= self.dealias )
+                              dealias= self.dealias,
+                              L=[self.Lx,self.Lz] )
 
         conv += conv_term(fieldT,temp,deriv=(0,1),
                               deriv_field = self.deriv_field,
-                              dealias= self.dealias )
+                              dealias= self.dealias,
+                              L=[self.Lx,self.Lz] )
 
         conv += conv_term(fieldT,self.temp_bc,deriv=(0,1),
                               deriv_field = self.deriv_field,
-                              dealias= self.dealias )
+                              dealias= self.dealias,
+                              L=[self.Lx,self.Lz] )
 
-        return conv
+        if self.dealias:
+            return self.deriv_field.dealias.forward(conv)
+        return self.deriv_field.forward(conv)
 
     def update_NS(self):
         # -- Calculate Residual of Navier-Stokes
@@ -221,18 +173,12 @@ class NavierStokesAdjoint(Integrator):
         self.TA.vhat[:] = self.nabla_T.solve_lhs(rhs)
 
 
-        # self.VA.backward()
-        # fig,ax = plt.subplots()
-        # ax.contourf(self.xx,self.yy,self.VA.v)
-        # ax.set_title("A")
-        # ax.set_aspect(1)
-        # plt.show()
-
     def update_U(self,stage):
         self.rhs[:] = 0.
 
         # Pressure term
-        dpdx = grad(self.pres,deriv=(1,0),return_field=False)
+        dpdx = grad(self.pres,deriv=(1,0),return_field=False,
+                              L=[self.Lx,self.Lz])
         self.rhs -= self.a[stage]*dpdx
 
         # Non-Linear Convection
@@ -254,7 +200,8 @@ class NavierStokesAdjoint(Integrator):
         self.rhs[:] = 0.
 
         # Pressure term
-        dpdz = grad(self.pres,deriv=(0,1),return_field=False)
+        dpdz = grad(self.pres,deriv=(0,1),return_field=False,
+                              L=[self.Lx,self.Lz])
         self.rhs -= self.a[stage]*dpdz
 
         # Non-Linear Convection
@@ -295,13 +242,12 @@ class NavierStokesAdjoint(Integrator):
         if singular: self.P.vhat[0,0] = 0
 
     def update_pres(self,div,stage):
-        #pres.vhat -=  1.0*self.nu*div*self.beta#*self.dt*self.a[stage]#self.dt*self.a[stage]*
         self.pres.vhat +=  galerkin_to_cheby(self.P.vhat,self.P)/(self.dt*self.a[stage])
 
     def update_velocity(self,p,u,v,fac=1.0):
 
-        dpdx = grad(p,deriv=(1,0),return_field=False)
-        dpdz = grad(p,deriv=(0,1),return_field=False)
+        dpdx = grad(p,deriv=(1,0),return_field=False,L=[self.Lx,self.Lz])
+        dpdz = grad(p,deriv=(0,1),return_field=False,L=[self.Lx,self.Lz])
 
         u.vhat -= cheby_to_galerkin(dpdx*fac,u)
         v.vhat -= cheby_to_galerkin(dpdz*fac,v)
@@ -359,26 +305,33 @@ shape = (64,64)
 Pr = 1
 Ra = 5e3
 
+# Pre-iterate
 NSA = NavierStokesAdjoint(shape=shape,dt=0.1,tsave=1.0,
 nu=nu(Ra/2**3,Pr),kappa=kappa(Ra/2**3,Pr),
 dealias=True,integrator="eu",beta=1.0)
 
 NSA.NS.set_temperature(amplitude=0.2)
-NSA.NS.iterate(100.)
-NSA.U.vhat[:] = NSA.NS.U.vhat[:]
-NSA.V.vhat[:] = NSA.NS.V.vhat[:]
-NSA.T.vhat[:] = NSA.NS.T.vhat[:]
+NSA.NS.iterate(20.)
+U = NSA.NS.U.vhat[:].copy()
+V = NSA.NS.V.vhat[:].copy()
+T = NSA.NS.T.vhat[:].copy()
+
+# Adjoint iteration
+NSA = NavierStokesAdjoint(shape=shape,dt=0.1,tsave=1.0,
+nu=nu(Ra/2**3,Pr),kappa=kappa(Ra/2**3,Pr),
+dealias=True,integrator="eu",beta=1.0)
+NSA.U.vhat[:] = U
+NSA.V.vhat[:] = V
+NSA.T.vhat[:] = T
+
+NSA.iterate(20.0)
 NSA.plot()
+NSA.animate()
 
-NSA.iterate(100.0)
-#NSA.update()
-#NSA.update()
-NSA.plot()
+# # Animate
+# for i,v in enumerate(NSA.T.V):
+#         if NSA.T.V[i][0,0] < 0.1:
+#             NSA.T.V[i] += NSA.NS.Tbc.v
 
-# Animate
-for i,v in enumerate(NSA.T.V):
-        if NSA.T.V[i][0,0] < 0.1:
-            NSA.T.V[i] += NSA.NS.Tbc.v
-
-anim = NSA.T.animate(NSA.T.x,duration=4,wireframe=False)
-plt.show()
+# anim = NSA.T.animate(NSA.T.x,duration=4,wireframe=False)
+# plt.show()

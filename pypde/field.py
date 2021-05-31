@@ -360,132 +360,46 @@ class FieldBC(SpectralSpaceBC,FieldBase):
         self.v = bc
         self.forward()
 
-#-------------------------------------------------------
-#          Some useful operations
-#-------------------------------------------------------
-def grad(field,deriv, return_field=False):
+
+
+class MultiField():
     '''
-    Find derivative of field
-
-    Example:
-
-    # Set field
-    N,M = 40,30
-    xbase = Base(N,"CD")
-    ybase = Base(M,"CN")
-    field = Field( [xbase,ybase] )
-    xx,yy = np.meshgrid(field.x,field.y,indexing="ij")
-
-    f = np.sin(np.pi* xx)*np.sin(np.pi*yy)
-    field.v = f
-    field.forward()
-
-    # Get derivative
-    deriv_field = grad(field,deriv=(1,0),return_field=True)
-    deriv_field.backward()
-
-    from pypde.plot.wireframe import plot
-    plot(xx,yy,field.v)
-    plot(xx,yy,deriv_field.v)
+    Simple Class that collects multiple
+    fields and defines collective routines
     '''
-    assert isinstance(field,(Field,FieldBC))
-    if isinstance(deriv,int): deriv = (deriv,) # to tuple
-    assert field.ndim == len(deriv)
+    
+    fields = []
+    names = []
+    
+    def __init__(self,fields,names):
+        for f,n in zip(fields,names):
+            if not isinstance(f,Field):
+                raise ValueError("Must be of type Field.")
+            self.fields.append(f)
+            self.names.append(n)
 
-    dvhat = field.vhat
+    def save(self):
+        for f in self.fields:
+            f.save()
 
-    for axis in range(field.ndim):
-        dvhat = field.derivative(dvhat,deriv[axis],axis=axis)
+    def update_time(self,dt):
+        for f in self.fields:
+            f.t += dt
 
-    if return_field:
-        #bases = [field.xs[0].family_id for i in range(field.ndim)]
-        field_deriv = Field( [field.xs[i].family
-            for i in range(field.ndim)] )
-        field_deriv.vhat = dvhat
-        #field_deriv.backward()
-        return field_deriv
-    else:
-        return dvhat
+    def read(self,filename=None,leading_str="",add_time=True,dict={}):
+        for f,n in zip(self.fields,self.names):
+            print(f.t)
+            f.read(filename=None,leading_str=leading_str+n,
+                add_time=add_time,dict=dict)
 
+    def write(self,filename=None,leading_str="",add_time=True,dict={}):
+        for f,n in zip(self.fields,self.names):
+            f.backward()
+            f.write(filename=None,leading_str=leading_str+n,
+                add_time=add_time,dict=dict)
 
-def cheby_to_galerkin(uhat,galerkin_field):
-    for axis in range(uhat.ndim):
-        if axis==0:
-            uhat = galerkin_field.xs[axis].from_chebyshev(uhat)
-        else:
-            uhat = np.swapaxes(uhat,0,axis)
-            uhat = galerkin_field.xs[axis].from_chebyshev(uhat)
-            uhat = np.swapaxes(uhat,0,axis)
-    return uhat
+    def interpolate(self, old_fields,spectral=True):
+        from field_operations import interpolate
+        for f,f_old in zip(self.field, old_fields.fields):
+            interpolate(f_old,f,spectral)
 
-def galerkin_to_cheby(vhat,galerkin_field):
-    for axis in range(vhat.ndim):
-        if axis==0:
-            vhat = galerkin_field.xs[axis].to_chebyshev(vhat)
-        else:
-            vhat = np.swapaxes(vhat,0,axis)
-            vhat = galerkin_field.xs[axis].to_chebyshev(vhat)
-            vhat = np.swapaxes(vhat,0,axis)
-    return vhat
-
-def convective_term(v_field, ux, uz,
-deriv_field=None, add_bc=None, dealias=False):
-    '''
-    Calculate
-        ux*dvdx + uz*dvdz
-
-    Input
-        v_field: class Field
-            Contains field variable vhat in spectral space
-        ux,uz:  ndarray
-            (Dealiased) velocity fields in physical space
-        deriv_field: field (optional)
-            Field (space) where derivatives life
-        add_bc: ndarray (optional)
-            Additional term (physical space), which is added
-            before forward transform.
-        dealias: bool (optional)
-            Dealias convective term. In this case, input ux and
-            uz must already be dealiased and deriv_field must
-            be initialized with ,dealias=3/2
-
-    Return
-        Field of (dealiased) convective term in physical space
-        Transform to spectral space via conv_field.forward()
-    '''
-    if deriv_field is None:
-        if dealias:
-            deriv_field = Field( [
-            Base(v_field.shape[0],"CH",dealias=3/2),
-            Base(v_field.shape[1],"CH",dealias=3/2)] )
-        else:
-            deriv_field = Field( [
-            Base(v_field.shape[0],"CH"),
-            Base(v_field.shape[1],"CH")] )
-
-    # -- Calculate derivatives of ux and uz
-
-    # dudx
-    vhat = grad(v_field,(1,0),return_field=False)
-    if dealias:
-        dudx = deriv_field.dealias.backward(vhat)
-    else:
-        dudx = deriv_field.backward(vhat)
-
-    # dvdz
-    vhat = grad(v_field,(0,1),return_field=False)
-    if dealias:
-        dvdz = deriv_field.dealias.backward(vhat)
-    else:
-        dvdz = deriv_field.backward(vhat)
-
-    conv = dudx*ux + dvdz*uz
-
-    if add_bc is not None:
-        conv += add_bc
-
-    if dealias:
-        return deriv_field.dealias.forward(conv)
-    return deriv_field.forward(conv)
-# def grad(field,deriv, return_field=False):
-#     return derivative_field(field,deriv, return_field=return_field)

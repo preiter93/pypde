@@ -38,7 +38,7 @@ def solverplan_poisson1d(bases,singular=False):
 
     return solver
 
-def solverplan_poisson2d(bases,singular=False):
+def solverplan_poisson2d(bases,singular=False,Lx=1,Lz=1):
     '''
     Poisson equation:
         D2 u = rhs
@@ -58,6 +58,8 @@ def solverplan_poisson2d(bases,singular=False):
             to the zero eigenvalue
             Set constant part after calculation to
             zero by hand. See "How to"
+        Lx,Lz: float
+            Physical Domain size
 
     Returns
         Solverplan
@@ -76,13 +78,13 @@ def solverplan_poisson2d(bases,singular=False):
     Sx = field.xs[0].S_sp
     Bx = field.xs[0].family.B(2,2)
     Ix = field.xs[0].family.I(2)
-    Ax = Ix@Sx
+    Ax = Ix@Sx*(1./Lx**2.)
     Cx = Bx@Sx
 
     Sy = field.xs[1].S_sp
     By = field.xs[1].family.B(2,2)
     Iy = field.xs[1].family.I(2)
-    Ay = Iy@Sy
+    Ay = Iy@Sy*(1./Lz**2.)
     Cy = By@Sy
 
     # -- Eigendecomposition ---
