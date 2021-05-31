@@ -1,6 +1,12 @@
 # pypde
 
-General light-weight spectral method simulation framwork using Chebyshev and Fourier basis'.
+General light-weight spectral method simulation framework.  
+
+Implemented bases:  
+Chebyshev  
+Chebyshev-Dirichlet  
+Chebyshev-Neumann  
+Fourier  
 
 In progress ...
 
