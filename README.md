@@ -1,7 +1,6 @@
 # pypde
 
-General framework to solve 1-D and 2-D Differential equations numerically
-using a Chebyshev or Fourier spectral method
+General light-weight spectral method simulation framwork using Chebyshev and Fourier basis'.
 
 In progress ...
 
