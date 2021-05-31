@@ -7,9 +7,9 @@ In progress ...
 
 ## Dependencies
 
-pyFFTW
-
-h5py
+python>=3.6  
+pyFFTW  
+h5py  
 
 ## Installation of pyFFTW
 
