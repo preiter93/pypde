@@ -22,9 +22,8 @@ for R in Ra:
     # -- Solve Navier Stokes
     NS = rbc2d.NavierStokes(shape=shape,dt=0.1,tsave=1.0,nu=nu,kappa=kappa,
     dealias=True,integrator="rk3",beta=1.0,Lx=Lx)
-    NS.set_temperature(m=2)
+    NS.set_temperature(m=1)
     NS.iterate(10.0)
-    #NS.solve_steady_state()
     #NS.write()
 
     # -- Animate and plot 
@@ -37,17 +36,5 @@ for R in Ra:
     xx,yy = np.meshgrid(x,y,indexing="ij")
 
     # -- Evaluate Nu
-    T = NS.T.V[-1]
-
-    Field = NS.deriv_field
-    That = Field.forward(T)
-    dThat = Field.derivative(That, 1, axis=1)
-    dT = Field.backward(dThat)
-
-    dTavg = avg_x(dT,Field.dx)
-    Nu_bot = - dTavg[0]/0.5+1.0
-    Nu_top = - dTavg[-1]/0.5+1.0
-    print("Nubot: {:6.2f}".format(Nu_bot))
-    print("Nutop: {:6.2f}".format(Nu_top))
-
-    Nu.append(Nu_bot)
+    Nuz,Nuv = NS.eval_Nu()
+    Nu.append(Nuz)
