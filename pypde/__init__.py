@@ -4,4 +4,4 @@ from .field import *
 from .field_operations import *
 from .stability import *
 from .plot.initplot import initplot
-from .plot.wireframe import plot 
+from .plot.wireframe import plot

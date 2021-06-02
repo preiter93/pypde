@@ -1,8 +1,9 @@
-import numpy as np 
-from scipy.sparse import csr_matrix, csc_matrix 
+import numpy as np
+from scipy.sparse import csr_matrix, csc_matrix
 
-def tosparse(A,tol=1e-12,format="csc"):
-    ''' 
+
+def tosparse(A, tol=1e-12, format="csc"):
+    """
     Sets elements of A which are smaller than tol to zero
     and returns a sparse version of A
 
@@ -11,15 +12,16 @@ def tosparse(A,tol=1e-12,format="csc"):
 
     Return
         sparse matrix
-    '''
-    A[np.abs(A)<tol] = 0
-    if format in "csc": 
+    """
+    A[np.abs(A) < tol] = 0
+    if format in "csc":
         return csc_matrix(A)
-    if format in "csr": 
+    if format in "csr":
         return csr_matrix(A)
 
+
 def product(a, b):
-    '''Product across the first dimension of b.
+    """Product across the first dimension of b.
 
     Assumes a is 1-dimensional.
     Raises AssertionError if a.ndim > b.ndim or
@@ -31,19 +33,20 @@ def product(a, b):
 
     Return
         Nd array
-    '''
-    assert a.shape[0] == b.shape[0], 'First dimension is different'
-    assert b.ndim >= a.ndim, 'a has more dimensions than b'
+    """
+    assert a.shape[0] == b.shape[0], "First dimension is different"
+    assert b.ndim >= a.ndim, "a has more dimensions than b"
 
     # add extra dimensions so that a will broadcast
     extra_dims = b.ndim - a.ndim
-    newshape = a.shape + (1,)*extra_dims
+    newshape = a.shape + (1,) * extra_dims
     new_a = a.reshape(newshape)
 
     return new_a * b
 
+
 def add(a, b):
-    '''Summation across the first dimension of b.
+    """Summation across the first dimension of b.
 
     Assumes a is 1-dimensional.
     Raises AssertionError if a.ndim > b.ndim or
@@ -55,20 +58,20 @@ def add(a, b):
 
     Return
         Nd array
-    '''
-    assert a.shape[0] == b.shape[0], 'First dimension is different'
-    assert b.ndim >= a.ndim, 'a has more dimensions than b'
+    """
+    assert a.shape[0] == b.shape[0], "First dimension is different"
+    assert b.ndim >= a.ndim, "a has more dimensions than b"
 
     # add extra dimensions so that a will broadcast
     extra_dims = b.ndim - a.ndim
-    newshape = a.shape + (1,)*extra_dims
+    newshape = a.shape + (1,) * extra_dims
     new_a = a.reshape(newshape)
 
     return new_a + b
 
 
-def extract_diag(M,k=(-2,0,2)):
-    '''
+def extract_diag(M, k=(-2, 0, 2)):
+    """
     Extracts diagonals from Matrix M
 
     Input
@@ -78,12 +81,12 @@ def extract_diag(M,k=(-2,0,2)):
 
     Return
         tuple of arrays
-    '''
-    return tuple( [np.diag(M,i) for i in k] )
+    """
+    return tuple([np.diag(M, i) for i in k])
 
 
 def zero_pad(array: np.ndarray, target_length: int, axis: int = 0):
-    '''
+    """
     Example:
     a = np.array([ [ 1.,  1.],
                    [ 1.,  1.] ])
@@ -93,7 +96,7 @@ def zero_pad(array: np.ndarray, target_length: int, axis: int = 0):
     > array([[1., 1.],
        [1., 1.],
        [0., 0.]])
-    '''
+    """
 
     pad_size = target_length - array.shape[axis]
 
@@ -103,9 +106,10 @@ def zero_pad(array: np.ndarray, target_length: int, axis: int = 0):
     npad = [(0, 0)] * array.ndim
     npad[axis] = (0, pad_size)
 
-    return np.pad(array, pad_width=npad, mode='constant', constant_values=0)
+    return np.pad(array, pad_width=npad, mode="constant", constant_values=0)
+
 
 def zero_unpad(array: np.ndarray, target_length: int, axis: int = 0):
-    slc = [slice(None)] * array.ndim 
-    slc[axis] = slice(0,target_length)
+    slc = [slice(None)] * array.ndim
+    slc[axis] = slice(0, target_length)
     return array[tuple(slc)]

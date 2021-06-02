@@ -1,7 +1,8 @@
 from pypde import *
 
-def solverplan_poisson1d(bases,singular=False):
-    '''
+
+def solverplan_poisson1d(bases, singular=False):
+    """
     Poisson equation:
         D2 u = rhs
     Premultiplied with pseudoinverse of D2:
@@ -18,28 +19,29 @@ def solverplan_poisson1d(bases,singular=False):
 
     Returns
         Solverplan
-    '''
+    """
     field = Field(bases)
-    assert field.ndim==1
+    assert field.ndim == 1
     # --- Matrices ----
     Sx = field.xs[0].S_sp
-    Bx = field.xs[0].family.B(2,2)
+    Bx = field.xs[0].family.B(2, 2)
     Ix = field.xs[0].family.I(2)
-    Ax = Ix@Sx
+    Ax = Ix @ Sx
     if singular:
-        assert  Ax[0,0] == 0, "Matrix does not look singular"
+        assert Ax[0, 0] == 0, "Matrix does not look singular"
         # Add very small term to make system non-singular
-        Ax[0,0] += 1e-20
+        Ax[0, 0] += 1e-20
 
     # --- Solver Plans ---
     solver = SolverPlan()
-    solver.add_rhs(PlanRHS(Bx, ndim=1,axis=0))    # rhs
-    solver.add_lhs(PlanLHS(Ax, ndim=1,axis=0,method="twodma") ) #lhs
+    solver.add_rhs(PlanRHS(Bx, ndim=1, axis=0))  # rhs
+    solver.add_lhs(PlanLHS(Ax, ndim=1, axis=0, method="twodma"))  # lhs
 
     return solver
 
-def solverplan_poisson2d(bases,singular=False,scale=(1,1)):
-    '''
+
+def solverplan_poisson2d(bases, singular=False, scale=(1, 1)):
+    """
     Poisson equation:
         D2 u = rhs
     Premultiplied with pseudoinverse of D2:
@@ -69,39 +71,40 @@ def solverplan_poisson2d(bases,singular=False,scale=(1,1)):
     vhat[:] = self.solver.solve_lhs(rhs)
     # if singular, set constant part to zero
     # vhat[0] = 0
-    '''
+    """
     from pypde.solver.utils import eigdecomp
 
     field = Field(bases)
-    assert field.ndim==2
+    assert field.ndim == 2
     # --- Matrices ----
     Sx = field.xs[0].S_sp
-    Bx = field.xs[0].family.B(2,2)
+    Bx = field.xs[0].family.B(2, 2)
     Ix = field.xs[0].family.I(2)
-    Ax = Ix@Sx*(1./scale[0]**2.)
-    Cx = Bx@Sx
+    Ax = Ix @ Sx * (1.0 / scale[0] ** 2.0)
+    Cx = Bx @ Sx
 
     Sy = field.xs[1].S_sp
-    By = field.xs[1].family.B(2,2)
+    By = field.xs[1].family.B(2, 2)
     Iy = field.xs[1].family.I(2)
-    Ay = Iy@Sy*(1./scale[1]**2.)
-    Cy = By@Sy
+    Ay = Iy @ Sy * (1.0 / scale[1] ** 2.0)
+    Cy = By @ Sy
 
     # -- Eigendecomposition ---
     CyI = np.linalg.inv(Cy)
-    wy,Qy,QyI = eigdecomp( CyI@Ay )
+    wy, Qy, QyI = eigdecomp(CyI @ Ay)
     if singular:
         wy[0] += 1e-20
 
-    Hy = QyI@CyI@By
+    Hy = QyI @ CyI @ By
 
     # --- Solver Plans ---
     solver = SolverPlan()
-    solver.add_rhs(PlanRHS(Bx,ndim=2,axis=0))
-    solver.add_rhs(PlanRHS(Hy,ndim=2,axis=1))
+    solver.add_rhs(PlanRHS(Bx, ndim=2, axis=0))
+    solver.add_rhs(PlanRHS(Hy, ndim=2, axis=1))
 
-    solver.add_lhs( PlanLHS(Ax,alpha=wy,C=Cx,ndim=2,axis=0,
-    method="poisson",singular=True) )
-    solver.add_lhs( PlanLHS(Qy,ndim=2,axis=1,method="multiply") )
+    solver.add_lhs(
+        PlanLHS(Ax, alpha=wy, C=Cx, ndim=2, axis=0, method="poisson", singular=True)
+    )
+    solver.add_lhs(PlanLHS(Qy, ndim=2, axis=1, method="multiply"))
 
     return solver

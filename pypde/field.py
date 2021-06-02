@@ -1,19 +1,20 @@
 import numpy as np
 from .bases.spectralspace import *
 from .bases.memoize import memoized
-from .bases.utils import zero_pad,zero_unpad
-from .plot.anim import animate_line,animate_contour,animate_wireframe
+from .bases.utils import zero_pad, zero_unpad
+from .plot.anim import animate_line, animate_contour, animate_wireframe
 import h5py
 
-class FieldBase():
-    '''
-    Functions that are shared by Field and FieldBC
-    '''
 
-    def forward(self,v=None, undealias_after=None):
-        '''
+class FieldBase:
+    """
+    Functions that are shared by Field and FieldBC
+    """
+
+    def forward(self, v=None, undealias_after=None):
+        """
         Full forward transform to homogeneous field v
-        '''
+        """
         if v is None:
             vhat = self.v
         else:
@@ -23,20 +24,19 @@ class FieldBase():
             undealias_after = self.dealiased_space
 
         for axis in range(self.ndim):
-            vhat = self.forward_fft(vhat,axis=axis)
+            vhat = self.forward_fft(vhat, axis=axis)
             if undealias_after:
-                vhat = zero_unpad(vhat,self.size_undealiased[axis],axis=axis)
-
+                vhat = zero_unpad(vhat, self.size_undealiased[axis], axis=axis)
 
         if v is None:
             self.vhat = vhat
         else:
             return vhat
 
-    def backward(self,vhat=None, dealias_before=None):
-        '''
+    def backward(self, vhat=None, dealias_before=None):
+        """
         Full backward transform to homogeneous field v
-        '''
+        """
         if vhat is None:
             v = self.vhat
         else:
@@ -47,8 +47,8 @@ class FieldBase():
 
         for axis in range(self.ndim):
             if dealias_before:
-                v = zero_pad(v,self.xs[axis].M,axis=axis)
-            v = self.backward_fft(v,axis=axis)
+                v = zero_pad(v, self.xs[axis].M, axis=axis)
+            v = self.backward_fft(v, axis=axis)
 
         if vhat is None:
             self.v = v
@@ -61,26 +61,26 @@ class FieldBase():
 
     @property
     def y(self):
-        if self.ndim<2:
+        if self.ndim < 2:
             raise ValueError("Dimension y not defined for ndim<2.")
         return self.xs[1].x
 
     @property
     def dx(self):
-        xm = np.zeros(self.x.size+1)
-        xm[0],xm[-1] = self.x[0],self.x[-1]
-        xm[1:-1] = (self.x[1:] + self.x[:-1])/2.0
+        xm = np.zeros(self.x.size + 1)
+        xm[0], xm[-1] = self.x[0], self.x[-1]
+        xm[1:-1] = (self.x[1:] + self.x[:-1]) / 2.0
         return np.diff(xm)
 
     @property
     def dy(self):
-        ym = np.zeros(self.y.size+1)
-        ym[0],ym[-1] = self.y[0],self.y[-1]
-        ym[1:-1] = (self.y[1:] + self.y[:-1])/2.0
+        ym = np.zeros(self.y.size + 1)
+        ym[0], ym[-1] = self.y[0], self.y[-1]
+        ym[1:-1] = (self.y[1:] + self.y[:-1]) / 2.0
         return np.diff(ym)
 
     # -- Read Write
-    def write(self,filename="file_0.h5",dict=None,leading_str="flow",add_time=True):
+    def write(self, filename="file_0.h5", dict=None, leading_str="flow", add_time=True):
         # -- Filename
         if filename is None:
             filename = leading_str
@@ -89,20 +89,22 @@ class FieldBase():
             filename = filename + ".h5"
 
         # -- Write
-        print("Write {:s} ...".format(filename) )
-        hf = h5py.File(filename, 'w')
-        hf.create_dataset('v', data=self.v)
-        hf.create_dataset('vhat', data=self.vhat)
-        hf.create_dataset('time', data=self.t)
-        if self.x is not None: hf.create_dataset('x', data=self.x)
-        if self.y is not None: hf.create_dataset('y', data=self.x)
+        print("Write {:s} ...".format(filename))
+        hf = h5py.File(filename, "w")
+        hf.create_dataset("v", data=self.v)
+        hf.create_dataset("vhat", data=self.vhat)
+        hf.create_dataset("time", data=self.t)
+        if self.x is not None:
+            hf.create_dataset("x", data=self.x)
+        if self.y is not None:
+            hf.create_dataset("y", data=self.x)
         if dict is not None:
             for key in dict:
                 hf.create_dataset(key, data=dict[key])
         # -- Close
         hf.close()
 
-    def read(self,filename="file_0.h5",dict=None,leading_str="flow",add_time=True):
+    def read(self, filename="file_0.h5", dict=None, leading_str="flow", add_time=True):
         # -- Filename
         if filename is None:
             filename = leading_str
@@ -111,28 +113,28 @@ class FieldBase():
             filename = filename + ".h5"
 
         # -- Read
-        print("Read {:s} ...".format(filename) )
+        print("Read {:s} ...".format(filename))
         try:
-            hf = h5py.File(filename, 'r')
-            self.v    = np.array( hf.get('v') )
-            self.vhat = np.array( hf.get('vhat') )
-            self.t    = np.array( hf.get('time') )
+            hf = h5py.File(filename, "r")
+            self.v = np.array(hf.get("v"))
+            self.vhat = np.array(hf.get("vhat"))
+            self.t = np.array(hf.get("time"))
         except:
-            print('Cannot read values from ' + filename + '...')
-        
+            print("Cannot read values from " + filename + "...")
+
         if dict is not None:
             for key in dict:
-                val = hf.get(key) 
+                val = hf.get(key)
                 if val is None:
-                    print('Warning: Key ' + key + 
-                          ' not found in file ' + filename)
+                    print("Warning: Key " + key + " not found in file " + filename)
                 else:
                     dict[key] = np.array(val)
         # -- Close
         hf.close()
 
-class Field(SpectralSpace,FieldBase):
-    '''
+
+class Field(SpectralSpace, FieldBase):
+    """
     Class for (multidimensional) Fields in
     real and spectral space
 
@@ -200,62 +202,67 @@ class Field(SpectralSpace,FieldBase):
     field_deriv = grad(field,deriv=(0,1),return_field=True)
     plot(xx,yy,field_deriv.v)
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    '''
-    def __init__(self,bases):
-        if isinstance(bases, MetaBase): bases = [bases]
-        SpectralSpace.__init__(self,bases)
+    """
+
+    def __init__(self, bases):
+        if isinstance(bases, MetaBase):
+            bases = [bases]
+        SpectralSpace.__init__(self, bases)
         FieldBase.__init__(self)
         self.bases = bases
 
-        self.v = np.zeros(self.shape_physical)      # physical field
-        self.vhat = np.zeros(self.shape_spectral)   # spectral field
+        self.v = np.zeros(self.shape_physical)  # physical field
+        self.vhat = np.zeros(self.shape_spectral)  # spectral field
 
-        self.field_bc = None #inhomogeneous field
+        self.field_bc = None  # inhomogeneous field
 
-        self.t = 0      # time
-        self.V = []     # Storage Field
-        self.T = []     # Storage Time
+        self.t = 0  # time
+        self.V = []  # Storage Field
+        self.T = []  # Storage Time
 
         # create deliased field
         self.dealiased_space = False
         self.create_dealiased_field(bases)
 
-    def create_dealiased_field(self,bases):
-        if np.all([hasattr(i,"dealias") for i in bases]):
+    def create_dealiased_field(self, bases):
+        if np.all([hasattr(i, "dealias") for i in bases]):
             dealiased_field = [i.dealias for i in bases]
             self.dealias = Field(dealiased_field)
-            self.dealias.size_undealiased = [self.xs[i].M for i in
-            range(self.ndim)]
+            self.dealias.size_undealiased = [self.xs[i].M for i in range(self.ndim)]
             self.dealias.dealiased_space = True
+
     # ---------------------------------------------------------
     #     Split field in homogeneous and inhomogeneous part
     # ---------------------------------------------------------
 
-    def add_field_bc(self,field_bc):
-        assert isinstance(field_bc,FieldBC)
+    def add_field_bc(self, field_bc):
+        assert isinstance(field_bc, FieldBC)
         self.field_bc = field_bc
 
     def make_homogeneous(self):
-        '''
+        """
         Subtract inhomogeneous field  (in self.field_bc) from v
-        '''
+        """
         import warnings
+
         if self.field_bc is None:
-            warnings.warn("""No inhomogeneous field found.
-                Call add_bc(bchat,axis) first!""")
+            warnings.warn(
+                """No inhomogeneous field found.
+                Call add_bc(bchat,axis) first!"""
+            )
         else:
-            assert self.v.shape == self.inhomogeneous.shape, \
-            "Shape mismatch in make_homogeneous"
+            assert (
+                self.v.shape == self.inhomogeneous.shape
+            ), "Shape mismatch in make_homogeneous"
         return self.v - self.inhomogeneous
 
-    #-----------------------------------------
+    # -----------------------------------------
     #  total = homogeneous + inhomogeneous
-    #-----------------------------------------
+    # -----------------------------------------
 
     @property
     def total(self):
         return self.homogeneous + self.inhomogeneous
-
 
     @property
     def homogeneous(self):
@@ -267,45 +274,46 @@ class Field(SpectralSpace,FieldBase):
             return self.field_bc.v
         return 0
 
-    #-----------------------------------------
+    # -----------------------------------------
     #           Save and animate
-    #-----------------------------------------
+    # -----------------------------------------
 
-    def save(self,transform = True):
-        if transform: self.backward()
+    def save(self, transform=True):
+        if transform:
+            self.backward()
         self.V.append(self.v)
         self.T.append(self.t)
 
     def dstack(self):
-        ''' List to ndarray with order [time,space] '''
-        self.VS = np.rollaxis( np.dstack(self.V).squeeze(), -1)
-        self.TS = np.rollaxis( np.dstack(self.T).squeeze(), -1)
+        """List to ndarray with order [time,space]"""
+        self.VS = np.rollaxis(np.dstack(self.V).squeeze(), -1)
+        self.TS = np.rollaxis(np.dstack(self.T).squeeze(), -1)
 
-    def animate(self,x=None,y=None,skip=1,wireframe=False,**kwargs):
+    def animate(self, x=None, y=None, skip=1, wireframe=False, **kwargs):
         self.dstack()
 
         if x is None:
-            if hasattr(self,"x"):
+            if hasattr(self, "x"):
                 x = self.x
             else:
                 raise ValueError("Can't animate. x not known.")
 
-        if self.ndim==1:
-            return animate_line(x,self.VS[::skip],**kwargs)
+        if self.ndim == 1:
+            return animate_line(x, self.VS[::skip], **kwargs)
 
-        if self.ndim==2:
+        if self.ndim == 2:
             if y is None:
-                if hasattr(self,"y"):
+                if hasattr(self, "y"):
                     y = self.y
                 else:
                     raise ValueError("Can't animate. y not known.")
             if wireframe:
-                return animate_wireframe(x,y,self.VS[::skip],**kwargs)
-            return animate_contour(x,y,self.VS[::skip],**kwargs)
+                return animate_wireframe(x, y, self.VS[::skip], **kwargs)
+            return animate_contour(x, y, self.VS[::skip], **kwargs)
 
 
-class FieldBC(SpectralSpaceBC,FieldBase):
-    '''
+class FieldBC(SpectralSpaceBC, FieldBase):
+    """
     Handle inhomogeneous field from inhomogeneous boundary
     conditions.
 
@@ -337,9 +345,10 @@ class FieldBC(SpectralSpaceBC,FieldBase):
     field_bc_deriv = grad(field_bc,deriv=(0,1),return_field=True)
     plot(xx,yy,field_bc_deriv.v)
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    '''
-    def __init__(self,bases,axis):
-        SpectralSpaceBC.__init__(self,bases,axis)
+    """
+
+    def __init__(self, bases, axis):
+        SpectralSpaceBC.__init__(self, bases, axis)
         FieldBase.__init__(self)
         # Field variable
         self.v = np.zeros(self.shape_physical)
@@ -347,33 +356,32 @@ class FieldBC(SpectralSpaceBC,FieldBase):
 
         self.dealiased_space = False
 
-    def add_bc(self,bc):
-        '''
+    def add_bc(self, bc):
+        """
         Input bc must be forward transformed only along self.axis.
         The other dimensions are still in physical space
-        '''
+        """
         expected_shape = list(self.shape_physical)
         expected_shape[self.axis] = self.shape_spectral[self.axis]
         assert bc.shape == tuple(expected_shape)
         # Transform to real space
-        bc = self.backward_fft(bc,axis=self.axis)
+        bc = self.backward_fft(bc, axis=self.axis)
         self.v = bc
         self.forward()
 
 
-
-class MultiField():
-    '''
+class MultiField:
+    """
     Simple Class that collects multiple
     fields and defines collective routines
-    '''
-    
+    """
+
     fields = []
     names = []
-    
-    def __init__(self,fields,names):
-        for f,n in zip(fields,names):
-            if not isinstance(f,Field):
+
+    def __init__(self, fields, names):
+        for f, n in zip(fields, names):
+            if not isinstance(f, Field):
                 raise ValueError("Must be of type Field.")
             self.fields.append(f)
             self.names.append(n)
@@ -382,24 +390,26 @@ class MultiField():
         for f in self.fields:
             f.save()
 
-    def update_time(self,dt):
+    def update_time(self, dt):
         for f in self.fields:
             f.t += dt
 
-    def read(self,filename=None,leading_str="",add_time=True,dict={}):
-        for f,n in zip(self.fields,self.names):
+    def read(self, filename=None, leading_str="", add_time=True, dict={}):
+        for f, n in zip(self.fields, self.names):
             print(f.t)
-            f.read(filename=None,leading_str=leading_str+n,
-                add_time=add_time,dict=dict)
+            f.read(
+                filename=None, leading_str=leading_str + n, add_time=add_time, dict=dict
+            )
 
-    def write(self,filename=None,leading_str="",add_time=True,dict={}):
-        for f,n in zip(self.fields,self.names):
+    def write(self, filename=None, leading_str="", add_time=True, dict={}):
+        for f, n in zip(self.fields, self.names):
             f.backward()
-            f.write(filename=None,leading_str=leading_str+n,
-                add_time=add_time,dict=dict)
+            f.write(
+                filename=None, leading_str=leading_str + n, add_time=add_time, dict=dict
+            )
 
-    def interpolate(self, old_fields,spectral=True):
+    def interpolate(self, old_fields, spectral=True):
         from field_operations import interpolate
-        for f,f_old in zip(self.field, old_fields.fields):
-            interpolate(f_old,f,spectral)
 
+        for f, f_old in zip(self.field, old_fields.fields):
+            interpolate(f_old, f, spectral)

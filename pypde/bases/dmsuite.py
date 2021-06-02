@@ -3,7 +3,8 @@ from scipy.linalg import toeplitz
 
 # -- Full dmsuite for python: https://github.com/labrosse/dmsuite
 
-def chebdif(ncheb, mder,L=2):
+
+def chebdif(ncheb, mder, L=2):
     """
     Calculate differentiation matrices using Chebyshev collocation.
     Returns the differentiation matrices D1, D2, .. Dmder corresponding to the
@@ -54,43 +55,43 @@ def chebdif(ncheb, mder,L=2):
     The derivatives of functions is obtained by multiplying the vector of
     function values by the differentiation matrix.
     """
-    stretch=2.0/L
-    ncheb-=1
+    stretch = 2.0 / L
+    ncheb -= 1
 
     if mder >= ncheb + 1:
-        raise Exception('number of nodes must be greater than mder')
+        raise Exception("number of nodes must be greater than mder")
 
     if mder <= 0:
-        raise Exception('derivative order must be at least 1')
+        raise Exception("derivative order must be at least 1")
 
     DM = np.zeros((mder, ncheb + 1, ncheb + 1))
     # indices used for flipping trick
     nn1 = int(np.floor((ncheb + 1) / 2))
     nn2 = int(np.ceil((ncheb + 1) / 2))
-    k = np.arange(ncheb+1)
+    k = np.arange(ncheb + 1)
     # compute theta vector
     th = k * np.pi / ncheb
 
     # Compute the Chebyshev points
 
     # obvious way
-    #x = np.cos(np.pi*np.linspace(ncheb-1,0,ncheb)/(ncheb-1))
+    # x = np.cos(np.pi*np.linspace(ncheb-1,0,ncheb)/(ncheb-1))
     # W&R way
-    x = np.sin(np.pi*(ncheb - 2 * np.linspace(ncheb, 0, ncheb + 1))/(2 * ncheb))
+    x = np.sin(np.pi * (ncheb - 2 * np.linspace(ncheb, 0, ncheb + 1)) / (2 * ncheb))
     x = x[::-1]
 
     # Assemble the differentiation matrices
-    T = np.tile(th/2, (ncheb + 1, 1))
+    T = np.tile(th / 2, (ncheb + 1, 1))
     # trigonometric identity
-    DX = 2*np.sin(T.T+T)*np.sin(T.T-T)
+    DX = 2 * np.sin(T.T + T) * np.sin(T.T - T)
     # flipping trick
     DX[nn1:, :] = -np.flipud(np.fliplr(DX[0:nn2, :]))
     # diagonals of D
-    DX[range(ncheb + 1), range(ncheb + 1)] = 1.
+    DX[range(ncheb + 1), range(ncheb + 1)] = 1.0
     DX = DX.T
 
     # matrix with entries c(k)/c(j)
-    C = toeplitz((-1.)**k)
+    C = toeplitz((-1.0) ** k)
     C[0, :] *= 2
     C[-1, :] *= 2
     C[:, 0] *= 0.5
@@ -99,7 +100,7 @@ def chebdif(ncheb, mder,L=2):
     # Z contains entries 1/(x(k)-x(j))
     Z = 1 / DX
     # with zeros on the diagonal.
-    Z[range(ncheb + 1), range(ncheb + 1)] = 0.
+    Z[range(ncheb + 1), range(ncheb + 1)] = 0.0
 
     # initialize differentiation matrices.
     D = np.eye(ncheb + 1)
@@ -112,12 +113,12 @@ def chebdif(ncheb, mder,L=2):
         # store current D in DM
         DM[ell, :, :] = D
 
-    D = DM[mder-1,:,:]
-    x, D = x[::-1], D[::-1,::-1] #x [1,-1] to x [-1,1]  for convenience)
-    return x/stretch, D*stretch**mder
+    D = DM[mder - 1, :, :]
+    x, D = x[::-1], D[::-1, ::-1]  # x [1,-1] to x [-1,1]  for convenience)
+    return x / stretch, D * stretch ** mder
 
 
-def fourdif(nfou, mder,L=2*np.pi):
+def fourdif(nfou, mder, L=2 * np.pi):
     """
     Fourier spectral differentiation.
     Spectral differentiation matrix on a grid with nfou equispaced points in [0,2pi)
@@ -141,22 +142,22 @@ def fourdif(nfou, mder,L=2*np.pi):
     S.C. Reddy, J.A.C. Weideman 1998.  Corrected for MATLAB R13
     by JACW, April 2003.
     """
-    stretch=2*np.pi/L
+    stretch = 2 * np.pi / L
     # grid points
-    xxt = 2*np.pi*np.arange(nfou)/nfou
+    xxt = 2 * np.pi * np.arange(nfou) / nfou
     # grid spacing
-    dhh = 2*np.pi/nfou
+    dhh = 2 * np.pi / nfou
 
-    nn1 = int(np.floor((nfou-1)/2.))
-    nn2 = int(np.ceil((nfou-1)/2.))
+    nn1 = int(np.floor((nfou - 1) / 2.0))
+    nn2 = int(np.ceil((nfou - 1) / 2.0))
 
     # mder>2 actually works better with simple matrix multiplication instead of fft
     multi = 1
     if mder != 0:
-        if mder%2 != 0:
-            multi,der = mder, 1
+        if mder % 2 != 0:
+            multi, der = mder, 1
         else:
-            multi,der = mder//2, 2
+            multi, der = mder // 2, 2
 
     if der == 0:
         # compute first column of zeroth derivative matrix, which is identity
@@ -166,35 +167,38 @@ def fourdif(nfou, mder,L=2*np.pi):
 
     elif der == 1:
         # compute first column of 1st derivative matrix
-        col1 = 0.5*np.array([(-1)**k for k in range(1, nfou)], float)
-        if nfou%2 == 0:
-            topc = 1/np.tan(np.arange(1, nn2+1)*dhh/2)
-            col1 = col1*np.hstack((topc, -np.flipud(topc[0:nn1])))
+        col1 = 0.5 * np.array([(-1) ** k for k in range(1, nfou)], float)
+        if nfou % 2 == 0:
+            topc = 1 / np.tan(np.arange(1, nn2 + 1) * dhh / 2)
+            col1 = col1 * np.hstack((topc, -np.flipud(topc[0:nn1])))
             col1 = np.hstack((0, col1))
         else:
-            topc = 1/np.sin(np.arange(1, nn2+1)*dhh/2)
-            col1 = np.hstack((0, col1*np.hstack((topc, np.flipud(topc[0:nn1])))))
+            topc = 1 / np.sin(np.arange(1, nn2 + 1) * dhh / 2)
+            col1 = np.hstack((0, col1 * np.hstack((topc, np.flipud(topc[0:nn1])))))
         # first row
         row1 = -col1
 
     elif der == 2:
         # compute first column of 1st derivative matrix
-        col1 = -0.5*np.array([(-1)**k for k in range(1, nfou)], float)
-        if nfou%2 == 0:
-            topc = 1/np.sin(np.arange(1, nn2+1)*dhh/2)**2.
-            col1 = col1*np.hstack((topc, np.flipud(topc[0:nn1])))
-            col1 = np.hstack((-np.pi**2/3/dhh**2-1/6, col1))
+        col1 = -0.5 * np.array([(-1) ** k for k in range(1, nfou)], float)
+        if nfou % 2 == 0:
+            topc = 1 / np.sin(np.arange(1, nn2 + 1) * dhh / 2) ** 2.0
+            col1 = col1 * np.hstack((topc, np.flipud(topc[0:nn1])))
+            col1 = np.hstack((-np.pi ** 2 / 3 / dhh ** 2 - 1 / 6, col1))
         else:
-            topc = 1/np.tan(np.arange(1, nn2+1)*dhh/2)/np.sin(np.arange(1, nn2+1)*dhh/2)
-            col1 = col1*np.hstack((topc, -np.flipud(topc[0:nn1])))
-            col1 = np.hstack(([-np.pi**2/3/dhh**2+1/12], col1))
+            topc = (
+                1
+                / np.tan(np.arange(1, nn2 + 1) * dhh / 2)
+                / np.sin(np.arange(1, nn2 + 1) * dhh / 2)
+            )
+            col1 = col1 * np.hstack((topc, -np.flipud(topc[0:nn1])))
+            col1 = np.hstack(([-np.pi ** 2 / 3 / dhh ** 2 + 1 / 12], col1))
         # first row
         row1 = col1
 
     ddm = toeplitz(col1, row1)
     ddm = np.linalg.matrix_power(ddm, multi)
-    return xxt/stretch, ddm*stretch**mder
-
+    return xxt / stretch, ddm * stretch ** mder
 
 
 # ------------------------------------------------
@@ -203,15 +207,16 @@ def fourdif(nfou, mder,L=2*np.pi):
 
 
 def gauss_lobatto(n):
-    ''' Return Chebyshev-Gauss-Lobatto grid points'''
+    """Return Chebyshev-Gauss-Lobatto grid points"""
     k = np.linspace(n, 0, n + 1)
-    if n>1:
-        return np.sin(np.pi*(n - 2 * k)/(2 * n))
+    if n > 1:
+        return np.sin(np.pi * (n - 2 * k) / (2 * n))
     return 0
 
-#@memoized
-def diff_mat_spectral(N,deriv):
-    '''Derivative matrix in spectral space of classical Chebyshev
+
+# @memoized
+def diff_mat_spectral(N, deriv):
+    """Derivative matrix in spectral space of classical Chebyshev
     polynomial on Gauss Lobattor points, see
     Jan S. Hesthaven - Spectral Methods for Time-Dependent Problems (p. 256)
 
@@ -225,40 +230,46 @@ def diff_mat_spectral(N,deriv):
         ndarray (N x N)
             Derivative matrix, must be applied in spectral
             space to chebyshev coefficients array
-            '''
-    D = np.zeros( (N,N) )
-    if deriv==1:
+    """
+    D = np.zeros((N, N))
+    if deriv == 1:
         for n in range(N):
-            for p in range(n+1,N):
-                if (p+n)%2!=0: D[n,p] = p*2
-    if deriv==2:
+            for p in range(n + 1, N):
+                if (p + n) % 2 != 0:
+                    D[n, p] = p * 2
+    if deriv == 2:
         for n in range(N):
-            for p in range(n+2,N):
-                if (p+n)%2==0:
-                    D[n,p] = p*(p**2-n**2)
-    if deriv==3:
+            for p in range(n + 2, N):
+                if (p + n) % 2 == 0:
+                    D[n, p] = p * (p ** 2 - n ** 2)
+    if deriv == 3:
         for n in range(N):
-            for p in range(n+3,N):
-                if (p+n)%2!=0:
-                    p2,n2 = p**2,n**2
-                    D[n,p] = p*(p2*(p2-2) - 2*p2*n2 +(n2-1)**2)
+            for p in range(n + 3, N):
+                if (p + n) % 2 != 0:
+                    p2, n2 = p ** 2, n ** 2
+                    D[n, p] = p * (p2 * (p2 - 2) - 2 * p2 * n2 + (n2 - 1) ** 2)
         D /= 4
-    if deriv==4:
+    if deriv == 4:
         for n in range(N):
-            for p in range(n+4,N):
-                if (p+n)%2==0:
-                    p2,n2 = p**2,n**2
-                    p4,n4 = p**4,n**4
-                    D[n,p] = p*(
-                        p2*(p2-4)**2 - 3*p4*n2 + 3*p2*n4-n2*(n2-4)**2)
+            for p in range(n + 4, N):
+                if (p + n) % 2 == 0:
+                    p2, n2 = p ** 2, n ** 2
+                    p4, n4 = p ** 4, n ** 4
+                    D[n, p] = p * (
+                        p2 * (p2 - 4) ** 2
+                        - 3 * p4 * n2
+                        + 3 * p2 * n4
+                        - n2 * (n2 - 4) ** 2
+                    )
         D /= 24
-    if deriv>4:
+    if deriv > 4:
         raise NotImplementedError("derivatives > 4 not implemented")
-    D[0,:] *= 0.5
+    D[0, :] *= 0.5
     return D
 
-def diff_recurrence_chebyshev(c,deriv):
-    ''' Recurrence formula for computing coefficients
+
+def diff_recurrence_chebyshev(c, deriv):
+    """Recurrence formula for computing coefficients
     of deriv'th derivative of classical Chebyshev polynomial
     on Gauss Lobatto points
     Derivative is computed along first axis of c
@@ -272,21 +283,22 @@ def diff_recurrence_chebyshev(c,deriv):
     Output:
         ndarray (dim 1)
             Chebyshev spectral ceofficients of derivative
-    '''
+    """
     N = c.shape[0]
     a = []
-    for i in range(deriv+1):
+    for i in range(deriv + 1):
         a.append(np.zeros((c.shape)))
     a[0][:] = c
-    for ell in np.arange(1,deriv+1):
-        a[ell][N-ell-1]=2*(N-ell)*a[ell-1][N-ell]
-        for k in np.arange(N-ell-2,0,-1):
-            a[ell][k]=a[ell][k+2]+2*(k+1)*a[ell-1][k+1]
-        a[ell][0]=a[ell-1][1]+a[ell][2]/2
+    for ell in np.arange(1, deriv + 1):
+        a[ell][N - ell - 1] = 2 * (N - ell) * a[ell - 1][N - ell]
+        for k in np.arange(N - ell - 2, 0, -1):
+            a[ell][k] = a[ell][k + 2] + 2 * (k + 1) * a[ell - 1][k + 1]
+        a[ell][0] = a[ell - 1][1] + a[ell][2] / 2
     return a[deriv][:]
 
-def diff_recurrence_chebyshev2(c,deriv):
-    ''' Recurrence formula for computing coefficients
+
+def diff_recurrence_chebyshev2(c, deriv):
+    """Recurrence formula for computing coefficients
     of deriv'th derivative of classical Chebyshev polynomial
     on Gauss Lobatto points
 
@@ -299,20 +311,21 @@ def diff_recurrence_chebyshev2(c,deriv):
     Output:
         ndarray (dim 1)
             Chebyshev spectral ceofficients of derivative
-    '''
+    """
     N = c.size
 
-    a = np.zeros((N,deriv+1))
-    a[:,0] = c
-    for ell in np.arange(1,deriv+1):
-        a[N-ell-1,ell]=2*(N-ell)*a[N-ell,ell-1];
-        for k in np.arange(N-ell-2,0,-1):
-            a[k,ell]=a[k+2,ell]+2*(k+1)*a[k+1,ell-1]
-        a[0,ell]=a[1,ell-1]+a[2,ell]/2
-    return a[:,deriv]
+    a = np.zeros((N, deriv + 1))
+    a[:, 0] = c
+    for ell in np.arange(1, deriv + 1):
+        a[N - ell - 1, ell] = 2 * (N - ell) * a[N - ell, ell - 1]
+        for k in np.arange(N - ell - 2, 0, -1):
+            a[k, ell] = a[k + 2, ell] + 2 * (k + 1) * a[k + 1, ell - 1]
+        a[0, ell] = a[1, ell - 1] + a[2, ell] / 2
+    return a[:, deriv]
 
-def pseudoinverse_spectral(N,deriv=2):
-    '''Pseudoinverse Operator for chebyshev spectral
+
+def pseudoinverse_spectral(N, deriv=2):
+    """Pseudoinverse Operator for chebyshev spectral
     differentiation parameters
     (pseudoinverse of diff_mat_spectral(), see above)
 
@@ -335,39 +348,43 @@ def pseudoinverse_spectral(N,deriv=2):
         ndarray (N x N)
             Derivative matrix, must be applied in spectral
             space to chebyshev coefficients array
-            '''
+    """
     from scipy.sparse import diags
-    assert deriv==1 or deriv==2, \
-    "pseudoinverse_spectral does only support deriv==1 or 2"
 
-    if deriv==2:
+    assert (
+        deriv == 1 or deriv == 2
+    ), "pseudoinverse_spectral does only support deriv==1 or 2"
+
+    if deriv == 2:
         diag0 = np.zeros(N)
-        diag0[2:-2] = np.array([-1/(2*(i**2-1)) for i in range(2,N-2)])
+        diag0[2:-2] = np.array([-1 / (2 * (i ** 2 - 1)) for i in range(2, N - 2)])
 
-        diag1 = np.zeros(N-2)
-        diag1[2:-2] = np.array([1/(4*i*(i+1)) for i in range(2,N-4)])
+        diag1 = np.zeros(N - 2)
+        diag1[2:-2] = np.array([1 / (4 * i * (i + 1)) for i in range(2, N - 4)])
 
-        diag2 = np.zeros(N-2)
-        diag2[:] = np.array([1/(4*i*(i-1)) for i in range(2,N)])
-        diag2[0] *=2
+        diag2 = np.zeros(N - 2)
+        diag2[:] = np.array([1 / (4 * i * (i - 1)) for i in range(2, N)])
+        diag2[0] *= 2
         return diags([diag2, diag0, diag1], [-2, 0, 2]).toarray()
 
-    if deriv==1:
-        diag0 = np.zeros(N-1)
-        diag0[:] = np.array([1/(2*i) for i in range(1,N)])
-        diag0[0] *=2
+    if deriv == 1:
+        diag0 = np.zeros(N - 1)
+        diag0[:] = np.array([1 / (2 * i) for i in range(1, N)])
+        diag0[0] *= 2
 
-        diag1 = np.zeros(N-1)
-        diag1[1:-1] = np.array([-1/(2*i) for i in range(1,N-2)])
+        diag1 = np.zeros(N - 1)
+        diag1[1:-1] = np.array([-1 / (2 * i) for i in range(1, N - 2)])
         return diags([diag0, diag1], [-1, 1]).toarray()
 
     return None
+
 
 # ------------------------------------------------
 # Unused Routines
 # ------------------------------------------------
 
-def fourdifft(f,M,L=2*np.pi):
+
+def fourdifft(f, M, L=2 * np.pi):
     """
     Differentiation of f defined on equispaced grid
     via fft based on chebdifft.m (matlab)
@@ -376,19 +393,18 @@ def fourdifft(f,M,L=2*np.pi):
     f: Function (ndarray dim 1)
     M: Order of derivative required (non-negative integer)
     """
-    N=len(f)
-    stretch=2*np.pi/L
+    N = len(f)
+    stretch = 2 * np.pi / L
 
-    k=np.fft.fftfreq(N,d=(1.0 / N ))
-    k=(k*complex(0,1)*stretch)**M
+    k = np.fft.fftfreq(N, d=(1.0 / N))
+    k = (k * complex(0, 1) * stretch) ** M
 
     fhat = np.fft.fft(f)
-    dfhat = fhat*k
-    return np.real(  np.fft.ifft(dfhat) )
+    dfhat = fhat * k
+    return np.real(np.fft.ifft(dfhat))
 
 
-
-def chebdifft(f,M,L=2):
+def chebdifft(f, M, L=2):
     """
     Differentiation of f defined on chebyshev grid
     via fft based on chebdifft.m (matlab)
@@ -397,33 +413,33 @@ def chebdifft(f,M,L=2):
     f: Function (ndarray dim 1)
     M: Order of derivative required (non-negative integer)
     """
-    N=len(f)
-    stretch=2/L
+    N = len(f)
+    stretch = 2 / L
 
-    a = np.flipud(f[1:N-1])
-    a = np.concatenate((f,a))
-    a0 = np.fft.fft(a*stretch**M)
+    a = np.flipud(f[1 : N - 1])
+    a = np.concatenate((f, a))
+    a0 = np.fft.fft(a * stretch ** M)
 
-    ones = np.ones(N-2)
-    a = np.concatenate(([0.5],ones,[0.5] ))
-    a0 = a0[0:N]*a/(N-1)  #a0 contains Chebyshev coefficients of f
+    ones = np.ones(N - 2)
+    a = np.concatenate(([0.5], ones, [0.5]))
+    a0 = a0[0:N] * a / (N - 1)  # a0 contains Chebyshev coefficients of f
 
     # Recursion formula for computing coefficients of ell'th derivative
-    a = np.zeros((N,M+1),dtype="complex_")
-    a[:,0] = a0
-    for ell in np.arange(1,M+1):
-        a[N-ell-1,ell]=2*(N-ell)*a[N-ell,ell-1];
-        for k in np.arange(N-ell-2,0,-1):
-            a[k,ell]=a[k+2,ell]+2*(k+1)*a[k+1,ell-1]
-        a[0,ell]=a[1,ell-1]+a[2,ell]/2
+    a = np.zeros((N, M + 1), dtype="complex_")
+    a[:, 0] = a0
+    for ell in np.arange(1, M + 1):
+        a[N - ell - 1, ell] = 2 * (N - ell) * a[N - ell, ell - 1]
+        for k in np.arange(N - ell - 2, 0, -1):
+            a[k, ell] = a[k + 2, ell] + 2 * (k + 1) * a[k + 1, ell - 1]
+        a[0, ell] = a[1, ell - 1] + a[2, ell] / 2
 
     # Transform back to nphysical space
-    b1 = [2*a[0,M]]
-    b2 = a[1:N-1,M]
-    b3 = [2*a[N-1,M]]
+    b1 = [2 * a[0, M]]
+    b2 = a[1 : N - 1, M]
+    b3 = [2 * a[N - 1, M]]
     b4 = np.flipud(b2)
-    back = np.concatenate((b1,b2,b3,b4))
-    df = 0.5*np.fft.fft(back)
+    back = np.concatenate((b1, b2, b3, b4))
+    df = 0.5 * np.fft.fft(back)
     # Real data in, real derivative out
-    df = df[0:N]*(-1)**(M%2)
+    df = df[0:N] * (-1) ** (M % 2)
     return np.real(df)

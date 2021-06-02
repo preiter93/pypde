@@ -1,5 +1,7 @@
 from functools import wraps
 from time import time
+
+
 def timeit(func):
     @wraps(func)
     def _time_it(*args, **kwargs):
@@ -9,4 +11,5 @@ def timeit(func):
         finally:
             end_ = int(round(time() * 1000)) - start
             print(f"Elapsed time: {end_ if end_ > 0 else 0} ms")
+
     return _time_it
