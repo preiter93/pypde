@@ -10,20 +10,45 @@ from scipy.linalg import eig
 
 #-------------------------------------------------------------------
 @io_decorator
-def solve_rbc1d(Ny=100,Ra=1708,Pr=1,alpha=3.14,plot=True,norm_diff=True):
+def solve_rbc1d(Ny=41,Ra=1708,Pr=1,alpha=3.14,plot=True,norm_diff=True):
+    '''
+    Solves the linear stability problem of convection-diffusion equation
+    in a 2-D rectangular domain. 
+
+    Note:
+    Works very good with odd Ny
+
+    >>>
+    import numpy as np 
+    from pypde import *
+    from scipy.linalg import eig
+    import matplotlib.pyplot as plt
+    from pypde.stability.rbc1d import solve_rbc1d
+    # Parameters
+    Ny    = 41
+    alpha = 3.14
+    Ra    = 1710
+    Pr    = 1.0
+
+    # Find the growth rates for given Ra
+    evals,evecs = solve_rbc1d(Ny=Ny,Ra=Ra,Pr=Pr,alpha=alpha,plot=True)
+    >>>
+    '''
     #----------------------- Parameters ---------------------------
+    # Correct for size of Chebyshev Domain, which is 2, not 1
+    #Ra /= 2**3
+    #alpha /= 2
+
     if norm_diff:
         # Normalization 0 (Diffusion)
         nu = Pr
         ka = 1
-        beta = Pr*Ra
+        gr = Pr*Ra
     else:
         # Normalization 1 (Turnover)
         nu = np.sqrt(Pr/Ra)
         ka = np.sqrt(1/Pr/Ra)
-        beta = 1.0
-
-    Lz = 2.0 # Size of Chebyshev Domain
+        gr = 1.0
 
     # -- Fields
     shape=(Ny,)
@@ -32,14 +57,16 @@ def solve_rbc1d(Ny=100,Ra=1708,Pr=1,alpha=3.14,plot=True,norm_diff=True):
     T = Field( [Base(shape[0],"CD")] )
     P = Field( [Base(shape[0],"CN")] )
     CH = Field([Base(shape[0],"CH",dealias=2)] )
-    z = U.x/Lz
+    # Rescale by factor 2 (chebyshev)
+    scale_z = 2.
+    y = U.x/scale_z
 
     # -- Matrices 
     I = np.eye(U.vhat.shape[0])
 
-    Dz = CH.xs[0].dms(1)*(Lz)
+    Dy = CH.xs[0].dms(1)*scale_z
     Dx = 1.j*alpha*np.eye(CH.vhat.shape[0])
-    Dz2 = Dz@Dz
+    Dy2 = Dy@Dy
     Dx2 = Dx@Dx
 
 
@@ -48,54 +75,53 @@ def solve_rbc1d(Ny=100,Ra=1708,Pr=1,alpha=3.14,plot=True,norm_diff=True):
     #VV = np.zeros(CH.shape)
     TT = np.zeros(CH.shape)
 
-    TT[:] = CH.forward(-1.0*z) 
-    #UU[:] = CH.forward(-1.0*z)
+    TT[:] = CH.forward(-1.0*y) 
 
     # -- Build
 
-    # -- Diffusion
-    D2U = nu*U.xs[0].ST@(-Dx2 - Dz2)@U.xs[0].S
-    D2V = nu*V.xs[0].ST@(-Dx2 - Dz2)@V.xs[0].S
-    D2T = ka*T.xs[0].ST@(-Dx2 - Dz2)@T.xs[0].S
+    # -- Diffusion + Non-Linear 2: Udu
+    Udx = conv_mat(UU,field=CH)@Dx
+
+    L2d = - nu * (Dx2 + Dy2) + Udx
+    K2d = - ka * (Dx2 + Dy2) + Udx
+    L2d_u = U.xs[0].ST@L2d@U.xs[0].S
+    L2d_v = V.xs[0].ST@L2d@V.xs[0].S
+    K2d_t = T.xs[0].ST@K2d@T.xs[0].S
 
     # -- Buoyancy Uz
-    BVT = V.xs[0].ST@T.xs[0].S
+    that = V.xs[0].ST@T.xs[0].S
 
     # -- Pressure
-    DXP = U.xs[0].ST@Dx@P.xs[0].S
-    DZP = V.xs[0].ST@Dz@P.xs[0].S
+    dpdx = U.xs[0].ST@Dx@P.xs[0].S
+    dpdy = V.xs[0].ST@Dy@P.xs[0].S
 
     # -- Divergence
-    DXU = P.xs[0].ST@Dx@U.xs[0].S
-    DZV = P.xs[0].ST@Dz@V.xs[0].S
+    dudx = P.xs[0].ST@Dx@U.xs[0].S
+    dvdy = P.xs[0].ST@Dy@V.xs[0].S
 
-    # -- Non-Linear udU
+    # -- Non-Linear 1: udU
 
-    # dTdz
-    dTdz = conv_mat(Dz@TT,field=CH)
-    NTV = T.xs[0].ST@dTdz@V.xs[0].S
+    # dTdy
+    #dTdy = -1.0*np.eye(CH.vhat.shape[0])
+    dTdy = conv_mat(Dy@TT,field=CH)
+    dTdy = T.xs[0].ST@dTdy@V.xs[0].S
 
-    # dUdz
-    dUdz = conv_mat(Dz@UU,field=CH)
-    NUV  = U.xs[0].ST@dUdz@V.xs[0].S
-
-    # -- Non-Linear Udu
-    UU = conv_mat(UU,field=CH)
-    nUU = U.xs[0].ST@(UU@Dx)@U.xs[0].S
-    nUV = V.xs[0].ST@(UU@Dx)@V.xs[0].S
+    # dUdy
+    dUdy = conv_mat(Dy@UU,field=CH)
+    dUdy  = U.xs[0].ST@dUdy@V.xs[0].S
+    dUdy = 0.*I
 
     # -- Mass Matrices
     MU = U.xs[0].ST@U.xs[0].S
     MV = V.xs[0].ST@V.xs[0].S
-    #MP = P.xs[0].ST@P.xs[0].S
     MT = T.xs[0].ST@T.xs[0].S
 
     # ------------
     # LHS
-    L11 = 1.*D2U+1.*nUU  ; L12 = 1.*NUV         ; L13 = 1.*DXP   ; L14 = 0*I
-    L21 = 0.*I           ; L22 = 1.*D2V+1.*nUV  ; L23 = 1.*DZP   ; L24 =-1.*beta*BVT
-    L31 = 1.*DXU         ; L32 = 1.*DZV         ; L33 = 0.*I     ; L34 = 0.*I
-    L41 = 0.*I           ; L42 = 1.*NTV         ; L43 = 0.*I     ; L44 = 1.*D2T
+    L11 = L2d_u     ; L12 = dUdy    ; L13 = dpdx    ; L14 = 0*I
+    L21 = 0.*I      ; L22 = L2d_v   ; L23 = dpdy    ; L24 =-1.*gr*that
+    L31 = dudx      ; L32 = dvdy    ; L33 = 0.*I    ; L34 = 0.*I
+    L41 = 0.*I      ; L42 = dTdy    ; L43 = 0.*I    ; L44 = K2d_t
 
     # RHS
     M11 = 1*MU    ; M12 = 0*I     ; M13 = 0*I      ; M14 = 0*I
@@ -111,6 +137,7 @@ def solve_rbc1d(Ny=100,Ra=1708,Pr=1,alpha=3.14,plot=True,norm_diff=True):
     # -- Solve EVP ----
     L = np.block([ [L1], [L2], [L3], [L4]])
     M = np.block([ [M1], [M2], [M3], [M4]])
+    L += np.eye(L.shape[0])*1e-20 # Make non-singular
     evals,evecs = eig(L,1.j*M)
 
     # Post Process egenvalues
@@ -132,19 +159,21 @@ def solve_rbc1d(Ny=100,Ra=1708,Pr=1,alpha=3.14,plot=True,norm_diff=True):
         P.backward()
         T.backward()
 
-        fig,(ax0,ax1,ax2) = plt.subplots(ncols=3, figsize=(8,3))
+        fig,(ax0,ax1,ax2,ax3) = plt.subplots(ncols=4, figsize=(11,3))
         ax0.set_title("Eigenvalues")
         ax0.set_xlim(-1,1);  ax0.grid(True)
         ax0.scatter(np.real(evals[:]),np.imag(evals[:]), marker="o", edgecolors="k", s=60, facecolors='none'); 
 
         ax1.set_ylabel("y"); ax1.set_title("Largest Eigenvector")
-        ax1.plot(U.v,z,  marker="", color=blue, label=r"$|u|$")
-        ax1.plot(V.v,z,  marker="", color=red,  label=r"$|v|$")
-        #ax2.plot(P.v,z,  marker="", color="k" , label=r"$|p|$")
+        ax1.plot(U.v,y,  marker="", color=blue, label=r"$|u|$")
+        ax1.plot(V.v,y,  marker="", color=red,  label=r"$|v|$")
         ax1.legend(loc="lower right")
         ax2.set_ylabel("y"); ax2.set_title("Largest Eigenvector")
-        ax2.plot(T.v,z,  marker="", color=yel , label=r"$|T|$")
+        ax2.plot(T.v,y,  marker="", color=yel , label=r"$|T|$")
         ax2.legend()
+        ax3.set_ylabel("y"); ax2.set_title("Largest Eigenvector")
+        ax3.plot(P.v,y,  marker="", color="k" , label=r"$|P|$")
+        ax3.legend()
         plt.tight_layout(); 
 
     return evals,evecs

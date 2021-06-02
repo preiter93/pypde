@@ -4,7 +4,7 @@ from .bases.spectralbase import Base
 #-------------------------------------------------------
 #                Mathematical operations
 #-------------------------------------------------------
-def grad(field,deriv, return_field=False, L=None):
+def grad(field,deriv, return_field=False, scale=None):
     '''
     Find derivative of field
 
@@ -38,8 +38,9 @@ def grad(field,deriv, return_field=False, L=None):
     for axis in range(field.ndim):
         dvhat = field.derivative(dvhat,deriv[axis],axis=axis)
         # Rescale
-        if L is not None:
-            dvhat *= (1./L[axis]**deriv[axis])
+        if scale is not None:
+            assert len(scale) == field.ndim
+            dvhat /= scale[axis]**deriv[axis]
 
     if return_field:
         field_deriv = Field( [field.xs[i].family
@@ -72,7 +73,7 @@ def galerkin_to_cheby(vhat,galerkin_field):
 
 
 def conv_term(v_field, u, deriv, deriv_field=None, dealias=False,
-    L=None):
+    scale=None):
     '''
     Calculate
         u*dvdx
@@ -90,8 +91,8 @@ def conv_term(v_field, u, deriv, deriv_field=None, dealias=False,
             Dealias convective term. In this case, input ux and
             uz must already be dealiased and deriv_field must
             be initialized with ,dealias=3/2
-        L: float list
-            Domain length, used to rescale derivative
+        scale: tuple float
+            Scale physical domain size
 
     Return
         Field of (dealiased) convective term in physical space
@@ -110,7 +111,7 @@ def conv_term(v_field, u, deriv, deriv_field=None, dealias=False,
             Base(v_field.shape[1],"CH")] )
 
     # dvdx
-    vhat = grad(v_field,deriv,return_field=False,L=L)
+    vhat = grad(v_field,deriv,return_field=False,scale=scale)
     if dealias:
         dvdx = deriv_field.dealias.backward(vhat)
     else:
@@ -119,7 +120,7 @@ def conv_term(v_field, u, deriv, deriv_field=None, dealias=False,
 
 
 def convective_term(v_field, ux, uz,
-deriv_field=None, add_bc=None, dealias=False,L=None):
+deriv_field=None, add_bc=None, dealias=False,scale=None):
     '''
     Calculate
         ux*dvdx + uz*dvdz
@@ -138,15 +139,15 @@ deriv_field=None, add_bc=None, dealias=False,L=None):
             Dealias convective term. In this case, input ux and
             uz must already be dealiased and deriv_field must
             be initialized with ,dealias=3/2
-        L: float list
-            Domain length, used to rescale derivative
+        scale: tuple float
+            Scale physical domain size
 
     Return
         Field of (dealiased) convective term in spectral space
         Transform to spectral space via conv_field.forward()
     '''
-    conv = conv_term(v_field, ux, (1,0), deriv_field, dealias, L=L)
-    conv+= conv_term(v_field, uz, (0,1), deriv_field, dealias, L=L)
+    conv = conv_term(v_field, ux, (1,0), deriv_field, dealias, scale=scale)
+    conv+= conv_term(v_field, uz, (0,1), deriv_field, dealias, scale=scale)
 
     if add_bc is not None:
         conv += add_bc
@@ -169,46 +170,6 @@ def avg_vol(f,dx,dy):
     favgx =  np.sum(f*dx[:,None],axis=0)/np.sum(dx)
     return np.sum(favgx*dy)/np.sum(dy)
 
-def eval_Nu(T,field):
-    '''
-    Heat Flux at the plates
-    '''
-    T.backward() 
-    T = T.v.copy()
-
-    That = field.forward(T)
-    dThat = field.derivative(That, 1, axis=1)
-    dT = field.backward(dThat)
-
-    dTavg = avg_x(dT,field.dx)
-    Nu_bot = - dTavg[0]/0.5 + 1
-    Nu_top = - dTavg[-1]/0.5 + 1
-    print("Nubot: {:10.6e}".format(Nu_bot))
-    print("Nutop: {:10.6e}".format(Nu_top))
-    return (Nu_bot+Nu_top)/2. 
-
-
-def eval_Nuvol(T,V,kappa,field,Tbc=None):
-    '''
-    Heat Flux through the box (volume)
-    '''
-    T.backward() 
-    V.backward()
-
-    T = T.v.copy() 
-    if Tbc is not None:
-        T += Tbc.v.copy()
-    V = V.v.copy()
-    
-    That = field.forward(T)
-    dThat = field.derivative(That, 1, axis=1)
-    dT = field.backward(dThat)
-    
-    Nuvol = (T*V/kappa - dT)*2.0
-    
-    Nuvol = avg_vol(Nuvol,field.dx,field.dy)
-    print("Nuvol: {:10.6e}".format(Nuvol))
-    return Nuvol
 
 def interpolate(Field_old,Field_new,spectral=True):
     '''
