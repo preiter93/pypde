@@ -22,7 +22,9 @@ TIME_FFT = 0
 TIME_Conv = 0
 
 
-class NavierStokes(NavierStokesBase, NavierStokesSteadyState, Integrator):
+class NavierStokes(
+    NavierStokesBase, NavierStokesSteadyState, NavierStokesStability, Integrator
+):
     """
     Solve Navier Stokes equation + temperature equation.
     """
@@ -68,6 +70,9 @@ class NavierStokes(NavierStokesBase, NavierStokesSteadyState, Integrator):
 
         # Array for rhs
         self.rhs = np.zeros(self.shape)
+
+        # Add stability solver
+        NavierStokesSteadyState.__init__(self)
 
     def set_temperature(self, amplitude=0.5, m=1):
         self.T.v = amplitude * np.sin(m * np.pi * self.xx) * np.cos(np.pi * self.yy)

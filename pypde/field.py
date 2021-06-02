@@ -409,7 +409,7 @@ class MultiField:
             )
 
     def interpolate(self, old_fields, spectral=True):
-        from field_operations import interpolate
+        from pypde.field_operations import interpolate
 
-        for f, f_old in zip(self.field, old_fields.fields):
+        for f, f_old in zip(self.fields, old_fields.fields):
             interpolate(f_old, f, spectral)

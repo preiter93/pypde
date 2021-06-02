@@ -9,6 +9,43 @@ import numpy as np
 # from scipy.linalg import eig
 from scipy.sparse.linalg import eigs
 
+
+def plot_evec(evecs, U, V, P, T, xx, yy, m=-1):
+    u, v, p, t = split_evec(evecs, m=m)
+
+    # U
+    u = np.real(u).reshape(U.vhat.shape)
+    u = U.backward(u)
+    # V
+    v = np.real(v).reshape(V.vhat.shape)
+    v = V.backward(v)
+    # T
+    t = np.real(t).reshape(T.vhat.shape)
+    t = T.backward(t)
+
+    levels = np.linspace(t.min(), t.max(), 50)
+    fig, ax = plt.subplots()
+    ax.contourf(xx, yy, t, cmap="RdBu_r", levels=levels)
+    ax.set_aspect(1)
+
+    # Quiver
+    speed = np.max(np.sqrt(u ** 2 + v ** 2))
+    # if skip is None:
+    skip = u.shape[0] // 16
+    ax.quiver(
+        xx[::skip, ::skip],
+        yy[::skip, ::skip],
+        u[::skip, ::skip] / speed,
+        v[::skip, ::skip] / speed,
+        scale=7.9,
+        width=0.007,
+        alpha=0.5,
+        headwidth=4,
+    )
+
+    plt.show()
+
+
 # --------------------------------------------------------------------
 @io_decorator
 def solve_rbc2d(
@@ -56,8 +93,8 @@ def solve_rbc2d(
     CH = Field([Base(shape[0], "CH", dealias=2), Base(shape[1], "CH", dealias=2)])
 
     # Rescale by factor 2 (chebyshev)
-    scale_z = 2.0
-    x, y = U.x / scale_z * aspect, U.y / scale_z
+    scale_z = 0.5
+    x, y = U.x * scale_z * aspect, U.y * scale_z
     xx, yy = np.meshgrid(x, y, indexing="ij")
 
     # -- Mean Field
@@ -83,39 +120,7 @@ def solve_rbc2d(
     )
 
     if plot:
-        u, v, p, t = split_evec(evecs, m=-1)
-
-        # U
-        u = np.real(u).reshape(Nx - 2, Ny - 2)
-        u = U.backward(u)
-        # V
-        v = np.real(v).reshape(Nx - 2, Ny - 2)
-        v = V.backward(v)
-        # T
-        temp = np.real(t).reshape(Nx - 2, Ny - 2)
-        temp = T.backward(temp)
-
-        levels = np.linspace(temp.min(), temp.max(), 50)
-        fig, ax = plt.subplots()
-        ax.contourf(xx, yy, temp, cmap="RdBu_r", levels=levels)
-        ax.set_aspect(1)
-
-        # Quiver
-        speed = np.max(np.sqrt(u ** 2 + v ** 2))
-        # if skip is None:
-        skip = shape[0] // 16
-        ax.quiver(
-            xx[::skip, ::skip],
-            yy[::skip, ::skip],
-            u[::skip, ::skip] / speed,
-            v[::skip, ::skip] / speed,
-            scale=7.9,
-            width=0.007,
-            alpha=0.5,
-            headwidth=4,
-        )
-
-        plt.show()
+        plot_evec(evecs, U, V, P, T, xx, yy, m=-1)
 
     return evals, evecs
 
@@ -137,10 +142,10 @@ def solve_stability_2d(
 
     # -- Matrices
     Ix, Iy = np.eye(CH.vhat.shape[0]), np.eye(CH.vhat.shape[1])
-    D1x = CH.xs[0].dms(1) * scale[0]
-    D1y = CH.xs[1].dms(1) * scale[1]
-    D2x = CH.xs[0].dms(2) * scale[0] ** 2.0
-    D2y = CH.xs[1].dms(2) * scale[1] ** 2.0
+    D1x = CH.xs[0].dms(1) / scale[0]
+    D1y = CH.xs[1].dms(1) / scale[1]
+    D2x = CH.xs[0].dms(2) / scale[0] ** 2.0
+    D2y = CH.xs[1].dms(2) / scale[1] ** 2.0
 
     # Derivative (2D)
     N = U.vhat.shape[0] * U.vhat.shape[1]

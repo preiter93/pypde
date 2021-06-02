@@ -8,11 +8,11 @@ def avg_x(f, dx):
     return np.sum(f * dx[:, None], axis=0) / np.sum(dx)
 
 
-shape = (64, 64)
+shape = (32, 32)
 
 Pr = 1
 Ra = np.logspace(5, 6, 10)
-Ra = [5e3]
+Ra = [5e4]
 Nu = []
 aspect = 1.0
 for R in Ra:
@@ -32,13 +32,15 @@ for R in Ra:
         beta=1.0,
         aspect=aspect,
     )
-    NS.set_temperature(m=1)
-    NS.iterate(20.0)
+    NS.set_temperature(m=1, amplitude=0.05)
+    NS.iterate(100.0)
+    NS.solve_steady_state()
+    NS.solve_stability(shape=(27, 27))
     # NS.write()
 
     # -- Animate and plot
     NS.plot()
-    # NS.animate()
+    NS.animate()
 
     # -- Get Geometry
     x, y = NS.T.x, NS.T.y

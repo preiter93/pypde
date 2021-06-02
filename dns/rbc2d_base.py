@@ -190,7 +190,7 @@ class NavierStokesSteadyState:
     Calculate steaday state solutions using the LGMRES algorithm.
     """
 
-    def solve_steady_state(self, X0=None, maxiter=300, disp=True, tol=1e-4):
+    def solve_steady_state(self, X0=None, maxiter=300, disp=True, tol=1e-8):
         """
         Solve steady state using scipy's LGMRES algorithm
         """
@@ -201,7 +201,7 @@ class NavierStokesSteadyState:
         if X0 is None:
             X0 = self.vectorify()
         sol = optimize.root(
-            steady_fun, X0, args=(self,), method="krylov", options=options
+            self.steady_fun, X0, args=(self,), method="krylov", options=options
         )
         return sol
 
@@ -229,7 +229,7 @@ class NavierStokesSteadyState:
         V_mask = slice(t.size + u.size, t.size + u.size + v.size)
         return T_mask, U_mask, V_mask
 
-    def steady_fun(X, NS):
+    def steady_fun(self, X, NS):
         """
         Input:
             X: ndarray (1D)
@@ -286,3 +286,69 @@ def eval_Nuvol(T, V, kappa, field, Lz=1.0, Tbc=None):
     Nuvol = avg_vol(Nuvol, field.dx, field.dy)
     print("Nuvol: {:10.6e}".format(Nuvol))
     return Nuvol
+
+
+class NavierStokesStability:
+    """
+    Add on for Navier-Stokes class.
+    Conduct linear stability analysis on a given flow
+    """
+
+    def solve_stability(self, shape=(21, 21), plot=True):
+        from pypde.stability.utils import print_evals
+        from pypde.stability.rbc2d import solve_stability_2d, plot_evec
+        from pypde.field_operations import interpolate
+        from .rbc2d import NavierStokes
+
+        print("Solve stability ...")
+
+        # Initialize Navier Stokes class on coarser grid
+        config = self.CONFIG
+        config["shape"] = shape
+        self.NS_C = NavierStokes(**config)
+
+        # Interpolate onto coarser grid
+        interpolate(self.T, self.NS_C.T, spectral=True)
+        interpolate(self.V, self.NS_C.V, spectral=True)
+        interpolate(self.U, self.NS_C.U, spectral=True)
+
+        # Set fields
+        U = self.NS_C.U
+        V = self.NS_C.V
+        T = self.NS_C.T
+        P = self.NS_C.P
+        CH = Field([Base(shape[0], "CH", dealias=2), Base(shape[1], "CH", dealias=2)])
+
+        # Extract flow fields
+        UU = galerkin_to_cheby(self.NS_C.U.vhat, U)
+        VV = galerkin_to_cheby(self.NS_C.V.vhat, V)
+        TT = galerkin_to_cheby(self.NS_C.T.vhat, T)
+        TT += galerkin_to_cheby(self.NS_C.Tbc.vhat, self.NS_C.Tbc)
+        # temp = CH.backward(TT)
+
+        # plt.contourf(self.NS_C.xx, self.NS_C.yy, temp)
+        # plt.show()
+
+        # Calculate stability
+        evals, evecs = solve_stability_2d(
+            self.Ra,
+            self.Pr,
+            U,
+            V,
+            T,
+            P,
+            CH,
+            UU,
+            VV,
+            TT,
+            scale=self.scale,
+            norm_diff=False,
+        )
+        print_evals(evals, 5)
+        if plot:
+            xx, yy = self.NS_C.xx, self.NS_C.yy
+            plot_evec(evecs, U, V, P, T, xx, yy, m=-1)
+            plot_evec(evecs, U, V, P, T, xx, yy, m=-2)
+            plot_evec(evecs, U, V, P, T, xx, yy, m=-3)
+        print("Stability calculation finished!")
+        return evals, evecs
