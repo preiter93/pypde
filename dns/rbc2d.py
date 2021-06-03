@@ -29,15 +29,17 @@ class NavierStokes(
     Solve Navier Stokes equation + temperature equation.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, adiabatic=True, **kwargs):
         NavierStokesBase.__init__(self, **kwargs)
         NavierStokesSteadyState.__init__(self)
         Integrator.__init__(self)
+        self.adiabatic = adiabatic
+        side = "CN" if adiabatic else "CD"
 
         # Space for Fields
         self.T = Field(
             [
-                Base(self.shape[0], "CN", dealias=3 / 2),
+                Base(self.shape[0], side, dealias=3 / 2),
                 Base(self.shape[1], "CD", dealias=3 / 2),
             ]
         )

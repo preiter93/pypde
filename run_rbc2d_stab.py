@@ -37,31 +37,33 @@ for R in Ra:
         aspect=aspect,
     )
     NS.set_temperature(m=1, amplitude=0.01)
-
-    N = 5
-    dtime = 20.0
+    NS.iterate(100.)
+    NS.solve_steady_state()
     evals, _ = NS.solve_stability(shape=(21, 21), plot=True)
-    e3.append(evals[-3])
-    e2.append(evals[-2])
-    e1.append(evals[-1])
 
-    for i in range(N):
-        time += dtime
-        NS.iterate(time)
-        evals, _ = NS.solve_stability(shape=(21, 21), plot=True)
-        e3.append(evals[-3])
-        e2.append(evals[-2])
-        e1.append(evals[-1])
+    # N = 5
+    # dtime = 20.0
+    # evals, _ = NS.solve_stability(shape=(21, 21), plot=True)
+    # e3.append(evals[-3])
+    # e2.append(evals[-2])
+    # e1.append(evals[-1])
 
-    fig, ax = plt.subplots()
-    i = 0
-    for a, b, c in zip(e1, e2, e3):
-        alpha = 0.9 - 0.9 / N * i
-        ax.scatter(np.real(a), np.imag(a), color=yel, alpha=1 - alpha)
-        ax.scatter(np.real(b), np.imag(b), color=red, alpha=1 - alpha)
-        ax.scatter(np.real(c), np.imag(c), color=blue, alpha=1 - alpha)
-        i += 1
-    plt.show()
+    # for i in range(N):
+    #     time += dtime
+    
+    #     e3.append(evals[-3])
+    #     e2.append(evals[-2])
+    #     e1.append(evals[-1])
+
+    # fig, ax = plt.subplots()
+    # i = 0
+    # for a, b, c in zip(e1, e2, e3):
+    #     alpha = 0.9 - 0.9 / N * i
+    #     ax.scatter(np.real(a), np.imag(a), color=yel, alpha=1 - alpha)
+    #     ax.scatter(np.real(b), np.imag(b), color=red, alpha=1 - alpha)
+    #     ax.scatter(np.real(c), np.imag(c), color=blue, alpha=1 - alpha)
+    #     i += 1
+    # plt.show()
     # NS.write()
 
     # -- Animate and plot

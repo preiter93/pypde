@@ -27,6 +27,8 @@ def plot_evec(evecs, U, V, P, T, xx, yy, m=-1):
     fig, ax = plt.subplots()
     ax.contourf(xx, yy, t, cmap="RdBu_r", levels=levels)
     ax.set_aspect(1)
+    ax.set_xticks([])
+    ax.set_yticks([])
 
     # Quiver
     speed = np.max(np.sqrt(u ** 2 + v ** 2))

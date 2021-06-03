@@ -127,6 +127,8 @@ class NavierStokesBase:
             self.xx, self.yy, self.T.v + self.Tbc.v, levels=np.linspace(-0.5, 0.5, 40)
         )
         ax.set_aspect(1)
+        ax.set_xticks([])
+        ax.set_yticks([])
 
         # Quiver
         speed = np.max(np.sqrt(self.U.v ** 2 + self.V.v ** 2))
@@ -178,7 +180,15 @@ class NavierStokesBase:
     def read(self, leading_str="", add_time=True):
         dict = {"nu": self.nu, "kappa": self.kappa}
         self.field.read(leading_str=leading_str, add_time=add_time, dict=dict)
-        self.time = self.field[0].t  # Update time
+        self.time = self.field.fields[0].t  # Update time
+        dict["Pr"] = Pr(dict["nu"], dict["kappa"])
+        dict["Ra"] = Ra(dict["nu"], dict["kappa"])
+        self.CONFIG.update(dict)
+        self.__dict__.update(**self.CONFIG)
+        self.setup_solver()
+
+    def read_from_filename(self, filename):
+        pass
 
     def save(self):
         self.field.save()
@@ -305,7 +315,7 @@ class NavierStokesStability:
         # Initialize Navier Stokes class on coarser grid
         config = self.CONFIG
         config["shape"] = shape
-        self.NS_C = NavierStokes(**config)
+        self.NS_C = NavierStokes(adiabatic=self.adiabatic, **config)
 
         # Interpolate onto coarser grid
         interpolate(self.T, self.NS_C.T, spectral=True)

@@ -121,6 +121,7 @@ class FieldBase:
             self.t = np.array(hf.get("time"))
         except:
             print("Cannot read values from " + filename + "...")
+            return
 
         if dict is not None:
             for key in dict:
@@ -376,10 +377,9 @@ class MultiField:
     fields and defines collective routines
     """
 
-    fields = []
-    names = []
-
     def __init__(self, fields, names):
+        self.fields = []
+        self.names = []
         for f, n in zip(fields, names):
             if not isinstance(f, Field):
                 raise ValueError("Must be of type Field.")
