@@ -3,8 +3,10 @@ import sys
 sys.path.append("./")
 from pypde import *
 from pypde.plot import *
-from .rbc2d_base import *
-
+try:
+    from rbc2d_base import *
+except:
+    from .rbc2d_base import *
 # import matplotlib.pyplot as plt
 import time
 
