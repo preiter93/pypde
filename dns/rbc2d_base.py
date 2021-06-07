@@ -46,7 +46,7 @@ class NavierStokesBase:
         self.__dict__.update(**self.CONFIG)
         # self.__dict__.update(**kwargs)
 
-        normalize = False
+        normalize = True
         if normalize:
             self.nu = nu(self.Ra, self.Pr)
             self.kappa = kappa(self.Ra, self.Pr)

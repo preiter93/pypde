@@ -362,8 +362,9 @@ class NavierStokes(
 
 def transfer_function(TL, TM, TR, x, k=0.01):
     arr = np.zeros(x.shape)
+    L = x[-1] - x[0]
     for i in range(x.size):
-        xs = x[i]
+        xs = x[i] * 2.0 / L
         if xs < 0:
             arr[i] = -k * xs / (k + xs + 1) * (TL - TM) + TM
         else:
@@ -414,6 +415,10 @@ class NavierStokesZero(NavierStokes):
         bc = np.zeros((2, self.shape[1]))
         bc[0, :] = transfer_function(0.5, 0, -0.5, self.y, k=0.02)
         bc[1, :] = bc[0, :]
+
+        plt.plot(self.y, bc[0, :])
+        plt.show()
+
         self.Tbc = FieldBC(self.T.xs, axis=0)
         self.Tbc.add_bc(bc)
 
