@@ -5,15 +5,15 @@ from pypde import *
 import matplotlib.pyplot as plt
 
 
-def nu(Ra, Pr):
-    return np.sqrt(Pr / Ra)
+def nu(Ra, Pr, L):
+    return np.sqrt(Pr / Ra / L ** 3.0)
 
 
-def kappa(Ra, Pr):
-    return np.sqrt(1 / Pr / Ra)
+def kappa(Ra, Pr, L):
+    return np.sqrt(1 / Pr / Ra / L ** 3.0)
 
 
-def Ra(nu, kappa, L=1):
+def Ra(nu, kappa, L):
     return 1 / (nu * kappa) * L ** 3.0
 
 
@@ -48,13 +48,13 @@ class NavierStokesBase:
 
         normalize = True
         if normalize:
-            self.nu = nu(self.Ra, self.Pr)
-            self.kappa = kappa(self.Ra, self.Pr)
+            self.nu = nu(self.Ra, self.Pr, L=1.0)
+            self.kappa = kappa(self.Ra, self.Pr, L=1.0)
             # Scale Physical domain size
             self.scale = (self.aspect * 0.5, 0.5)
         else:
-            self.nu = nu(self.Ra / 8.0, self.Pr)
-            self.kappa = kappa(self.Ra / 8.0, self.Pr)
+            self.nu = nu(self.Ra / 8.0, self.Pr, L=2.0)
+            self.kappa = kappa(self.Ra / 8.0, self.Pr, L=2.0)
             # Scale Physical domain size
             self.scale = (self.aspect * 1.0, 1.0)
 
@@ -181,7 +181,7 @@ class NavierStokesBase:
         dict = {
             "nu": self.nu,
             "kappa": self.kappa,
-            "Ra": Ra(self.nu, self.kappa),
+            "Ra": Ra(self.nu, self.kappa, L=self.y[-1] - self.y[0]),
             "Pr": Pr(self.nu, self.kappa),
         }
         self.field.write(leading_str=leading_str, add_time=add_time, dict=dict)
@@ -190,8 +190,8 @@ class NavierStokesBase:
         dict = {"nu": self.nu, "kappa": self.kappa}
         self.field.read(leading_str=leading_str, add_time=add_time, dict=dict)
         self.time = self.field.fields[0].t  # Update time
+        dict["Ra"] = Ra(dict["nu"], dict["kappa"], L=self.y[-1] - self.y[0])
         dict["Pr"] = Pr(dict["nu"], dict["kappa"])
-        dict["Ra"] = Ra(dict["nu"], dict["kappa"])
         self.CONFIG.update(dict)
         self.__dict__.update(**self.CONFIG)
         self.setup_solver()

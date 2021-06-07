@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 
+GFCMAP_REGISTERED = False
 
 def initplot():
     InitPlot()
@@ -121,4 +122,7 @@ class InitPlot:
 
     def set_gfcmap(self):
         """Register goldfish colormap"""
-        plt.cm.register_cmap(name="gfcmap", cmap=gfcmap())
+        try:
+            plt.cm.get_cmap("gfcmap")
+        except:
+            plt.cm.register_cmap(name="gfcmap", cmap=gfcmap())

@@ -1,24 +1,15 @@
+from navier import rbc2d
 from pypde import *
-from dns import rbc2d
 
 initplot()
 
-
-def avg_x(f, dx):
-    return np.sum(f * dx[:, None], axis=0) / np.sum(dx)
-
-
 shape = (32, 32)
-
 Pr = 1
 Ra = np.logspace(5, 6, 10)
 Ra = [5e4]
 Nu = []
 aspect = 1.0
 for R in Ra:
-    # r = R/2**3
-    # nu = np.sqrt(Pr/r)
-    # kappa = np.sqrt(1/Pr/r)
 
     # -- Solve Navier Stokes
     NS = rbc2d.NavierStokes(
@@ -33,14 +24,14 @@ for R in Ra:
         aspect=aspect,
     )
     NS.set_temperature(m=1, amplitude=0.05)
-    NS.iterate(100.0)
-    NS.solve_steady_state()
-    NS.solve_stability(shape=(27, 27))
+    NS.iterate(10.0)
+    #NS.solve_steady_state()
+    #NS.solve_stability(shape=(27, 27))
     # NS.write()
 
     # -- Animate and plot
     NS.plot()
-    NS.animate()
+    # NS.animate()
 
     # -- Get Geometry
     x, y = NS.T.x, NS.T.y

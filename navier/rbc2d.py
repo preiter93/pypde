@@ -416,8 +416,8 @@ class NavierStokesZero(NavierStokes):
         bc[0, :] = transfer_function(0.5, 0, -0.5, self.y, k=0.02)
         bc[1, :] = bc[0, :]
 
-        plt.plot(self.y, bc[0, :])
-        plt.show()
+        # plt.plot(self.y, bc[0, :])
+        # plt.show()
 
         self.Tbc = FieldBC(self.T.xs, axis=0)
         self.Tbc.add_bc(bc)
