@@ -11,6 +11,7 @@ except:
     from .rbc2d_base import NavierStokesBase
     from .rbc2d import NavierStokes
 
+
 class NavierStokesAdjoint(NavierStokesBase, Integrator):
     """
     CONFIG={
@@ -179,11 +180,11 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
 
         # -- Smooth fields (nabla^2 TA = T)
         rhs = self.nabla_U.solve_rhs(galerkin_to_cheby(self.NS.U.vhat, self.NS.U))
-        self.UA.vhat[:] = self.nabla_U.solve_lhs(rhs)/self.nu
+        self.UA.vhat[:] = self.nabla_U.solve_lhs(rhs) / self.nu
         rhs = self.nabla_V.solve_rhs(galerkin_to_cheby(self.NS.V.vhat, self.NS.V))
-        self.VA.vhat[:] = self.nabla_V.solve_lhs(rhs)/self.nu
+        self.VA.vhat[:] = self.nabla_V.solve_lhs(rhs) / self.nu
         rhs = self.nabla_T.solve_rhs(galerkin_to_cheby(self.NS.T.vhat, self.NS.T))
-        self.TA.vhat[:] = self.nabla_T.solve_lhs(rhs)/self.kappa
+        self.TA.vhat[:] = self.nabla_T.solve_lhs(rhs) / self.kappa
 
     def update_U(self, stage):
         self.rhs[:] = 0.0
@@ -207,7 +208,7 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
 
         # Diffusion
         self.rhs += self.a[stage] * galerkin_to_cheby(self.NS.U.vhat, self.U)
-        #self.rhs += self.a[stage] * self.nu * galerkin_to_cheby(self.NS.U.vhat, self.U)
+        # self.rhs += self.a[stage] * self.nu * galerkin_to_cheby(self.NS.U.vhat, self.U)
 
         # Update
         self.U.vhat[:] += self.dt * cheby_to_galerkin(self.rhs, self.U)
@@ -233,7 +234,7 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
             )
 
         # Diffusion
-        #self.rhs += self.a[stage] * self.nu * galerkin_to_cheby(self.NS.V.vhat, self.V)
+        # self.rhs += self.a[stage] * self.nu * galerkin_to_cheby(self.NS.V.vhat, self.V)
         self.rhs += self.a[stage] * galerkin_to_cheby(self.NS.V.vhat, self.V)
 
         # Update
@@ -250,12 +251,10 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
             )
 
         # Diffusion
-        #self.rhs += (
+        # self.rhs += (
         #    self.a[stage] * self.kappa * galerkin_to_cheby(self.NS.T.vhat, self.T)
-        #)
-        self.rhs += (
-            self.a[stage] * galerkin_to_cheby(self.NS.T.vhat, self.T)
-        )
+        # )
+        self.rhs += self.a[stage] * galerkin_to_cheby(self.NS.T.vhat, self.T)
 
         # Buoyancy
         self.rhs += self.a[stage] * galerkin_to_cheby(self.VA.vhat, self.VA)

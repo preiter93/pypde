@@ -46,11 +46,17 @@ class NavierStokesBase:
         self.__dict__.update(**self.CONFIG)
         # self.__dict__.update(**kwargs)
 
-        self.nu = nu(self.Ra, self.Pr)
-        self.kappa = kappa(self.Ra, self.Pr)
-
-        # Scale Physical domain size
-        self.scale = (self.aspect * 0.5, 0.5)
+        normalize = False
+        if normalize:
+            self.nu = nu(self.Ra, self.Pr)
+            self.kappa = kappa(self.Ra, self.Pr)
+            # Scale Physical domain size
+            self.scale = (self.aspect * 0.5, 0.5)
+        else:
+            self.nu = nu(self.Ra / 8.0, self.Pr)
+            self.kappa = kappa(self.Ra / 8.0, self.Pr)
+            # Scale Physical domain size
+            self.scale = (self.aspect * 1.0, 1.0)
 
         # Space for derivatives
         self.deriv_field = Field(
@@ -161,8 +167,11 @@ class NavierStokesBase:
 
     def eval_Nu(self):
         # from pypde.field_operations import eval_Nu,eval_Nuvol
-        Nuz = eval_Nu(self.T, self.deriv_field)
-        Nuv = eval_Nuvol(self.T, self.V, self.kappa, self.deriv_field, Tbc=self.Tbc)
+        Lz = self.y[-1] - self.y[0]
+        Nuz = eval_Nu(self.T, self.deriv_field, Tbc=self.Tbc, Lz=Lz)
+        Nuv = eval_Nuvol(
+            self.T, self.V, self.kappa, self.deriv_field, Tbc=self.Tbc, Lz=Lz
+        )
         return Nuz, Nuv
 
     def interpolate(self, NS_old, spectral=True):
@@ -255,12 +264,14 @@ class NavierStokesSteadyState:
         return (Y - X) / NS.dt
 
 
-def eval_Nu(T, field, Lz=1.0):
+def eval_Nu(T, field, Lz=1.0, Tbc=None):
     """
     Heat Flux at the plates
     """
     T.backward()
     T = T.v.copy()
+    if Tbc is not None:
+        T += Tbc.v.copy()
 
     That = field.forward(T)
     scale = Lz / 2.0
@@ -268,8 +279,8 @@ def eval_Nu(T, field, Lz=1.0):
     dT = field.backward(dThat)
 
     dTavg = avg_x(dT, field.dx)
-    Nu_bot = -dTavg[0] * Lz + 1
-    Nu_top = -dTavg[-1] * Lz + 1
+    Nu_bot = -dTavg[0] * Lz
+    Nu_top = -dTavg[-1] * Lz
     print("Nubot: {:10.6e}".format(Nu_bot))
     print("Nutop: {:10.6e}".format(Nu_top))
     return (Nu_bot + Nu_top) / 2.0
