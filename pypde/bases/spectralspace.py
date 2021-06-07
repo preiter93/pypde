@@ -88,6 +88,12 @@ class SpectralSpaceBC(SpectralSpace):
         Bases along self.axis should be should be DirichletC or NeumannC
         and not implement self.bc
         """
-        if hasattr(self.xs[self.axis], "bc"):
-            self.xs[self.axis] = self.xs[self.axis].bc
-            SpectralSpace.__init__(self, self.xs)
+        for i in range(self.ndim):
+            if i == self.axis:
+                if hasattr(self.xs[i], "bc"):
+                    self.xs[i] = self.xs[i].bc
+            else:
+                if hasattr(self.xs[i], "family"):
+                    self.xs[i] = self.xs[i].family
+
+        SpectralSpace.__init__(self, self.xs)

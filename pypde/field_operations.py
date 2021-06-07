@@ -54,23 +54,25 @@ def grad(field, deriv, return_field=False, scale=None):
 
 def cheby_to_galerkin(uhat, galerkin_field):
     for axis in range(uhat.ndim):
-        if axis == 0:
-            uhat = galerkin_field.xs[axis].from_chebyshev(uhat)
-        else:
-            uhat = np.swapaxes(uhat, 0, axis)
-            uhat = galerkin_field.xs[axis].from_chebyshev(uhat)
-            uhat = np.swapaxes(uhat, 0, axis)
+        if hasattr(galerkin_field.xs[axis], "from_chebyshev"):
+            if axis == 0:
+                uhat = galerkin_field.xs[axis].from_chebyshev(uhat)
+            else:
+                uhat = np.swapaxes(uhat, 0, axis)
+                uhat = galerkin_field.xs[axis].from_chebyshev(uhat)
+                uhat = np.swapaxes(uhat, 0, axis)
     return uhat
 
 
 def galerkin_to_cheby(vhat, galerkin_field):
     for axis in range(vhat.ndim):
-        if axis == 0:
-            vhat = galerkin_field.xs[axis].to_chebyshev(vhat)
-        else:
-            vhat = np.swapaxes(vhat, 0, axis)
-            vhat = galerkin_field.xs[axis].to_chebyshev(vhat)
-            vhat = np.swapaxes(vhat, 0, axis)
+        if hasattr(galerkin_field.xs[axis], "to_chebyshev"):
+            if axis == 0:
+                vhat = galerkin_field.xs[axis].to_chebyshev(vhat)
+            else:
+                vhat = np.swapaxes(vhat, 0, axis)
+                vhat = galerkin_field.xs[axis].to_chebyshev(vhat)
+                vhat = np.swapaxes(vhat, 0, axis)
     return vhat
 
 
