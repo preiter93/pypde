@@ -406,8 +406,8 @@ class NavierStokesZero(NavierStokes):
     }
     """
 
-    def __init__(self, **kwargs):
-        NavierStokes.__init__(self, adiabatic=False, **kwargs)
+    def __init__(self, adiabatic=False, **kwargs):
+        NavierStokes.__init__(self, adiabatic=adiabatic, **kwargs)
 
     def set_temp_fieldbc(self):
         """Setup Inhomogeneous field for temperature"""

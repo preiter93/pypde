@@ -319,14 +319,14 @@ class NavierStokesStability:
         from pypde.stability.utils import print_evals
         from pypde.stability.rbc2d import solve_stability_2d, plot_evec
         from pypde.field_operations import interpolate
-        from .rbc2d import NavierStokes
 
         print("Solve stability ...")
 
         # Initialize Navier Stokes class on coarser grid
         config = self.CONFIG
         config["shape"] = shape
-        self.NS_C = NavierStokes(adiabatic=self.adiabatic, **config)
+        self.NS_C = self.__class__(adiabatic=self.adiabatic, **config)
+        # self.NS_C = NavierStokes(adiabatic=self.adiabatic, **config)
 
         # Interpolate onto coarser grid
         interpolate(self.T, self.NS_C.T, spectral=True)
