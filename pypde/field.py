@@ -396,7 +396,6 @@ class MultiField:
 
     def read(self, filename=None, leading_str="", add_time=True, dict={}):
         for f, n in zip(self.fields, self.names):
-            print(f.t)
             f.read(
                 filename=None, leading_str=leading_str + n, add_time=add_time, dict=dict
             )

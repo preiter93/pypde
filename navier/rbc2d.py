@@ -34,7 +34,6 @@ class NavierStokes(
 
     def __init__(self, adiabatic=True, **kwargs):
         NavierStokesBase.__init__(self, **kwargs)
-        NavierStokesSteadyState.__init__(self)
         Integrator.__init__(self)
         self.adiabatic = adiabatic
         side = "CN" if adiabatic else "CD"
@@ -78,6 +77,19 @@ class NavierStokes(
 
         # Add stability solver
         NavierStokesSteadyState.__init__(self)
+        NavierStokesStability.__init__(self)
+
+    def reset(self, reset_time=True):
+        """
+        Reset nu, kappa and solvers.
+        Call after Ra or Pr has changed
+        """
+        self.set_nu_kappa()
+        self.setup_solver()
+        if reset_time:
+            self.time = 0.0
+            for field in self.field.fields:
+                field.time = 0.0
 
     def set_temperature(self, amplitude=0.5, m=1):
         self.T.v = amplitude * np.sin(m * np.pi * self.xx) * np.cos(np.pi * self.yy)

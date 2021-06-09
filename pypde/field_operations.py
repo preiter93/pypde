@@ -45,7 +45,11 @@ def grad(field, deriv, return_field=False, scale=None):
             dvhat /= scale[axis] ** deriv[axis]
 
     if return_field:
-        field_deriv = Field([field.xs[i].family for i in range(field.ndim)])
+        xs = [
+            field.xs[i].family if hasattr(field.xs[i], "family") else field.xs[i]
+            for i in range(field.ndim)
+        ]
+        field_deriv = Field(xs)
         field_deriv.vhat = dvhat
         return field_deriv
     else:

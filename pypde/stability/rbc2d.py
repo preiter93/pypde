@@ -279,7 +279,7 @@ def solve_stability_2d(
 
     # -- Solve EVP ----
     # evals,evecs = eig(L,1.j*M)
-    evals, evecs = eigs(L, k=5, M=M, sigma=0)  # shift and invert
+    evals, evecs = eigs(L, k=8, M=M, sigma=0)  # shift and invert
     evals = evals * -1.0j
 
     # Post Process egenvalues

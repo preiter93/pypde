@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 
 GFCMAP_REGISTERED = False
 
+
 def initplot():
     InitPlot()
 

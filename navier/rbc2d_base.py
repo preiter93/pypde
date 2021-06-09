@@ -26,37 +26,26 @@ class NavierStokesBase:
     Some Base Functions for Navier--Stokes Simulations
     """
 
-    CONFIG = {
-        "shape": (50, 50),
-        # "kappa": 1.0,
-        # "nu": 1.0,
-        "Ra": 5e3,
-        "Pr": 1.0,
-        "dt": 0.2,
-        "ndim": 2,
-        "tsave": 0.1,
-        "dealias": True,
-        "integrator": "eu",
-        "beta": 1.0,
-        "aspect": 1.0,
-    }
-
     def __init__(self, **kwargs):
+
+        self.CONFIG = {
+            "shape": (50, 50),
+            "Ra": 5e3,
+            "Pr": 1.0,
+            "dt": 0.2,
+            "ndim": 2,
+            "tsave": 0.1,
+            "dealias": True,
+            "integrator": "eu",
+            "beta": 1.0,
+            "aspect": 1.0,
+        }
         self.CONFIG.update(**kwargs)
         self.__dict__.update(**self.CONFIG)
         # self.__dict__.update(**kwargs)
 
-        normalize = True
-        if normalize:
-            self.nu = nu(self.Ra, self.Pr, L=1.0)
-            self.kappa = kappa(self.Ra, self.Pr, L=1.0)
-            # Scale Physical domain size
-            self.scale = (self.aspect * 0.5, 0.5)
-        else:
-            self.nu = nu(self.Ra / 8.0, self.Pr, L=2.0)
-            self.kappa = kappa(self.Ra / 8.0, self.Pr, L=2.0)
-            # Scale Physical domain size
-            self.scale = (self.aspect * 1.0, 1.0)
+        self.normalize = True
+        self.set_nu_kappa()
 
         # Space for derivatives
         self.deriv_field = Field(
@@ -72,6 +61,21 @@ class NavierStokesBase:
         self.xx, self.yy = np.meshgrid(self.x, self.y, indexing="ij")
 
         # self.io_config()
+
+    def set_nu_kappa(self, normalize=None):
+        if normalize is None:
+            normalize = self.normalize
+
+        if normalize:
+            self.nu = nu(self.Ra, self.Pr, L=1.0)
+            self.kappa = kappa(self.Ra, self.Pr, L=1.0)
+            # Scale Physical domain size
+            self.scale = (self.aspect * 0.5, 0.5)
+        else:
+            self.nu = nu(self.Ra / 8.0, self.Pr, L=2.0)
+            self.kappa = kappa(self.Ra / 8.0, self.Pr, L=2.0)
+            # Scale Physical domain size
+            self.scale = (self.aspect * 1.0, 1.0)
 
     def grad(self, field, deriv, return_field=False):
         return grad(field, deriv=deriv, return_field=return_field, scale=self.scale)
@@ -209,14 +213,26 @@ class NavierStokesSteadyState:
     Calculate steaday state solutions using the LGMRES algorithm.
     """
 
-    def solve_steady_state(self, X0=None, maxiter=300, disp=True, tol=1e-8):
+    def solve_steady_state(
+        self,
+        X0=None,
+        maxiter=300,
+        disp=True,
+        tol=1e-8,
+        jac_options={"inner_maxiter": 30},
+    ):
         """
         Solve steady state using scipy's LGMRES algorithm
         """
         from scipy import optimize
 
         """ Solve steady state """
-        options = {"maxiter": maxiter, "disp": disp, "fatol": tol}
+        options = {
+            "maxiter": maxiter,
+            "disp": disp,
+            "fatol": tol,
+            "jac_options": jac_options,
+        }
         if X0 is None:
             X0 = self.vectorify()
         sol = optimize.root(
@@ -315,7 +331,7 @@ class NavierStokesStability:
     Conduct linear stability analysis on a given flow
     """
 
-    def solve_stability(self, shape=(21, 21), plot=True):
+    def solve_stability(self, shape=(21, 21), plot=True, n_evecs=3):
         from pypde.stability.utils import print_evals
         from pypde.stability.rbc2d import solve_stability_2d, plot_evec
         from pypde.field_operations import interpolate
@@ -323,7 +339,7 @@ class NavierStokesStability:
         print("Solve stability ...")
 
         # Initialize Navier Stokes class on coarser grid
-        config = self.CONFIG
+        config = self.CONFIG.copy()
         config["shape"] = shape
         self.NS_C = self.__class__(adiabatic=self.adiabatic, **config)
         # self.NS_C = NavierStokes(adiabatic=self.adiabatic, **config)
@@ -368,8 +384,7 @@ class NavierStokesStability:
         print_evals(evals, 5)
         if plot:
             xx, yy = self.NS_C.xx, self.NS_C.yy
-            plot_evec(evecs, U, V, P, T, xx, yy, m=-1)
-            plot_evec(evecs, U, V, P, T, xx, yy, m=-2)
-            plot_evec(evecs, U, V, P, T, xx, yy, m=-3)
+            for i in range(n_evecs):
+                plot_evec(evecs, U, V, P, T, xx, yy, m=-i - 1)
         print("Stability calculation finished!")
         return evals, evecs
