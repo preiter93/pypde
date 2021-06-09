@@ -29,14 +29,15 @@ class StabDict:
         self.fname = fname
 
         for Ra in Ra_all:
-            self.dict[Ra] = ()
+            Ra_fmt = float("{:10.3e}".format(Ra))
+            self.dict[Ra_fmt] = ()
 
         # for saving
-        self.header = "{:6s}|{:6s}|{:6s}|{:6s}|{:6s}|{:14s}".format(
+        self.header = "{:10s}|{:10s}|{:10s}|{:10s}|{:10s}|{:16s}".format(
             "Ra", "Nu", "Nuv", "sigma", "res", "fname"
         )
         self.wtype = "f8, f8, f8, f8, f8, S14"
-        self.fmt = "%6.2e %6.2f %6.2f %6.2f %6.2e %14.14s"
+        self.fmt = "%10.3e %10.3f %10.3f %10.2e %10.2e %16.16s"
 
         # type for reading
         self.rtype = "f8, f8, f8, f8, f8, U14"
@@ -50,7 +51,7 @@ class StabDict:
         Ra_dict.add(Ra,1.,1.,2.,4e-3,"ra1e3")
         """
         if Ra not in self.dict:
-            raise ValueError("Can't add Ra. Not known to dict.")
+            raise ValueError("Can't add Ra: {:}. Not known to dict.".format(Ra))
         tpl = (Nu, Nuv, sigma, res, fname)
         if not self.dict[Ra]:
             self.dict[Ra] = tpl
@@ -89,11 +90,15 @@ class StabDict:
         if fname is None:
             fname = self.fname
 
-        table = np.loadtxt(fname, dtype=self.rtype)
+        if os.path.isfile(fname):
+            table = np.loadtxt(fname, dtype=self.rtype)
+        else:
+            print("Can't read. File {:} does not exist.".format(fname))
 
         # Add to dictionary if fname is not empty
         for tpl in table:
             if not (tpl[-1] == "b''" or tpl[-1] == ""):
+                print("Load Ra: {:}".format(tpl[0]))
                 self.add(*tpl)
 
 
@@ -105,4 +110,5 @@ def fname_from_Ra(Ra):
     fname = fname_from_Ra(Ra)
     NS.write(leading_str=fname,add_time=False)
     """
-    return "Ra{:4.2e}_".format(Ra)
+    return "Ra{:3.3e}_".format(Ra)
+

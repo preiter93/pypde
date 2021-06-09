@@ -155,7 +155,7 @@ class NavierStokesBase:
             headwidth=4,
         )
         if return_fig:
-            return plt, ax
+            return fig, ax
         plt.show()
 
     def animate(self):
