@@ -24,7 +24,7 @@ class StabDict:
 
     def __init__(self, Ra_all=None, fname="test.txt"):
         if Ra_all is None:
-            Ra_all = np.logspace(3, 7, 200)
+            Ra_all = np.logspace(3.5, 6.5, 301)
         self.dict = {}
         self.fname = fname
 
@@ -112,3 +112,6 @@ def fname_from_Ra(Ra):
     """
     return "Ra{:3.3e}_".format(Ra)
 
+
+def residual(sol):
+    return np.linalg.norm(sol.fun)

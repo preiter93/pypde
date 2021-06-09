@@ -28,15 +28,18 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
     }
     """
 
-    def __init__(self, adiabatic=True, **kwargs):
+    def __init__(self, adiabatic=True, ns_type = None, **kwargs):
         Integrator.__init__(self)
         NavierStokesBase.__init__(self, **kwargs)
         self.adiabatic = adiabatic
         side = "CN" if adiabatic else "CD"
 
         # Initialize underlying NavierStokes Solver
-        self.NS = NavierStokes(adiabatic=adiabatic, **self.CONFIG)
-
+        if ns_type is None:
+            self.NS = NavierStokes(adiabatic=adiabatic, **self.CONFIG)
+        else:
+            self.NS = ns_type(adiabatic=adiabatic, **self.CONFIG)
+            
         # Space for Fields
         self.T = Field(
             [

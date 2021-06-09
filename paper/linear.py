@@ -4,15 +4,15 @@ sys.path.append("../")
 import numpy as np
 from pypde import *
 from navier import rbc2d
-from stabdict import StabDict, fname_from_Ra
+from stabdict import StabDict, fname_from_Ra, residual
+from adjoint import adjoint
 import matplotlib.pyplot as plt
+from pathlib import Path
 
-
-def residual(sol):
-    return np.linalg.norm(sol.fun)
-
+ADJOINT = True
 
 folder = "linear/"
+Path(folder).mkdir(parents=True, exist_ok=True)
 # Store Results in Dictionary
 Ra_dict = StabDict(fname=folder + "linear.txt")
 
@@ -45,7 +45,7 @@ st_settings = {
 
 
 # Set Ra - limits
-Ra_lim = [5.3e3, 2e6]
+Ra_lim = [5.8e3, 2e6]
 
 # Initial Save
 Ra_dict.save()
@@ -69,9 +69,12 @@ if not Ra_dict.dict[Ra]:
     NS.set_temperature(amplitude=0.04)
 
     # Simulate
-    NS.iterate(60)
+    NS.iterate(100)
     NS.plot()
     Nu, Nuv = NS.eval_Nu()
+
+    # Adjoint
+    if ADJOINT: adjoint(NS)
 
     # Steady State
     sol = NS.solve_steady_state(X0=None, **ne_settings)
@@ -101,13 +104,19 @@ for Ra in Ra_dict.dict:
     NS.Ra = Ra
     NS.reset(reset_time=True)
 
+    # Adjoint
+    if ADJOINT: adjoint(NS)
+
     # Steady State
     sol = NS.solve_steady_state(
         X0=X0,
         # maxiter=4,
         **ne_settings,
     )
-    X0 = sol.x
+    if ADJOINT: 
+        X0 = None
+    else:
+        X0 = sol.x
     res = residual(sol)
 
     # Get Nu
@@ -130,4 +139,3 @@ for Ra in Ra_dict.dict:
 
     # Write dict
     Ra_dict.save(enforce_overwrite=True)
-
