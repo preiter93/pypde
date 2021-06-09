@@ -59,7 +59,7 @@ for Ra in Ra_dict.dict:
         break
 
 
-NS = rbc2d.NavierStokesZero(
+NS = rbc2d.NavierStokes(
     Ra=Ra,
     **ns_settings,
 )
