@@ -106,31 +106,6 @@ def solve_rbc2d(
 
     TT[:] = CH.forward(-1.0 * yy)
 
-    evals, evecs = solve_stability_2d(
-        Ra,
-        Pr,
-        U,
-        V,
-        T,
-        P,
-        CH,
-        UU,
-        VV,
-        TT,
-        scale=(scale_z * aspect, scale_z),
-        norm_diff=norm_diff,
-    )
-
-    if plot:
-        plot_evec(evecs, U, V, P, T, xx, yy, m=-1)
-
-    return evals, evecs
-
-
-def solve_stability_2d(
-    Ra, Pr, U, V, T, P, CH, UU, VV, TT, scale=(1, 1), norm_diff=True
-):
-
     if norm_diff:
         # Normalization 0 (Diffusion)
         nu = Pr
@@ -141,6 +116,31 @@ def solve_stability_2d(
         nu = np.sqrt(Pr / Ra)
         ka = np.sqrt(1 / Pr / Ra)
         gr = 1.0
+
+    evals, evecs = solve_stability_2d(
+        nu,
+        ka,
+        gr,
+        U,
+        V,
+        T,
+        P,
+        CH,
+        UU,
+        VV,
+        TT,
+        scale=(scale_z * aspect, scale_z),
+    )
+
+    if plot:
+        plot_evec(evecs, U, V, P, T, xx, yy, m=-1)
+
+    return evals, evecs
+
+
+def solve_stability_2d(
+    nu, ka, gr, U, V, T, P, CH, UU, VV, TT, scale=(1, 1)
+):
 
     # -- Matrices
     Ix, Iy = np.eye(CH.vhat.shape[0]), np.eye(CH.vhat.shape[1])
@@ -287,3 +287,4 @@ def solve_stability_2d(
     evals, evecs = sort_evals(evals, evecs, which="I")
 
     return evals, evecs
+

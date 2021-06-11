@@ -9,7 +9,7 @@ from adjoint import adjoint
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-ADJOINT = True
+ADJOINT = False
 
 folder = "zero/"
 Path(folder).mkdir(parents=True, exist_ok=True)
@@ -46,7 +46,7 @@ st_settings = {
 
 
 # Set Ra - limits
-Ra_lim = [6.3e3, 2e6]
+Ra_lim = [6.5e3, 2e6]
 
 # Initial Save
 Ra_dict.save()
@@ -71,7 +71,7 @@ if not Ra_dict.dict[Ra]:
 
     # Simulate
     NS.iterate(100.)
-    NS.plot()
+    #NS.plot()
     Nu, Nuv = NS.eval_Nu()
 
     # Adjoint
@@ -79,7 +79,7 @@ if not Ra_dict.dict[Ra]:
 
     # Steady State
     sol = NS.solve_steady_state(X0=None, **ne_settings)
-    NS.plot()
+    #NS.plot()
     Nu, Nuv = NS.eval_Nu()
 
     # Stability analysis

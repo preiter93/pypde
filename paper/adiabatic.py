@@ -4,7 +4,7 @@ sys.path.append("../")
 import numpy as np
 from pypde import *
 from navier import rbc2d
-from stabdict import StabDict, fname_from_Ra, residual
+from stabdict import StabDict, fname_from_Ra, residual, mirror
 from adjoint import adjoint
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -84,7 +84,42 @@ if not Ra_dict.dict[Ra]:
     # Stability analysis
     evals, evecs = NS.solve_stability(**st_settings)
 
-
+def mirror(NS):
+    #NS.plot()
+ #   b = input("Mirror? Y = yes\n")
+ #   if b.lower() == "y":
+#	NS.U.v[:,:] = -NS.U.v[::-1,:]
+#	NS.V.v[:,:] = NS.V.v[::-1,:]
+#	NS.T.v[:,:] = NS.T.v[::-1,:]
+#	NS.P.v[:,:] = NS.P.v[::-1,:]
+#	NS.U.forward()
+#	NS.V.forward()
+#	NS.T.forward()
+#	NS.P.forward()
+#	NS.plot()
+#	figname = folder + fname[:-1] + ".png"
+#	fig, ax = NS.plot(return_fig=True)
+#	print("Save fig: " + figname)
+#	fig.savefig(figname)
+#	plt.close("all")
+#	NS.write(folder + fname, add_time=False)
+    if np.sum(NS.T.v[0,:]) > np.sum(NS.T.v[-1,:]):
+        print("mirror Ra = {:6.2e}".format(NS.Ra))
+        NS.U.v[:,:] = -NS.U.v[::-1,:]
+        NS.V.v[:,:] = NS.V.v[::-1,:]
+        NS.T.v[:,:] = NS.T.v[::-1,:]
+        NS.P.v[:,:] = NS.P.v[::-1,:]
+        NS.U.forward()
+        NS.V.forward()
+        NS.T.forward()
+        NS.P.forward()
+        figname = folder + fname[:-1] + ".png"
+        fig, ax = NS.plot(return_fig=True)
+        print("Save fig: " + figname)
+        fig.savefig(figname)
+        plt.close("all")
+        NS.write(folder + fname, add_time=False)
+        
 # ------------ Explore Ra -------------
 X0 = None
 for Ra in Ra_dict.dict:
@@ -98,6 +133,7 @@ for Ra in Ra_dict.dict:
         print("Ra {:6.2e} already known.".format(Ra))
         # Read
         NS.read(folder + fname, add_time=False)
+        #mirror(NS)
         continue
 
     # Update Parameters

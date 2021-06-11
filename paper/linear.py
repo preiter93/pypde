@@ -4,12 +4,12 @@ sys.path.append("../")
 import numpy as np
 from pypde import *
 from navier import rbc2d
-from stabdict import StabDict, fname_from_Ra, residual
+from stabdict import StabDict, fname_from_Ra, residual,mirror
 from adjoint import adjoint
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-ADJOINT = True
+ADJOINT = False
 
 folder = "linear/"
 Path(folder).mkdir(parents=True, exist_ok=True)
@@ -33,7 +33,7 @@ ns_settings = {
 # Default Newton-LGMRES Settings
 ne_settings = {
     "maxiter": 1200,
-    "tol": 1e-9,
+    "tol": 1e-8,
     "jac_options": {"inner_maxiter": 30},
 }
 
@@ -98,6 +98,7 @@ for Ra in Ra_dict.dict:
         print("Ra {:6.2e} already known.".format(Ra))
         # Read
         NS.read(folder + fname, add_time=False)
+        #mirror(NS,folder,fname)
         continue
 
     # Update Parameters

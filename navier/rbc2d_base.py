@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 
 
 def nu(Ra, Pr, L):
-    return np.sqrt(Pr / Ra / L ** 3.0)
+    return np.sqrt(Pr / (Ra / L ** 3.0))
 
 
 def kappa(Ra, Pr, L):
-    return np.sqrt(1 / Pr / Ra / L ** 3.0)
+    return np.sqrt(1 / Pr / (Ra / L ** 3.0))
 
 
 def Ra(nu, kappa, L):
@@ -72,8 +72,8 @@ class NavierStokesBase:
             # Scale Physical domain size
             self.scale = (self.aspect * 0.5, 0.5)
         else:
-            self.nu = nu(self.Ra / 8.0, self.Pr, L=2.0)
-            self.kappa = kappa(self.Ra / 8.0, self.Pr, L=2.0)
+            self.nu = nu(self.Ra, self.Pr, L=2.0)
+            self.kappa = kappa(self.Ra, self.Pr, L=2.0)
             # Scale Physical domain size
             self.scale = (self.aspect * 1.0, 1.0)
 
@@ -368,8 +368,9 @@ class NavierStokesStability:
 
         # Calculate stability
         evals, evecs = solve_stability_2d(
-            self.Ra,
-            self.Pr,
+            self.nu,
+            self.kappa,
+            1.0,
             U,
             V,
             T,
@@ -379,7 +380,7 @@ class NavierStokesStability:
             VV,
             TT,
             scale=self.scale,
-            norm_diff=False,
+            #norm_diff=False,
         )
         print_evals(evals, 5)
         if plot:
@@ -388,3 +389,4 @@ class NavierStokesStability:
                 plot_evec(evecs, U, V, P, T, xx, yy, m=-i - 1)
         print("Stability calculation finished!")
         return evals, evecs
+

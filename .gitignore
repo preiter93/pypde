@@ -2,3 +2,7 @@ __pycache__/
 out/*
 jupyter/
 .ipynb_checkpoints/
+paper/zero/
+paper/linear/
+ppaper/linear2/
+paper/adiabatic/
