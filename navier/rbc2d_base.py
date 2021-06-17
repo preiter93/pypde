@@ -167,7 +167,8 @@ class NavierStokesBase:
 
         anim = T2.animate(duration=4, x=self.x, y=self.y)
         anim.save("out/anim.gif", writer="imagemagick", fps=20)
-        plt.show()
+        return anim
+        #plt.show()
 
     def eval_Nu(self):
         # from pypde.field_operations import eval_Nu,eval_Nuvol

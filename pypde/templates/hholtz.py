@@ -73,7 +73,7 @@ def solverplan_hholtz2d_adi(bases, lam, scale=(1, 1)):
     Sx = field.xs[0].S_sp
     Bx = field.xs[0].family.B(2, 2)
     Ix = field.xs[0].family.I(2)
-    Ax = Bx @ Sx - lam * (1.0 / scale[1] ** 2.0) * Ix @ Sx
+    Ax = Bx @ Sx - lam * (1.0 / scale[0] ** 2.0) * Ix @ Sx
 
     Sy = field.xs[1].S_sp
     By = field.xs[1].family.B(2, 2)
