@@ -182,18 +182,18 @@ class NavierStokesBase:
     def interpolate(self, NS_old, spectral=True):
         self.field.interpolate(NS_old.field)
 
-    def write(self, leading_str="", add_time=True):
+    def write(self, filename = None, leading_str="", add_time=True):
         dict = {
             "nu": self.nu,
             "kappa": self.kappa,
             "Ra": Ra(self.nu, self.kappa, L=self.y[-1] - self.y[0]),
             "Pr": Pr(self.nu, self.kappa),
         }
-        self.field.write(leading_str=leading_str, add_time=add_time, dict=dict)
+        self.field.write(filename = filename, leading_str=leading_str, add_time=add_time, dict=dict)
 
-    def read(self, leading_str="", add_time=True):
+    def read(self, filename = None, leading_str="", add_time=True):
         dict = {"nu": self.nu, "kappa": self.kappa}
-        self.field.read(leading_str=leading_str, add_time=add_time, dict=dict)
+        self.field.read(filename = filename, leading_str=leading_str, add_time=add_time, dict=dict)
         self.time = self.field.fields[0].t  # Update time
         dict["Ra"] = Ra(dict["nu"], dict["kappa"], L=self.y[-1] - self.y[0])
         dict["Pr"] = Pr(dict["nu"], dict["kappa"])
@@ -203,6 +203,29 @@ class NavierStokesBase:
 
     def read_from_filename(self, filename):
         pass
+
+    def write_from_Ra(self,folder=""):
+        if folder and folder[-1] != "/":
+            folder = folder + "/"
+        filename = folder + self.fname_from_Ra(self.Ra)
+        self.write(filename = filename)
+
+    def read_from_Ra(self,folder=""):
+        if folder and folder[-1] != "/":
+            folder = folder + "/"
+        filename = folder + self.fname_from_Ra(self.Ra)
+        self.read(filename = filename)
+
+    @staticmethod
+    def fname_from_Ra(Ra):
+        """
+        Generate filename for given Ra.
+
+        Example:
+        fname = fname_from_Ra(Ra)
+        NS.write(leading_str=fname,add_time=False)
+        """
+        return "Flow_Ra{:3.3e}.h5".format(Ra)
 
     def save(self):
         self.field.save()

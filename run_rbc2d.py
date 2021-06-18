@@ -27,17 +27,4 @@ for R in Ra:
     NS.iterate(10.0)
     #NS.solve_steady_state()
     #NS.solve_stability(shape=(27, 27))
-    # NS.write()
-
-    # -- Animate and plot
-    NS.plot()
-    # NS.animate()
-
-    # -- Get Geometry
-    x, y = NS.T.x, NS.T.y
-    dx, dy = NS.T.dx, NS.T.dy
-    xx, yy = np.meshgrid(x, y, indexing="ij")
-
-    # -- Evaluate Nu
-    Nuz, Nuv = NS.eval_Nu()
-    Nu.append(Nuz)
+    NS.write_from_Ra()

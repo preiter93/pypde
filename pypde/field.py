@@ -80,7 +80,14 @@ class FieldBase:
         return np.diff(ym)
 
     # -- Read Write
-    def write(self, filename="file_0.h5", dict=None, leading_str="flow", add_time=True):
+    def write(
+        self,
+        filename="file_0.h5",
+        dict=None,
+        leading_str="flow",
+        add_time=True,
+        grp_name="",
+    ):
         # -- Filename
         if filename is None:
             filename = leading_str
@@ -88,23 +95,56 @@ class FieldBase:
                 filename = filename + "_{:07.2f}".format(self.t)
             filename = filename + ".h5"
 
+        if grp_name and grp_name[-1] != "/":
+            grp_name = grp_name + "/"
+        v = grp_name + "v"
+        vhat = grp_name + "vhat"
+
         # -- Write
         print("Write {:s} ...".format(filename))
-        hf = h5py.File(filename, "w")
-        hf.create_dataset("v", data=self.v)
-        hf.create_dataset("vhat", data=self.vhat)
-        hf.create_dataset("time", data=self.t)
+        hf = h5py.File(filename, "a")
+        self.write_single_hdf5(hf,v,self.v)
+        self.write_single_hdf5(hf,vhat,self.vhat)
+        self.write_single_hdf5(hf,"time",self.t)
+
         if self.x is not None:
-            hf.create_dataset("x", data=self.x)
+            self.write_single_hdf5(hf,"x",self.x)
         if self.y is not None:
-            hf.create_dataset("y", data=self.x)
+            self.write_single_hdf5(hf,"y",self.y)
         if dict is not None:
             for key in dict:
-                hf.create_dataset(key, data=dict[key])
+                self.write_single_hdf5(hf,key,dict[key])
         # -- Close
         hf.close()
 
-    def read(self, filename="file_0.h5", dict=None, leading_str="flow", add_time=True):
+    @staticmethod
+    def write_single_hdf5(hf,name,data):
+        if not name in hf:
+            hf.create_dataset(name, data=data)
+        else:
+            #print("Data {:} exists already. Overwrite...".format(name))
+            data = hf[name]       # load the data
+            data[...] =data       # assign new values to data
+
+    @staticmethod
+    def read_single_hdf5(hf,name):
+        data = hf.get(name)
+        if data is not None:
+            return np.array(data)
+        else:
+            print("Cannot read {:} ...".format(name))
+            print("Following keys exist: ")
+            hf.visit(print_grp)
+            return 0.
+
+    def read(
+        self,
+        filename="file_0.h5",
+        dict=None,
+        leading_str="flow",
+        add_time=True,
+        grp_name="",
+    ):
         # -- Filename
         if filename is None:
             filename = leading_str
@@ -114,24 +154,27 @@ class FieldBase:
 
         # -- Read
         print("Read {:s} ...".format(filename))
-        try:
-            hf = h5py.File(filename, "r")
-            self.v = np.array(hf.get("v"))
-            self.vhat = np.array(hf.get("vhat"))
-            self.t = np.array(hf.get("time"))
-        except:
-            print("Cannot read values from " + filename + "...")
-            return
+        hf = h5py.File(filename, "r")
+
+        if grp_name and grp_name[-1] != "/":
+            grp_name = grp_name + "/"
+        v = grp_name + "v"
+        vhat = grp_name + "vhat"
+
+        # -- Read
+        self.v[:] = self.read_single_hdf5(hf,v)
+        self.vhat[:] = self.read_single_hdf5(hf,vhat)
+        self.t = self.read_single_hdf5(hf,"time")
 
         if dict is not None:
             for key in dict:
-                val = hf.get(key)
-                if val is None:
-                    print("Warning: Key " + key + " not found in file " + filename)
-                else:
-                    dict[key] = np.array(val)
+                dict[key] = self.read_single_hdf5(hf,key)
         # -- Close
         hf.close()
+
+
+def print_grp(name):
+    print("Group:", name)
 
 
 class Field(SpectralSpace, FieldBase):
@@ -397,14 +440,22 @@ class MultiField:
     def read(self, filename=None, leading_str="", add_time=True, dict={}):
         for f, n in zip(self.fields, self.names):
             f.read(
-                filename=None, leading_str=leading_str + n, add_time=add_time, dict=dict
+                filename=filename,
+                leading_str=leading_str,
+                add_time=add_time,
+                dict=dict,
+                grp_name=n,
             )
 
     def write(self, filename=None, leading_str="", add_time=True, dict={}):
         for f, n in zip(self.fields, self.names):
             f.backward()
             f.write(
-                filename=None, leading_str=leading_str + n, add_time=add_time, dict=dict
+                filename=filename,
+                leading_str=leading_str,
+                add_time=add_time,
+                dict=dict,
+                grp_name=n,
             )
 
     def interpolate(self, old_fields, spectral=True):

@@ -63,7 +63,7 @@ class NavierStokes(
         self.pres = Field([Base(self.shape[0], "CH"), Base(self.shape[1], "CH")])
 
         # Store list of fields for collective saving and time update
-        self.field = MultiField([self.T, self.U, self.V, self.P], ["T", "U", "V", "P"])
+        self.field = MultiField([self.T, self.U, self.V, self.P], ["temp", "ux", "uz", "pres"])
 
         # Setup Solver solverplans
         self.setup_solver()
