@@ -27,18 +27,25 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
         "Lx": 1.0,
     }
     """
+    avail_cases = ["rbc", "linear", "zero"]
+    def __init__(self, case="rbc", **kwargs):
 
-    def __init__(self, adiabatic=True, ns_type = None, **kwargs):
+        if case not in self.avail_cases:
+            raise ValueError("Specified case is not available: ", 
+                self.avail_cases)
+        else:
+            self.case = case
+
         Integrator.__init__(self)
         NavierStokesBase.__init__(self, **kwargs)
-        self.adiabatic = adiabatic
-        side = "CN" if adiabatic else "CD"
+
+        if self.case == "rbc":
+            side = "CN"
+        else:
+            side = "CD"
 
         # Initialize underlying NavierStokes Solver
-        if ns_type is None:
-            self.NS = NavierStokes(adiabatic=adiabatic, **self.CONFIG)
-        else:
-            self.NS = ns_type(adiabatic=adiabatic, **self.CONFIG)
+        self.NS = NavierStokes(case=case, **self.CONFIG)
             
         # Space for Fields
         self.T = Field(

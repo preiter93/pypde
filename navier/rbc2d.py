@@ -30,13 +30,35 @@ class NavierStokes(
 ):
     """
     Solve Navier Stokes equation + temperature equation.
-    """
 
-    def __init__(self, adiabatic=True, **kwargs):
+    rbc:
+        Adiabatic Sidewall
+
+    linear:
+        Isothermal Sidewall + Linear distribution
+
+    zero:
+        Isothermal Sidewall + Zero sidewall temperature
+    """
+    avail_cases = ["rbc", "linear", "zero"]
+    def __init__(self, case="rbc", **kwargs):
+        if case not in self.avail_cases:
+            raise ValueError("Specified case is not available: ", 
+                self.avail_cases)
+        else:
+            self.case = case
         NavierStokesBase.__init__(self, **kwargs)
         Integrator.__init__(self)
-        self.adiabatic = adiabatic
-        side = "CN" if adiabatic else "CD"
+
+        if self.case == "rbc":
+            side = "CN"
+        else:
+            side = "CD"
+
+        if self.case == "zero":
+            self.set_fieldbc = self.set_temp_fieldbc_zero
+        else:
+            self.set_fieldbc = self.set_temp_fieldbc_linear
 
         # Space for Fields
         self.T = Field(
@@ -70,7 +92,7 @@ class NavierStokes(
 
         # Setup Temperature field and bcs
         # self.set_temperature()
-        self.set_temp_fieldbc()
+        self.set_fieldbc()
 
         # Array for rhs
         self.rhs = np.zeros(self.shape)
@@ -95,7 +117,7 @@ class NavierStokes(
         self.T.v = amplitude * np.sin(m * np.pi * self.xx) * np.cos(np.pi * self.yy)
         self.T.forward()
 
-    def set_temp_fieldbc(self):
+    def set_temp_fieldbc_linear(self):
         """Setup Inhomogeneous field for temperature"""
         # Boundary Conditions T (y=-1; y=1)
         bc = np.zeros((self.shape[0], 2))
@@ -115,15 +137,40 @@ class NavierStokes(
         # Tbc in derivative space for Buoyancy
         self.Tbc_cheby = galerkin_to_cheby(self.Tbc.vhat, self.Tbc)
 
+    def set_temp_fieldbc_zero(self):
+        """Setup Inhomogeneous field for temperature"""
+        # Boundary Conditions T (y=-1; y=1)
+        bc = np.zeros((2, self.shape[1]))
+        bc[0, :] = transfer_function(0.5, 0, -0.5, self.y, k=0.02)
+        bc[1, :] = bc[0, :]
+
+        # plt.plot(self.y, bc[0, :])
+        # plt.show()
+
+        self.Tbc = FieldBC(self.T.xs, axis=0)
+        self.Tbc.add_bc(bc)
+
+        # Second Derivative for Diffusion term
+        self.dTbcdz2 = self.grad(self.Tbc, deriv=(0, 2))
+        # First Derivative for Convective term
+        vhat = self.grad(self.Tbc, deriv=(0, 1))
+        if self.dealias:
+            self.dTbcdz1 = self.deriv_field.dealias.backward(vhat)
+        else:
+            self.dTbcdz1 = self.deriv_field.backward(vhat)
+
+        # Tbc in derivative space for Buoyancy
+        self.Tbc_cheby = galerkin_to_cheby(self.Tbc.vhat, self.Tbc)
+
     def setup_solver(self):
         from pypde.templates.hholtz import solverplan_hholtz2d_adi
         from pypde.templates.poisson import solverplan_poisson2d
 
         if self.integrator == "rk3":
-            print("Initialize rk3 ...")
+            #print("Initialize rk3 ...")
             self.set_timestep_coefficients_rk3()
         else:
-            print("Initialize euler ...")
+            #print("Initialize euler ...")
             self.set_timestep_coefficients_euler()
 
         self.solver_U, self.solver_V, self.solver_T = [], [], []
@@ -384,72 +431,72 @@ def transfer_function(TL, TM, TR, x, k=0.01):
     return arr
 
 
-class NavierStokesZero(NavierStokes):
-    """
-    Convection with zero Sidewall BC's
-    CONFIG={
-        "shape": (50,50),
-        "kappa": 1.0,
-        "nu": 1.0,
-        "dt": 0.2,
-        "ndim": 2,
-        "tsave": 0.1,
-        "dealias": True,
-        "integrator": "eu",
-        "beta": 1.0,
+# class NavierStokesZero(NavierStokes):
+#     """
+#     Convection with zero Sidewall BC's
+#     CONFIG={
+#         "shape": (50,50),
+#         "kappa": 1.0,
+#         "nu": 1.0,
+#         "dt": 0.2,
+#         "ndim": 2,
+#         "tsave": 0.1,
+#         "dealias": True,
+#         "integrator": "eu",
+#         "beta": 1.0,
 
-    >>>
-    shape = (64,64)
-    Ra = 1e3
-    Pr = 1
+#     >>>
+#     shape = (64,64)
+#     Ra = 1e3
+#     Pr = 1
 
-    NS = NavierStokesZero(
-            shape=shape,
-            dt=0.005,
-            tsave=1.0,
-            Ra=Ra,
-            Pr=Pr,
-            dealias=True,
-            integrator="rk3",
-            beta=0.5,
-            aspect=1.,
-        )
-    >>>
-    }
-    """
+#     NS = NavierStokesZero(
+#             shape=shape,
+#             dt=0.005,
+#             tsave=1.0,
+#             Ra=Ra,
+#             Pr=Pr,
+#             dealias=True,
+#             integrator="rk3",
+#             beta=0.5,
+#             aspect=1.,
+#         )
+#     >>>
+#     }
+#     """
 
-    def __init__(self, adiabatic=False, **kwargs):
-        NavierStokes.__init__(self, adiabatic=adiabatic, **kwargs)
+#     def __init__(self, adiabatic=False, **kwargs):
+#         NavierStokes.__init__(self, adiabatic=adiabatic, **kwargs)
 
-    def set_temp_fieldbc(self):
-        """Setup Inhomogeneous field for temperature"""
-        # Boundary Conditions T (y=-1; y=1)
-        bc = np.zeros((2, self.shape[1]))
-        bc[0, :] = transfer_function(0.5, 0, -0.5, self.y, k=0.02)
-        bc[1, :] = bc[0, :]
+#     def set_temp_fieldbc(self):
+#         """Setup Inhomogeneous field for temperature"""
+#         # Boundary Conditions T (y=-1; y=1)
+#         bc = np.zeros((2, self.shape[1]))
+#         bc[0, :] = transfer_function(0.5, 0, -0.5, self.y, k=0.02)
+#         bc[1, :] = bc[0, :]
 
-        # plt.plot(self.y, bc[0, :])
-        # plt.show()
+#         # plt.plot(self.y, bc[0, :])
+#         # plt.show()
 
-        self.Tbc = FieldBC(self.T.xs, axis=0)
-        self.Tbc.add_bc(bc)
+#         self.Tbc = FieldBC(self.T.xs, axis=0)
+#         self.Tbc.add_bc(bc)
 
-        # Second Derivative for Diffusion term
-        self.dTbcdz2 = self.grad(self.Tbc, deriv=(0, 2))
-        # First Derivative for Convective term
-        vhat = self.grad(self.Tbc, deriv=(0, 1))
-        if self.dealias:
-            self.dTbcdz1 = self.deriv_field.dealias.backward(vhat)
-        else:
-            self.dTbcdz1 = self.deriv_field.backward(vhat)
+#         # Second Derivative for Diffusion term
+#         self.dTbcdz2 = self.grad(self.Tbc, deriv=(0, 2))
+#         # First Derivative for Convective term
+#         vhat = self.grad(self.Tbc, deriv=(0, 1))
+#         if self.dealias:
+#             self.dTbcdz1 = self.deriv_field.dealias.backward(vhat)
+#         else:
+#             self.dTbcdz1 = self.deriv_field.backward(vhat)
 
-        # Tbc in derivative space for Buoyancy
-        self.Tbc_cheby = galerkin_to_cheby(self.Tbc.vhat, self.Tbc)
+#         # Tbc in derivative space for Buoyancy
+#         self.Tbc_cheby = galerkin_to_cheby(self.Tbc.vhat, self.Tbc)
 
-    def callback(self):
-        print(
-            "Divergence: {:4.2e}".format(
-                np.linalg.norm(self.divergence_velocity(self.U, self.V))
-            )
-        )
-        self.eval_Nu()
+#     def callback(self):
+#         print(
+#             "Divergence: {:4.2e}".format(
+#                 np.linalg.norm(self.divergence_velocity(self.U, self.V))
+#             )
+#         )
+#         self.eval_Nu()

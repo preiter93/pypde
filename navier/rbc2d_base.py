@@ -250,6 +250,8 @@ class NavierStokesSteadyState:
         """
         from scipy import optimize
 
+        print("\nSolve steady state ...\n")
+
         """ Solve steady state """
         options = {
             "maxiter": maxiter,
@@ -360,12 +362,12 @@ class NavierStokesStability:
         from pypde.stability.rbc2d import solve_stability_2d, plot_evec
         from pypde.field_operations import interpolate
 
-        print("Solve stability ...")
+        print("\nSolve stability ...\n")
 
         # Initialize Navier Stokes class on coarser grid
         config = self.CONFIG.copy()
         config["shape"] = shape
-        self.NS_C = self.__class__(adiabatic=self.adiabatic, **config)
+        self.NS_C = self.__class__(case=self.case, **config)
         # self.NS_C = NavierStokes(adiabatic=self.adiabatic, **config)
 
         # Interpolate onto coarser grid
