@@ -118,7 +118,7 @@ for f in flow.flowlist[:]:
     print("Ra = {:4.3e}".format(NS.Ra))
     #NS.plot()
     A = Analyse(NS)
-    A.save(fname = "qlist_"+case+"txt")
+    A.save(fname = "qlist_"+case+".txt")
 
 # NS.solve_stability(shape=(27,27))
 # NS.eval_Nu()
