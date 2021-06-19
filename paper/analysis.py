@@ -101,22 +101,24 @@ class Analyse:
         if not os.path.isfile(fname):
             with open(fname, "w") as f:
                 f.write(self.header())
+            with open(fname, "a") as f:
+                f.write(b"\n")
         with open(fname, "a") as f:
             #f.write(b"\n")
             np.savetxt(f, self.to_array(), fmt=self.fmt)
 
 
-folder = "zero/"
-case = "zero"
+folder = "linear/"
+case = "linear"
 
 flow = Flow(folder, case = case)
 
-for f in flow.flowlist[:2]:
+for f in flow.flowlist[:]:
     NS = flow.get_NS(f)
     print("Ra = {:4.3e}".format(NS.Ra))
     #NS.plot()
     A = Analyse(NS)
-    A.save()
+    A.save(fname = "qlist_"+case+"txt")
 
 # NS.solve_stability(shape=(27,27))
 # NS.eval_Nu()
