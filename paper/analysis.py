@@ -101,7 +101,7 @@ class Analyse:
         if not os.path.isfile(fname):
             with open(fname, "w") as f:
                 f.write(self.header())
-            with open(fname, "a") as f:
+            with open(fname, "ab") as f:
                 f.write(b"\n")
         with open(fname, "a") as f:
             #f.write(b"\n")
