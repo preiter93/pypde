@@ -1,8 +1,9 @@
-import h5py 
+import h5py
 import numpy as np
-import os 
+import os
 
-def merge_fields(fname_t, folder = ""):
+
+def merge_fields(fname_t, folder=""):
     u_field = fname_t.replace("_T", "_U")
     if os.path.isfile(u_field):
         print("U field found.")
@@ -42,7 +43,7 @@ def merge_fields(fname_t, folder = ""):
 
     # Create new collected field
     fname = fname_t[:-5] + ".h5"
-    fname = fname.replace(folder,folder+"Flow_")
+    fname = fname.replace(folder, folder + "Flow_")
     print("Collect T,U,V fields into {:}".format(fname))
     # Write
     hf = h5py.File(fname, "w")

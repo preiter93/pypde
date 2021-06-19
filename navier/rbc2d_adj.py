@@ -27,12 +27,13 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
         "Lx": 1.0,
     }
     """
+
     avail_cases = ["rbc", "linear", "zero"]
+
     def __init__(self, case="rbc", **kwargs):
 
         if case not in self.avail_cases:
-            raise ValueError("Specified case is not available: ", 
-                self.avail_cases)
+            raise ValueError("Specified case is not available: ", self.avail_cases)
         else:
             self.case = case
 
@@ -46,7 +47,7 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
 
         # Initialize underlying NavierStokes Solver
         self.NS = NavierStokes(case=case, **self.CONFIG)
-            
+
         # Space for Fields
         self.T = Field(
             [
@@ -69,7 +70,9 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
         self.P = Field([Base(self.shape[0], "CN"), Base(self.shape[1], "CN")])
 
         # Store list of fields for collective saving and time update
-        self.field = MultiField([self.T, self.U, self.V, self.P], ["temp", "ux", "uz", "pres"])
+        self.field = MultiField(
+            [self.T, self.U, self.V, self.P], ["temp", "ux", "uz", "pres"]
+        )
 
         # Space for Adjoint Fields
         self.TA = Field(

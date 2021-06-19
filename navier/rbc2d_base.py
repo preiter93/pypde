@@ -168,7 +168,7 @@ class NavierStokesBase:
         anim = T2.animate(duration=4, x=self.x, y=self.y)
         anim.save("out/anim.gif", writer="imagemagick", fps=20)
         return anim
-        #plt.show()
+        # plt.show()
 
     def eval_Nu(self):
         # from pypde.field_operations import eval_Nu,eval_Nuvol
@@ -182,18 +182,22 @@ class NavierStokesBase:
     def interpolate(self, NS_old, spectral=True):
         self.field.interpolate(NS_old.field)
 
-    def write(self, filename = None, leading_str="", add_time=True):
+    def write(self, filename=None, leading_str="", add_time=True):
         dict = {
             "nu": self.nu,
             "kappa": self.kappa,
             "Ra": Ra(self.nu, self.kappa, L=self.y[-1] - self.y[0]),
             "Pr": Pr(self.nu, self.kappa),
         }
-        self.field.write(filename = filename, leading_str=leading_str, add_time=add_time, dict=dict)
+        self.field.write(
+            filename=filename, leading_str=leading_str, add_time=add_time, dict=dict
+        )
 
-    def read(self, filename = None, leading_str="", add_time=True):
+    def read(self, filename=None, leading_str="", add_time=True):
         dict = {"nu": self.nu, "kappa": self.kappa}
-        self.field.read(filename = filename, leading_str=leading_str, add_time=add_time, dict=dict)
+        self.field.read(
+            filename=filename, leading_str=leading_str, add_time=add_time, dict=dict
+        )
         self.time = self.field.fields[0].t  # Update time
         dict["Ra"] = Ra(dict["nu"], dict["kappa"], L=self.y[-1] - self.y[0])
         dict["Pr"] = Pr(dict["nu"], dict["kappa"])
@@ -204,17 +208,17 @@ class NavierStokesBase:
     def read_from_filename(self, filename):
         pass
 
-    def write_from_Ra(self,folder=""):
+    def write_from_Ra(self, folder=""):
         if folder and folder[-1] != "/":
             folder = folder + "/"
         filename = folder + self.fname_from_Ra(self.Ra)
-        self.write(filename = filename)
+        self.write(filename=filename)
 
-    def read_from_Ra(self,folder=""):
+    def read_from_Ra(self, folder=""):
         if folder and folder[-1] != "/":
             folder = folder + "/"
         filename = folder + self.fname_from_Ra(self.Ra)
-        self.read(filename = filename)
+        self.read(filename=filename)
 
     @staticmethod
     def fname_from_Ra(Ra):
@@ -406,7 +410,7 @@ class NavierStokesStability:
             VV,
             TT,
             scale=self.scale,
-            #norm_diff=False,
+            # norm_diff=False,
         )
         print_evals(evals, 5)
         if plot:
@@ -415,4 +419,3 @@ class NavierStokesStability:
                 plot_evec(evecs, U, V, P, T, xx, yy, m=-i - 1)
         print("Stability calculation finished!")
         return evals, evecs
-

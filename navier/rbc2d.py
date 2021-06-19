@@ -40,11 +40,12 @@ class NavierStokes(
     zero:
         Isothermal Sidewall + Zero sidewall temperature
     """
+
     avail_cases = ["rbc", "linear", "zero"]
+
     def __init__(self, case="rbc", **kwargs):
         if case not in self.avail_cases:
-            raise ValueError("Specified case is not available: ", 
-                self.avail_cases)
+            raise ValueError("Specified case is not available: ", self.avail_cases)
         else:
             self.case = case
         NavierStokesBase.__init__(self, **kwargs)
@@ -85,7 +86,9 @@ class NavierStokes(
         self.pres = Field([Base(self.shape[0], "CH"), Base(self.shape[1], "CH")])
 
         # Store list of fields for collective saving and time update
-        self.field = MultiField([self.T, self.U, self.V, self.P], ["temp", "ux", "uz", "pres"])
+        self.field = MultiField(
+            [self.T, self.U, self.V, self.P], ["temp", "ux", "uz", "pres"]
+        )
 
         # Setup Solver solverplans
         self.setup_solver()
@@ -167,10 +170,10 @@ class NavierStokes(
         from pypde.templates.poisson import solverplan_poisson2d
 
         if self.integrator == "rk3":
-            #print("Initialize rk3 ...")
+            # print("Initialize rk3 ...")
             self.set_timestep_coefficients_rk3()
         else:
-            #print("Initialize euler ...")
+            # print("Initialize euler ...")
             self.set_timestep_coefficients_euler()
 
         self.solver_U, self.solver_V, self.solver_T = [], [], []

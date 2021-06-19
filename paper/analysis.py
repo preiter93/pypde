@@ -10,6 +10,7 @@ from pypde import *
 import h5py
 from utils import merge_fields
 
+
 class Flow:
     def __init__(self, folder, **kwargs):
         self.folder = folder
@@ -74,7 +75,7 @@ class Analyse:
     def __init__(self, NS):
         self.qlist = {}
         self.NS = NS
-        self.fmt ='%.5e'
+        self.fmt = "%12.5e"
 
         self.run()
 
@@ -83,42 +84,44 @@ class Analyse:
         self.add_sigma()
 
     def add_nu(self):
-        nu,nuv = self.NS.eval_Nu()
+        nu, nuv = self.NS.eval_Nu()
         self.qlist["Nu"] = nu
         self.qlist["Nuv"] = nuv
 
     def add_sigma(self):
-        evals, evecs = self.NS.solve_stability(shape=(27,27), plot = False)
+        evals, evecs = self.NS.solve_stability(shape=(27, 27), plot=False)
         self.qlist["sigma"] = np.imag(evals[-1])
 
     def to_array(self):
         return np.array([[self.NS.Ra, *[self.qlist[key] for key in self.qlist]]])
 
     def header(self):
-        return (' '*7).join(["# Ra", *[key for key in self.qlist]])
+        return ("").join(
+            ["{:<14}".format("# Ra"), *["{:<14}".format(key) for key in self.qlist]]
+        )
 
-    def save(self, fname = "qlist.txt"):
+    def save(self, fname="qlist.txt"):
         if not os.path.isfile(fname):
             with open(fname, "w") as f:
                 f.write(self.header())
             with open(fname, "ab") as f:
                 f.write(b"\n")
         with open(fname, "a") as f:
-            #f.write(b"\n")
+            # f.write(b"\n")
             np.savetxt(f, self.to_array(), fmt=self.fmt)
 
 
 folder = "linear/"
 case = "linear"
 
-flow = Flow(folder, case = case)
+flow = Flow(folder, case=case)
 
 for f in flow.flowlist[:]:
     NS = flow.get_NS(f)
     print("Ra = {:4.3e}".format(NS.Ra))
-    #NS.plot()
+    # NS.plot()
     A = Analyse(NS)
-    A.save(fname = "qlist_"+case+".txt")
+    A.save(fname="qlist_" + case + ".txt")
 
 # NS.solve_stability(shape=(27,27))
 # NS.eval_Nu()
@@ -126,8 +129,8 @@ for f in flow.flowlist[:]:
 
 # NS.eval_Nu()
 # NS.plot()
-#NS.write_from_Ra()
-#print(NS.Ra)
+# NS.write_from_Ra()
+# print(NS.Ra)
 # NS.plot()
 # NS.iterate(2)
 # NS.plot()

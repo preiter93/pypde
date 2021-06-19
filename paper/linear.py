@@ -4,7 +4,7 @@ sys.path.append("../")
 import numpy as np
 from pypde import *
 from navier import rbc2d
-from stabdict import StabDict, fname_from_Ra, residual,mirror
+from stabdict import StabDict, fname_from_Ra, residual, mirror
 from adjoint import adjoint
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -74,7 +74,8 @@ if not Ra_dict.dict[Ra]:
     Nu, Nuv = NS.eval_Nu()
 
     # Adjoint
-    if ADJOINT: adjoint(NS)
+    if ADJOINT:
+        adjoint(NS)
 
     # Steady State
     sol = NS.solve_steady_state(X0=None, **ne_settings)
@@ -98,7 +99,7 @@ for Ra in Ra_dict.dict:
         print("Ra {:6.2e} already known.".format(Ra))
         # Read
         NS.read(folder + fname, add_time=False)
-        #mirror(NS,folder,fname)
+        # mirror(NS,folder,fname)
         continue
 
     # Update Parameters
@@ -106,7 +107,8 @@ for Ra in Ra_dict.dict:
     NS.reset(reset_time=True)
 
     # Adjoint
-    if ADJOINT: adjoint(NS)
+    if ADJOINT:
+        adjoint(NS)
 
     # Steady State
     sol = NS.solve_steady_state(
@@ -114,7 +116,7 @@ for Ra in Ra_dict.dict:
         # maxiter=4,
         **ne_settings,
     )
-    if ADJOINT: 
+    if ADJOINT:
         X0 = None
     else:
         X0 = sol.x

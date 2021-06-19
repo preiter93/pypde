@@ -117,14 +117,15 @@ def fname_from_Ra(Ra):
 def residual(sol):
     return np.linalg.norm(sol.fun)
 
-def mirror(NS,folder,fname):
-    idx = np.where(NS.x>0.7*NS.x[0])[0]
-    if np.sum(NS.V.v[idx,:]) < 0:
+
+def mirror(NS, folder, fname):
+    idx = np.where(NS.x > 0.7 * NS.x[0])[0]
+    if np.sum(NS.V.v[idx, :]) < 0:
         print("mirror Ra = {:6.2e}".format(NS.Ra))
-        NS.U.v[:,:] = -NS.U.v[::-1,:]
-        NS.V.v[:,:] = NS.V.v[::-1,:]
-        NS.T.v[:,:] = NS.T.v[::-1,:]
-        NS.P.v[:,:] = NS.P.v[::-1,:]
+        NS.U.v[:, :] = -NS.U.v[::-1, :]
+        NS.V.v[:, :] = NS.V.v[::-1, :]
+        NS.T.v[:, :] = NS.T.v[::-1, :]
+        NS.P.v[:, :] = NS.P.v[::-1, :]
         NS.U.forward()
         NS.V.forward()
         NS.T.forward()

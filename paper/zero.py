@@ -21,7 +21,7 @@ Ra_dict = StabDict(fname=folder + "zero.txt")
 ns_settings = {
     "adiabatic": False,
     "shape": (196, 196),
-    #"shape" : (64,64),
+    # "shape" : (64,64),
     "dt": 0.1,
     "tsave": 5.0,
     "Pr": 1.0,
@@ -70,16 +70,17 @@ if not Ra_dict.dict[Ra]:
     NS.set_temperature(amplitude=0.04)
 
     # Simulate
-    NS.iterate(100.)
-    #NS.plot()
+    NS.iterate(100.0)
+    # NS.plot()
     Nu, Nuv = NS.eval_Nu()
 
     # Adjoint
-    if ADJOINT: adjoint(NS)
+    if ADJOINT:
+        adjoint(NS)
 
     # Steady State
     sol = NS.solve_steady_state(X0=None, **ne_settings)
-    #NS.plot()
+    # NS.plot()
     Nu, Nuv = NS.eval_Nu()
 
     # Stability analysis
@@ -106,7 +107,8 @@ for Ra in Ra_dict.dict:
     NS.reset(reset_time=True)
 
     # Adjoint
-    if ADJOINT: adjoint(NS)
+    if ADJOINT:
+        adjoint(NS)
 
     # Steady State
     sol = NS.solve_steady_state(
@@ -114,7 +116,7 @@ for Ra in Ra_dict.dict:
         # maxiter=4,
         **ne_settings,
     )
-    if ADJOINT: 
+    if ADJOINT:
         X0 = None
     else:
         X0 = sol.x

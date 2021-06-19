@@ -11,7 +11,7 @@ def adjoint(NS, time=100.0):
     NSA = rbc2d_adj.NavierStokesAdjoint(
         adiabatic=NS.adiabatic, ns_type=NS.__class__, **config
     )
-    #NSA.plot()
+    # NSA.plot()
     # NS -> NSA
     NSA.NS.U.vhat[:] = NS.U.vhat[:].copy()
     NSA.NS.V.vhat[:] = NS.V.vhat[:].copy()
@@ -25,4 +25,4 @@ def adjoint(NS, time=100.0):
     NS.U.vhat[:] = NSA.U.vhat[:]
     NS.V.vhat[:] = NSA.V.vhat[:]
     NS.T.vhat[:] = NSA.T.vhat[:]
-    #NS.plot()
+    # NS.plot()

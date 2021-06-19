@@ -138,9 +138,7 @@ def solve_rbc2d(
     return evals, evecs
 
 
-def solve_stability_2d(
-    nu, ka, gr, U, V, T, P, CH, UU, VV, TT, scale=(1, 1)
-):
+def solve_stability_2d(nu, ka, gr, U, V, T, P, CH, UU, VV, TT, scale=(1, 1)):
 
     # -- Matrices
     Ix, Iy = np.eye(CH.vhat.shape[0]), np.eye(CH.vhat.shape[1])
@@ -287,4 +285,3 @@ def solve_stability_2d(
     evals, evecs = sort_evals(evals, evecs, which="I")
 
     return evals, evecs
-

@@ -103,31 +103,31 @@ class FieldBase:
         # -- Write
         print("Write {:s} ...".format(filename))
         hf = h5py.File(filename, "a")
-        self.write_single_hdf5(hf,v,self.v)
-        self.write_single_hdf5(hf,vhat,self.vhat)
-        self.write_single_hdf5(hf,"time",self.t)
+        self.write_single_hdf5(hf, v, self.v)
+        self.write_single_hdf5(hf, vhat, self.vhat)
+        self.write_single_hdf5(hf, "time", self.t)
 
         if self.x is not None:
-            self.write_single_hdf5(hf,"x",self.x)
+            self.write_single_hdf5(hf, "x", self.x)
         if self.y is not None:
-            self.write_single_hdf5(hf,"y",self.y)
+            self.write_single_hdf5(hf, "y", self.y)
         if dict is not None:
             for key in dict:
-                self.write_single_hdf5(hf,key,dict[key])
+                self.write_single_hdf5(hf, key, dict[key])
         # -- Close
         hf.close()
 
     @staticmethod
-    def write_single_hdf5(hf,name,data):
+    def write_single_hdf5(hf, name, data):
         if not name in hf:
             hf.create_dataset(name, data=data)
         else:
-            #print("Data {:} exists already. Overwrite...".format(name))
-            data = hf[name]       # load the data
-            data[...] =data       # assign new values to data
+            # print("Data {:} exists already. Overwrite...".format(name))
+            data = hf[name]  # load the data
+            data[...] = data  # assign new values to data
 
     @staticmethod
-    def read_single_hdf5(hf,name):
+    def read_single_hdf5(hf, name):
         data = hf.get(name)
         if data is not None:
             return np.array(data)
@@ -135,7 +135,7 @@ class FieldBase:
             print("Cannot read {:} ...".format(name))
             print("Following keys exist: ")
             hf.visit(print_grp)
-            return 0.
+            return 0.0
 
     def read(
         self,
@@ -162,13 +162,13 @@ class FieldBase:
         vhat = grp_name + "vhat"
 
         # -- Read
-        self.v[:] = self.read_single_hdf5(hf,v)
-        self.vhat[:] = self.read_single_hdf5(hf,vhat)
-        self.t = self.read_single_hdf5(hf,"time")
+        self.v[:] = self.read_single_hdf5(hf, v)
+        self.vhat[:] = self.read_single_hdf5(hf, vhat)
+        self.t = self.read_single_hdf5(hf, "time")
 
         if dict is not None:
             for key in dict:
-                dict[key] = self.read_single_hdf5(hf,key)
+                dict[key] = self.read_single_hdf5(hf, key)
         # -- Close
         hf.close()
 
