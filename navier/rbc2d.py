@@ -119,6 +119,12 @@ class NavierStokes(
     def set_temperature(self, amplitude=0.5, m=1):
         self.T.v = amplitude * np.sin(m * np.pi * self.xx) * np.cos(np.pi * self.yy)
         self.T.forward()
+    
+    def set_velocity(self, amplitude=0.5, m=1, n=1):
+        self.U.v = -amplitude * np.sin(m * np.pi * self.xx) * np.cos( n * np.pi * self.yy)
+        self.V.v = amplitude * np.cos(m * np.pi * self.xx) * np.sin( n * np.pi * self.yy)
+        self.U.forward()
+        self.V.forward()
 
     def set_temp_fieldbc_linear(self):
         """Setup Inhomogeneous field for temperature"""
