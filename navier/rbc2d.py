@@ -121,8 +121,11 @@ class NavierStokes(
         self.T.forward()
     
     def set_velocity(self, amplitude=0.5, m=1, n=1):
-        self.U.v = -amplitude * np.sin(m * np.pi * self.xx) * np.cos( n * np.pi * self.yy)
-        self.V.v = amplitude * np.cos(m * np.pi * self.xx) * np.sin( n * np.pi * self.yy)
+        x = (self.x-self.x[0])/(self.x[-1] - self.x[0])
+        y = (self.y-self.y[0])/(self.y[-1] - self.y[0])
+        xx,yy = np.meshgrid(x,y,indexing="ij")
+        self.U.v = -amplitude * np.sin(m * np.pi * xx) * np.cos( n * np.pi * yy)
+        self.V.v = amplitude * np.cos(m * np.pi * xx) * np.sin( n * np.pi * yy)
         self.U.forward()
         self.V.forward()
 
