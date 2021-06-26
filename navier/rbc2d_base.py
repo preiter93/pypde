@@ -126,7 +126,7 @@ class NavierStokesBase:
             )
         )
 
-    def plot(self, skip=None, return_fig=False):
+    def plot(self, skip=None, return_fig=False, quiver=False, stream=True):
         # -- Plot
         self.T.backward()
         self.U.backward()
@@ -139,21 +139,40 @@ class NavierStokesBase:
         ax.set_aspect(1)
         ax.set_xticks([])
         ax.set_yticks([])
+        ax.set_xlim(self.x.min(), self.x.max())
+        ax.set_ylim(self.y.min(), self.y.max())
 
-        # Quiver
-        speed = np.max(np.sqrt(self.U.v ** 2 + self.V.v ** 2))
-        if skip is None:
-            skip = self.shape[0] // 16
-        ax.quiver(
-            self.xx[::skip, ::skip],
-            self.yy[::skip, ::skip],
-            self.U.v[::skip, ::skip] / speed,
-            self.V.v[::skip, ::skip] / speed,
-            scale=7.9,
-            width=0.007,
-            alpha=0.5,
-            headwidth=4,
-        )
+        if quiver:
+            # Quiver
+            speed = np.max(np.sqrt(self.U.v ** 2 + self.V.v ** 2))
+            if skip is None:
+                skip = self.shape[0] // 16
+            ax.quiver(
+                self.xx[::skip, ::skip],
+                self.yy[::skip, ::skip],
+                self.U.v[::skip, ::skip] / speed,
+                self.V.v[::skip, ::skip] / speed,
+                scale=7.9,
+                width=0.007,
+                alpha=0.5,
+                headwidth=4,
+            )
+        if stream:
+            from scipy import interpolate
+
+            nx, ny = 30, 30
+            x, y = self.x, self.y
+            xi = np.linspace(x.min(), x.max(), nx)
+            yi = np.linspace(y.min(), y.max(), ny)
+
+            f = interpolate.interp2d(x, y, self.U.v.T, kind="cubic")
+            ui = f(xi, yi)
+            f = interpolate.interp2d(x, y, self.V.v.T, kind="cubic")
+            vi = f(xi, yi)
+
+            speed = np.max(np.sqrt(ui ** 2 + vi ** 2))
+            lw = 0.5 * speed / np.abs(speed).max()
+            ax.streamplot(xi, yi, ui, vi, density=0.6, color="k", linewidth=lw)
         if return_fig:
             return fig, ax
         plt.show()
