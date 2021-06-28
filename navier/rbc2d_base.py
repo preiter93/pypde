@@ -160,7 +160,7 @@ class NavierStokesBase:
         if stream:
             from scipy import interpolate
 
-            nx, ny = 30, 30
+            nx, ny = 41, 41
             x, y = self.x, self.y
             xi = np.linspace(x.min(), x.max(), nx)
             yi = np.linspace(y.min(), y.max(), ny)
@@ -170,9 +170,9 @@ class NavierStokesBase:
             f = interpolate.interp2d(x, y, self.V.v.T, kind="cubic")
             vi = f(xi, yi)
 
-            speed = np.max(np.sqrt(ui ** 2 + vi ** 2))
+            speed = np.sqrt(ui*ui + vi*vi)
             lw = 0.5 * speed / np.abs(speed).max()
-            ax.streamplot(xi, yi, ui, vi, density=0.6, color="k", linewidth=lw)
+            ax.streamplot(xi, yi, ui, vi, color="k", linewidth=lw)
         if return_fig:
             return fig, ax
         plt.show()
