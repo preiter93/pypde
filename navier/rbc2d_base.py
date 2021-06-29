@@ -170,9 +170,9 @@ class NavierStokesBase:
             f = interpolate.interp2d(x, y, self.V.v.T, kind="cubic")
             vi = f(xi, yi)
 
-            speed = np.sqrt(ui*ui + vi*vi)
-            lw = 0.5 * speed / np.abs(speed).max()
-            ax.streamplot(xi, yi, ui, vi, color="k", linewidth=lw)
+            speed = np.sqrt(ui * ui + vi * vi)
+            lw = 0.8 * speed / np.abs(speed).max()
+            ax.streamplot(xi, yi, ui, vi, density=0.75, color="k", linewidth=lw)
         if return_fig:
             return fig, ax
         plt.show()
@@ -263,6 +263,7 @@ class NavierStokesSteadyState:
     def solve_steady_state(
         self,
         X0=None,
+        dt=None,
         maxiter=300,
         disp=True,
         tol=1e-8,
@@ -284,8 +285,9 @@ class NavierStokesSteadyState:
         }
         if X0 is None:
             X0 = self.vectorify()
+
         sol = optimize.root(
-            self.steady_fun, X0, args=(self,), method="krylov", options=options
+            self.steady_fun, X0, args=(self, dt), method="krylov", options=options
         )
         return sol
 
@@ -313,7 +315,7 @@ class NavierStokesSteadyState:
         V_mask = slice(t.size + u.size, t.size + u.size + v.size)
         return T_mask, U_mask, V_mask
 
-    def steady_fun(self, X, NS):
+    def steady_fun(self, X, NS, dt):
         """
         Input:
             X: ndarray (1D)
@@ -324,9 +326,16 @@ class NavierStokesSteadyState:
                 Residual vector [Tr,ur,v]
         """
         NS.T.vhat[:], NS.U.vhat[:], NS.V.vhat[:] = NS.reshape(X)
-        NS.update()
+        if dt is None:
+            dt = NS.dt
+            NS.update()
+        else:
+            NS.reset_time()
+            NS.iterate(dt, callback=False)
+            NS.reset_time()
+
         Y = NS.vectorify()
-        return (Y - X) / NS.dt
+        return (Y - X) / dt
 
 
 def eval_Nu(T, field, Lz=1.0, Tbc=None):

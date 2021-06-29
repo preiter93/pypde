@@ -112,9 +112,12 @@ class NavierStokes(
         self.set_nu_kappa()
         self.setup_solver()
         if reset_time:
-            self.time = 0.0
-            for field in self.field.fields:
-                field.time = 0.0
+            self.reset_time()
+
+    def reset_time(self):
+        self.time = 0.0
+        for field in self.field.fields:
+            field.time = 0.0
 
     def set_temperature(self, amplitude=0.5, m=1):
         self.T.v = amplitude * np.sin(m * np.pi * self.xx) * np.cos(np.pi * self.yy)

@@ -11,7 +11,7 @@ class Integrator:
     def callback(self):
         pass
 
-    def iterate(self, maxtime, *args, **kwargs):
+    def iterate(self, maxtime, callback=True, *args, **kwargs):
         """Iterate till max time"""
         eps = 1e-3 * self.dt
         while (self.time + eps) < maxtime:
@@ -24,7 +24,8 @@ class Integrator:
                     self.save()
                     print("Time: {:5.3f}".format(self.time))
 
-                    self.callback()
+                    if callback:
+                        self.callback()
 
                 # if self.field.check():
                 #     print("\nNan or large value detected! STOP\n")
