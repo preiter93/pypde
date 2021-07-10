@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 
-GFCMAP_REGISTERED = False
-
+REGISTERED = False
 
 def initplot():
     InitPlot()
@@ -44,13 +43,15 @@ class InitPlot:
         self.plot = self.default_config()
         self.contour = self.default_config()
         self.contour = self.contour_config(self.contour)
-
-        print("set color cycle ...")
-        self.set_color_cycle()
-        print("register goldfish colorbar as 'gfcmap' ...")
-        self.set_gfcmap()
-        print("update rc params to default ...")
-        update_rc(self.default_config())
+        global REGISTERED
+        if not REGISTERED:
+            print("set color cycle ...")
+            self.set_color_cycle()
+            print("register goldfish colorbar as 'gfcmap' ...")
+            self.set_gfcmap()
+            print("update rc params to default ...")
+            update_rc(self.default_config())
+            REGISTERED = True
 
     def default_config(self, size=18.5):
         """Define default plot settings

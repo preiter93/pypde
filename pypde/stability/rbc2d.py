@@ -10,7 +10,7 @@ import numpy as np
 from scipy.sparse.linalg import eigs
 
 
-def plot_evec(evecs, U, V, P, T, xx, yy, m=-1):
+def plot_evec(evecs, U, V, P, T, x, y, m=-1, stream = True, cmap = "gfcmap"):
     u, v, p, t = split_evec(evecs, m=m)
 
     # U
@@ -24,26 +24,43 @@ def plot_evec(evecs, U, V, P, T, xx, yy, m=-1):
     t = T.backward(t)
 
     levels = np.linspace(t.min(), t.max(), 50)
+    xx, yy = np.meshgrid(x, y, indexing="ij")
     fig, ax = plt.subplots()
-    ax.contourf(xx, yy, t, cmap="RdBu_r", levels=levels)
+    ax.contourf(xx, yy, t, cmap=cmap, levels=levels)
     ax.set_aspect(1)
     ax.set_xticks([])
     ax.set_yticks([])
+    ax.set_xlim(x.min(), x.max())
+    ax.set_ylim(y.min(), y.max())
+    if stream:
+        from scipy import interpolate
+        nx, ny = 41, 41
+        xi = np.linspace(x.min(), x.max(), nx)
+        yi = np.linspace(y.min(), y.max(), ny)
 
-    # Quiver
-    speed = np.max(np.sqrt(u ** 2 + v ** 2))
-    # if skip is None:
-    skip = u.shape[0] // 16
-    ax.quiver(
-        xx[::skip, ::skip],
-        yy[::skip, ::skip],
-        u[::skip, ::skip] / speed,
-        v[::skip, ::skip] / speed,
-        scale=7.9,
-        width=0.007,
-        alpha=0.5,
-        headwidth=4,
-    )
+        f = interpolate.interp2d(x, y, u.T, kind="cubic")
+        ui = f(xi, yi)
+        f = interpolate.interp2d(x, y, v.T, kind="cubic")
+        vi = f(xi, yi)
+
+        speed = np.sqrt(ui*ui + vi*vi)
+        lw = 0.8 * speed / np.abs(speed).max()
+        ax.streamplot(xi, yi, ui, vi, density=0.75, color="k", linewidth=lw)
+    else:
+        # Quiver
+        speed = np.max(np.sqrt(u ** 2 + v ** 2))
+        # if skip is None:
+        skip = u.shape[0] // 16
+        ax.quiver(
+            xx[::skip, ::skip],
+            yy[::skip, ::skip],
+            u[::skip, ::skip] / speed,
+            v[::skip, ::skip] / speed,
+            scale=7.9,
+            width=0.007,
+            alpha=0.5,
+            headwidth=4,
+        )
 
     plt.show()
 

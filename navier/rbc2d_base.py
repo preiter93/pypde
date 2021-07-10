@@ -442,8 +442,8 @@ class NavierStokesStability:
         )
         print_evals(evals, 5)
         if plot:
-            xx, yy = self.NS_C.xx, self.NS_C.yy
+            x, y = self.NS_C.x, self.NS_C.y
             for i in range(n_evecs):
-                plot_evec(evecs, U, V, P, T, xx, yy, m=-i - 1)
+                plot_evec(evecs, U, V, P, T, x, y, m=-i - 1)
         print("Stability calculation finished!")
         return evals, evecs
