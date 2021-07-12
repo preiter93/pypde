@@ -123,8 +123,8 @@ class FieldBase:
             hf.create_dataset(name, data=data)
         else:
             # print("Data {:} exists already. Overwrite...".format(name))
-            data = hf[name]  # load the data
-            data[...] = data  # assign new values to data
+            x = hf[name]  # load the data
+            x[...] = data  # assign new values to data
 
     @staticmethod
     def read_single_hdf5(hf, name):
