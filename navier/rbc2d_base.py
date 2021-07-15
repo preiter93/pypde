@@ -47,7 +47,7 @@ class NavierStokesBase:
         self.__dict__.update(**self.CONFIG)
         # self.__dict__.update(**kwargs)
 
-        self.normalize = True
+        self.normalize = False
         self.set_nu_kappa()
 
         # Space for derivatives

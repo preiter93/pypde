@@ -32,22 +32,15 @@ NS.plot()
 NS.eval_Nu()
 NS.write("test.h5")
 
-fname = "test.h5"
-# fname = "flow100.000.h5"
-NS.read(fname)
-NS.eval_Nu()
-NS.iterate(50.0)
-# NS.plot()
-
 NSA = rbc2d_adj.NavierStokesAdjoint(
     ra=NS.ra,
     **nsa_settings,
 )
-NSA.read(fname)
+NSA.read("test.h5")
 NSA.plot()
 NSA.reset_time()
 NSA.update()
-NSA.iterate(10)
+#NSA.iterate(10)
 # NSA.eval_Nu()
 
 # NS.solve_steady_state()

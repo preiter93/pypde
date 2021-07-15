@@ -73,7 +73,9 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
         self.pres = Field([Base(self.shape[0], "CH"), Base(self.shape[1], "CH")])
 
         # Store list of fields for collective saving and time update
-        self.field = MultiField([self.T, self.U, self.V], ["temp", "ux", "uy"])
+        self.field = MultiField(
+            [self.T, self.U, self.V], ["temp", "ux", "uy"]
+        )
 
         # Space for Adjoint Fields
         self.TA = Field(
