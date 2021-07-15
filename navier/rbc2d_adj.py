@@ -69,9 +69,12 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
         )
         self.P = Field([Base(self.shape[0], "CN"), Base(self.shape[1], "CN")])
 
+        # Additional pressure field
+        self.pres = Field([Base(self.shape[0], "CH"), Base(self.shape[1], "CH")])
+
         # Store list of fields for collective saving and time update
         self.field = MultiField(
-            [self.T, self.U, self.V, self.P], ["temp", "ux", "uz", "pres"]
+            [self.T, self.U, self.V, self.pres], ["temp", "ux", "uy", "pres"]
         )
 
         # Space for Adjoint Fields
@@ -94,9 +97,6 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
             ]
         )
 
-        # Additional pressure field
-        self.pres = Field([Base(self.shape[0], "CH"), Base(self.shape[1], "CH")])
-
         # Setup Solver solverplans
         self.setup_solver()
 
@@ -114,6 +114,11 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
             self.temp_bc = self.deriv_field.dealias.backward(self.deriv_field.vhat)
         else:
             self.temp_bc = self.deriv_field.backward(self.deriv_field.vhat)
+
+    def reset_time(self):
+        self.time = 0.0
+        for field in self.field.fields:
+            field.time = 0.0
 
     def set_temperature(self, amplitude=0.5):
         self.T.v = (
@@ -295,9 +300,10 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
         v.vhat -= cheby_to_galerkin(dpdz * fac, v)
 
     def callback(self):
+        self.eval_Nu()
         # -- Divergence
         print(
-            "Divergence   : {:4.2e}".format(
+            "|div| = {:4.2e}".format(
                 np.linalg.norm(self.NS.divergence_velocity(self.U, self.V))
             )
         )

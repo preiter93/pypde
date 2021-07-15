@@ -28,10 +28,13 @@ class NavierStokesBase:
 
     def __init__(self, **kwargs):
 
+        if "Ra" in kwargs or "Pr" in kwargs:
+            raise ValueError("Use small ra/pr!")
+
         self.CONFIG = {
             "shape": (50, 50),
-            "Ra": 5e3,
-            "Pr": 1.0,
+            "ra": 5e3,
+            "pr": 1.0,
             "dt": 0.2,
             "ndim": 2,
             "tsave": 0.1,
@@ -67,13 +70,13 @@ class NavierStokesBase:
             normalize = self.normalize
 
         if normalize:
-            self.nu = nu(self.Ra, self.Pr, L=1.0)
-            self.kappa = kappa(self.Ra, self.Pr, L=1.0)
+            self.nu = nu(self.ra, self.pr, L=1.0)
+            self.kappa = kappa(self.ra, self.pr, L=1.0)
             # Scale Physical domain size
             self.scale = (self.aspect * 0.5, 0.5)
         else:
-            self.nu = nu(self.Ra, self.Pr, L=2.0)
-            self.kappa = kappa(self.Ra, self.Pr, L=2.0)
+            self.nu = nu(self.ra, self.pr, L=2.0)
+            self.kappa = kappa(self.ra, self.pr, L=2.0)
             # Scale Physical domain size
             self.scale = (self.aspect * 1.0, 1.0)
 
@@ -120,8 +123,9 @@ class NavierStokesBase:
     # --- Post processing ----
 
     def callback(self):
+        self.eval_Nu()
         print(
-            "Divergence: {:4.2e}".format(
+            "|div| = {:4.2e}".format(
                 np.linalg.norm(self.divergence_velocity(self.U, self.V))
             )
         )
@@ -205,21 +209,20 @@ class NavierStokesBase:
         dict = {
             "nu": self.nu,
             "kappa": self.kappa,
-            "Ra": Ra(self.nu, self.kappa, L=self.y[-1] - self.y[0]),
-            "Pr": Pr(self.nu, self.kappa),
+            "ra": Ra(self.nu, self.kappa, L=self.y[-1] - self.y[0]),
+            "pr": Pr(self.nu, self.kappa),
         }
         self.field.write(
             filename=filename, leading_str=leading_str, add_time=add_time, dict=dict
         )
 
     def read(self, filename=None, leading_str="", add_time=True):
-        dict = {"nu": self.nu, "kappa": self.kappa}
+        dict = {"ra": self.ra, "pr": self.pr}
         self.field.read(
             filename=filename, leading_str=leading_str, add_time=add_time, dict=dict
         )
         self.time = self.field.fields[0].t  # Update time
-        dict["Ra"] = Ra(dict["nu"], dict["kappa"], L=self.y[-1] - self.y[0])
-        dict["Pr"] = Pr(dict["nu"], dict["kappa"])
+        self.set_nu_kappa()
         self.CONFIG.update(dict)
         self.__dict__.update(**self.CONFIG)
         self.setup_solver()
@@ -230,13 +233,13 @@ class NavierStokesBase:
     def write_from_Ra(self, folder=""):
         if folder and folder[-1] != "/":
             folder = folder + "/"
-        filename = folder + self.fname_from_Ra(self.Ra)
+        filename = folder + self.fname_from_Ra(self.ra)
         self.write(filename=filename)
 
     def read_from_Ra(self, folder=""):
         if folder and folder[-1] != "/":
             folder = folder + "/"
-        filename = folder + self.fname_from_Ra(self.Ra)
+        filename = folder + self.fname_from_Ra(self.ra)
         self.read(filename=filename)
 
     @staticmethod
