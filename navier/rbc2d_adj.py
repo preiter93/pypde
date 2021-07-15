@@ -73,9 +73,7 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
         self.pres = Field([Base(self.shape[0], "CH"), Base(self.shape[1], "CH")])
 
         # Store list of fields for collective saving and time update
-        self.field = MultiField(
-            [self.T, self.U, self.V, self.pres], ["temp", "ux", "uy", "pres"]
-        )
+        self.field = MultiField([self.T, self.U, self.V], ["temp", "ux", "uy"])
 
         # Space for Adjoint Fields
         self.TA = Field(
@@ -308,7 +306,7 @@ class NavierStokesAdjoint(NavierStokesBase, Integrator):
             )
         )
         print(
-            "Divergence NS: {:4.2e}".format(
+            "|div residual|: {:4.2e}".format(
                 np.linalg.norm(self.NS.divergence_velocity(self.NS.U, self.NS.V))
             )
         )
