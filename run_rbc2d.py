@@ -6,7 +6,7 @@ initplot()
 # Default Navier Stokes Settings
 ns_settings = {
     "case": "rbc",
-    "shape": (12, 12),
+    "shape": (64, 64),
     "dt": 0.02,
     "tsave": 1.0,
     "pr": 1.0,
@@ -27,7 +27,7 @@ NS = rbc2d.NavierStokes(
 )
 
 NS.set_velocity(m=1, n=1, amplitude=0.2)
-NS.iterate(30.0)
+NS.iterate(100.0)
 NS.plot()
 NS.eval_Nu()
 NS.write("test.h5")
@@ -39,8 +39,7 @@ NSA = rbc2d_adj.NavierStokesAdjoint(
 NSA.read("test.h5")
 NSA.plot()
 NSA.reset_time()
-NSA.update()
-#NSA.iterate(10)
+NSA.iterate(100)
 # NSA.eval_Nu()
 
 # NS.solve_steady_state()
