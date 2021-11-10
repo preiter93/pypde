@@ -5,12 +5,13 @@ from ..field import Field
 from ..bases.spectralbase import Base
 import matplotlib.pyplot as plt
 import numpy as np
-
+from pypde.plot import initplot
 # from scipy.linalg import eig
 from scipy.sparse.linalg import eigs
 
 
 def plot_evec(evecs, U, V, P, T, x, y, m=-1, stream = True, cmap = "gfcmap"):
+    initplot()
     u, v, p, t = split_evec(evecs, m=m)
 
     # U
@@ -150,7 +151,7 @@ def solve_rbc2d(
     )
 
     if plot:
-        plot_evec(evecs, U, V, P, T, xx, yy, m=-1)
+        plot_evec(evecs, U, V, P, T, x, y, m=-1)
 
     return evals, evecs
 
