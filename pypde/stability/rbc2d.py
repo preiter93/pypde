@@ -6,11 +6,12 @@ from ..bases.spectralbase import Base
 import matplotlib.pyplot as plt
 import numpy as np
 from pypde.plot import initplot
+
 # from scipy.linalg import eig
 from scipy.sparse.linalg import eigs
 
 
-def plot_evec(evecs, U, V, P, T, x, y, m=-1, stream = True, cmap = "gfcmap"):
+def plot_evec(evecs, U, V, P, T, x, y, m=-1, stream=True, cmap="gfcmap"):
     initplot()
     u, v, p, t = split_evec(evecs, m=m)
 
@@ -35,6 +36,7 @@ def plot_evec(evecs, U, V, P, T, x, y, m=-1, stream = True, cmap = "gfcmap"):
     ax.set_ylim(y.min(), y.max())
     if stream:
         from scipy import interpolate
+
         nx, ny = 41, 41
         xi = np.linspace(x.min(), x.max(), nx)
         yi = np.linspace(y.min(), y.max(), ny)
@@ -44,7 +46,7 @@ def plot_evec(evecs, U, V, P, T, x, y, m=-1, stream = True, cmap = "gfcmap"):
         f = interpolate.interp2d(x, y, v.T, kind="cubic")
         vi = f(xi, yi)
 
-        speed = np.sqrt(ui*ui + vi*vi)
+        speed = np.sqrt(ui * ui + vi * vi)
         lw = 0.8 * speed / np.abs(speed).max()
         ax.streamplot(xi, yi, ui, vi, density=0.75, color="k", linewidth=lw)
     else:
@@ -83,7 +85,7 @@ def solve_rbc2d(
     in a 2-D rectangular domain.
 
     Note:
-    Works very good with odd Nx and Ny
+    Nx and Ny should be odd
 
     >>>
     import numpy as np
@@ -191,8 +193,8 @@ def solve_stability_2d(nu, ka, gr, U, V, T, P, CH, UU, VV, TT, scale=(1, 1)):
     # -- Build ----------------------
 
     # -- Diffusion + Non-Linear 2: Udu
-    Udx = conv_mat(UU, field=CH) @ Dx1
-    Vdy = conv_mat(VV, field=CH) @ Dy1
+    Udx = conv_mat(UU) @ Dx1
+    Vdy = conv_mat(VV) @ Dy1
 
     L2d = -nu * (Dx2 + Dy2) + Udx + Vdy
     K2d = -ka * (Dx2 + Dy2) + Udx + Vdy
@@ -215,27 +217,27 @@ def solve_stability_2d(nu, ka, gr, U, V, T, P, CH, UU, VV, TT, scale=(1, 1)):
     # -- Non-Linear 1: udU
 
     # dTdx
-    dTdx = conv_mat(TT_x, field=CH)
+    dTdx = conv_mat(TT_x)
     dTdx = STT @ dTdx @ SU
 
     # dTdy
-    dTdy = conv_mat(TT_y, field=CH)
+    dTdy = conv_mat(TT_y)
     dTdy = STT @ dTdy @ SV
 
     # dUdx
-    dUdx = conv_mat(UU_x, field=CH)
+    dUdx = conv_mat(UU_x)
     dUdx = SUT @ dUdx @ SU
 
     # dUdy
-    dUdy = conv_mat(UU_y, field=CH)
+    dUdy = conv_mat(UU_y)
     dUdy = SUT @ dUdy @ SV
 
     # dVdx
-    dVdx = conv_mat(VV_x, field=CH)
+    dVdx = conv_mat(VV_x)
     dVdx = SVT @ dVdx @ SU
 
     # dVdy
-    dVdy = conv_mat(VV_y, field=CH)
+    dVdy = conv_mat(VV_y)
     dVdy = SVT @ dVdy @ SV
 
     # -- Mass

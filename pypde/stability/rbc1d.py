@@ -16,7 +16,7 @@ def solve_rbc1d(Ny=41, Ra=1708, Pr=1, alpha=3.14, plot=True, norm_diff=True):
     in a 2-D rectangular domain.
 
     Note:
-    Works very good with odd Ny
+    Ny should be odd
 
     >>>
     import numpy as np
@@ -79,7 +79,7 @@ def solve_rbc1d(Ny=41, Ra=1708, Pr=1, alpha=3.14, plot=True, norm_diff=True):
     # -- Build
 
     # -- Diffusion + Non-Linear 2: Udu
-    Udx = conv_mat(UU, field=CH) @ Dx
+    Udx = conv_mat(UU) @ Dx
 
     L2d = -nu * (Dx2 + Dy2) + Udx
     K2d = -ka * (Dx2 + Dy2) + Udx
@@ -102,11 +102,11 @@ def solve_rbc1d(Ny=41, Ra=1708, Pr=1, alpha=3.14, plot=True, norm_diff=True):
 
     # dTdy
     # dTdy = -1.0*np.eye(CH.vhat.shape[0])
-    dTdy = conv_mat(Dy @ TT, field=CH)
+    dTdy = conv_mat(Dy @ TT)
     dTdy = T.xs[0].ST @ dTdy @ V.xs[0].S
 
     # dUdy
-    dUdy = conv_mat(Dy @ UU, field=CH)
+    dUdy = conv_mat(Dy @ UU)
     dUdy = U.xs[0].ST @ dUdy @ V.xs[0].S
     dUdy = 0.0 * I
 
