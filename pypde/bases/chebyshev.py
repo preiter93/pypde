@@ -12,11 +12,12 @@ from .fortran import differentiate_cheby
 from .memoize import memoized
 from .spectralbase import MetaBase
 from .utils import *
-
 from scipy.fftpack import dctn as dctn_scipy
-import pyfftw
+USE_PYFFTW = False
+if USE_PYFFTW:
+    import pyfftw
 
-USE_PYFFTW = True
+
 
 
 class Chebyshev(MetaBase):
