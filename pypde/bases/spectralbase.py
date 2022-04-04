@@ -23,7 +23,7 @@ def Base(N, key, *args, **kwargs):
 
 
 def _bases_from_key(key):
-    from .chebyshev import Chebyshev, ChebDirichlet, ChebNeumann
+    from .chebyshev import Chebyshev, ChebDirichlet, ChebNeumann, ChebDirichletNeumann
     from .chebyshev import DirichletC, NeumannC
     from .fourier import Fourier
 
@@ -33,6 +33,8 @@ def _bases_from_key(key):
         return ChebDirichlet
     elif key == "CN" or key == "ChebNeumann":
         return ChebNeumann
+    elif key == "CDN" or key == "ChebDirichletNeumann":
+        return ChebDirichletNeumann
     elif key == "DC" or key == "DirichletC":
         return DirichletC
     elif key == "NC" or key == "NeumannC":

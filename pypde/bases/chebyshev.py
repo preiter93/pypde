@@ -12,11 +12,11 @@ from .fortran import differentiate_cheby
 from .memoize import memoized
 from .spectralbase import MetaBase
 from .utils import *
-
 from scipy.fftpack import dctn as dctn_scipy
-import pyfftw
 
-USE_PYFFTW = True
+USE_PYFFTW = False
+if USE_PYFFTW:
+    import pyfftw
 
 
 class Chebyshev(MetaBase):
@@ -391,6 +391,21 @@ class ChebDirichlet(GalerkinChebyshev):
             S[i, i], S[i + 2, i] = 1, -1
         return S
 
+    def stencil_pinv(self):
+        """
+        Pseudoinverse of stencil
+        """
+        S = self._stencil()
+        Sinv = np.zeros((Self.M, Self.N))
+        for i in range(Self.M):
+            # Diagonal
+            Sinv[i, i] = 1.0 / S[i, i]
+            # Lower triangular part
+            if i >= 2:
+                for j in range(i - 2, -1, -2):
+                    Sinv[i, j] = -(Sinv[i, j + 2] * S[j + 2, j]) / S[j, j]
+        return Sinv
+
 
 class ChebNeumann(GalerkinChebyshev):
     """
@@ -419,6 +434,80 @@ class ChebNeumann(GalerkinChebyshev):
         for i in range(self.M):
             S[i, i], S[i + 2, i] = 1, -((i / (i + 2)) ** 2)
         return S
+
+    def stencil_pinv(self):
+        """
+        Pseudoinverse of stencil
+        """
+        S = self._stencil()
+        Sinv = np.zeros((Self.M, Self.N))
+        for i in range(Self.M):
+            # Diagonal
+            Sinv[i, i] = 1.0 / S[i, i]
+            # Lower triangular part
+            if i >= 2:
+                for j in range(i - 2, -1, -2):
+                    Sinv[i, j] = -(Sinv[i, j + 2] * S[j + 2, j]) / S[j, j]
+        return Sinv
+
+
+class ChebDirichletNeumann(GalerkinChebyshev):
+    """
+    Function space for combined Dirichlet Neumann boundary conditions
+    ..math::
+    u(-1) = u'(1) = 0
+        
+    Parameters:
+        N: int
+            Number of grid points
+    """
+
+    def __init__(self, N, dealias=None):
+        GalerkinChebyshev.__init__(self, N, dealias)
+        self.id = "CDN"
+        self.bc = None
+
+    def _stencil(self):
+        """
+        Matrix representation of:
+        phi_k = T_k - T_{k + 2}
+        
+        See GalerkinChebyshev class
+        """
+        S = np.zeros((self.N, self.M))
+        k = np.arange(self.N)
+        d = np.ones(self.N)
+        d1 = 4 * (k[:-1] + 1) / (2 * k[:-1] ** 2 + 6 * k[:-1] + 5)
+        d2 = -(2 * k[:-2] ** 2 + 2 * k[:-2] + 1) / (2 * k[:-2] ** 2 + 6 * k[:-2] + 5)
+        for i in range(self.M):
+            S[i, i], S[i + 1, i], S[i + 2, i] = d[i], d1[i], d2[i]
+        return S
+
+    def _solve_stencil_inv(self, uhat):
+        """
+        This function works only if the stencil
+        is of size N x N - 2 and populated on
+        the diagonals 0 and - 2
+        Original system is overdetermine, hence
+        multiply with S^T
+
+        S^T S v = S^T u
+
+        Obtain galerkin coefficients v(N - 2 x M)
+        from chebyshev coefficients u(N x M)
+
+        Note:
+        For a generic stencil S, one possibility
+        would is np.linalg.lstsq(S, uhat)
+        """
+        # from .linalg.tdma import TDMA_offset as TDMA
+        # from .linalg.tdma import TDMA_Fortran as TDMA
+        print("Warning: Stencil transform via lstsq is inefficient.")
+        print("check bases/chebyshev/ChebDirichletNeumann/_solve_stencil_inv()")
+        return np.linalg.lstsq(self.S, uhat)[0]
+
+    # try:
+    # return TDMA(l2, d, u2, self.ST_sp @ uhat, 2)
 
 
 # ---------------------------------------------

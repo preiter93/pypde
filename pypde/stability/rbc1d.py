@@ -6,8 +6,86 @@ from ..bases.spectralbase import Base
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.linalg import eig
+from scipy.sparse.linalg import eigs
+
+@io_decorator
+def solve_diff1d(Ny=41, kappa=1, plot=True):
+    """
+    FOR TESTING
+    """
+
+    # -- Fields
+    shape = (Ny,)
+    U = Field([Base(shape[0], "CD")])
+    CH = Field([Base(shape[0], "CH", dealias=2)])
+    y = U.x
+
+    # -- Matrices
+    I = np.eye(U.vhat.shape[0])
+
+    Dy = CH.xs[0].dms(1)
+    Dy2 = CH.xs[0].dms(2)
 
 
+    # -- Build
+    L11 = U.xs[0].ST @ (kappa * Dy2) @ U.xs[0].S
+    
+    # -- Mass Matrices
+    M11 = U.xs[0].ST @ U.xs[0].S
+    
+    
+    SI = np.linalg.pinv(U.xs[0].S)
+    #print(SI@U.xs[0].S)
+    # -- Build
+    L11 = SI @ (kappa * Dy2) @ U.xs[0].S
+    
+    # -- Mass Matrices
+    M11 = SI @ U.xs[0].S
+
+    # -- Solve EVP ----
+    L = L11
+    M = M11
+    #L += np.eye(L.shape[0]) * 1e-20  # Make non-singular
+    evals, evecs = eigs(L, k=3, M = M, which = "LR")
+    
+
+    # Post Process egenvalues
+    evals = -evals
+    evals, evecs = remove_evals(evals, evecs, higher=1400)
+    evals, evecs = sort_evals(evals, evecs, which="R")
+
+    if plot:
+        blue = (0 / 255, 137 / 255, 204 / 255)
+        red = (196 / 255, 0, 96 / 255)
+        yel = (230 / 255, 159 / 255, 0)
+
+        u = evecs[:, 0]
+        U.vhat[:] = np.real(u)
+        U.backward()
+
+        fig, (ax0, ax1) = plt.subplots(ncols=2, figsize=(11, 3))
+        ax0.set_title("Eigenvalues")
+        ax0.set_xlim(-1, 1)
+        ax0.grid(True)
+        ax0.scatter(
+            np.real(evals[:]),
+            np.imag(evals[:]),
+            marker="o",
+            edgecolors="k",
+            s=60,
+            facecolors="none",
+        )
+
+        ax1.set_ylabel("y")
+        ax1.set_title("Largest Eigenvector")
+        ax1.plot(U.v, y, marker="", color=blue, label=r"$|u|$")
+        ax1.legend(loc="lower right")
+        plt.tight_layout()
+        plt.show()
+        print("Hello")
+
+    return evals, evecs
+    
 # -------------------------------------------------------------------
 @io_decorator
 def solve_rbc1d(Ny=41, Ra=1708, Pr=1, alpha=3.14, plot=True, norm_diff=True):
@@ -65,6 +143,7 @@ def solve_rbc1d(Ny=41, Ra=1708, Pr=1, alpha=3.14, plot=True, norm_diff=True):
     I = np.eye(U.vhat.shape[0])
 
     Dy = CH.xs[0].dms(1) * scale_z
+    print(Dy)
     Dx = 1.0j * alpha * np.eye(CH.vhat.shape[0])
     Dy2 = Dy @ Dy
     Dx2 = Dx @ Dx

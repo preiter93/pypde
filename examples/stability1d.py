@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from pypde.stability.rbc1d import solve_rbc1d
 
 # Parameters
-Ny = 51
+Ny = 5
 alpha = 3.14
 Ra = 1715
 Pr = 1.0
