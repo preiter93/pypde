@@ -509,6 +509,26 @@ class ChebDirichletNeumann(GalerkinChebyshev):
     # try:
     # return TDMA(l2, d, u2, self.ST_sp @ uhat, 2)
 
+    def stencil_pinv(self):
+        """
+        Pseudoinverse of stencil
+        """
+        S = self._stencil()
+        Sinv = np.zeros((Self.M, Self.N))
+        for i in range(Self.M):
+            # Diagonal
+            Sinv[i, i] = 1.0 / S[i, i]
+            # Lower triangular part
+            if i >= 1:
+                Sinv[i, i - 1] = -(Sinv[i, i] * S[i, i - 1]) / S[i - 1, i - 1]
+            if i >= 2:
+                for j in range(i - 2, -1, -1):
+                    Sinv[i, j] = (
+                        -(Sinv[i, j + 2] * S[j + 2, j] + Sinv[i, j + 1] * S[j + 1, j])
+                        / S[j, j]
+                    )
+        return Sinv
+
 
 # ---------------------------------------------
 #       Bases for Boundary Conditions
